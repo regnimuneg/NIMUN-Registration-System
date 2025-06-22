@@ -21,9 +21,16 @@ export default function AdminGuard({ children }: AdminGuardProps) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [attempts, setAttempts] = useState(0)
+  const [isMounted, setIsMounted] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isMounted) return
+
     // Check if already authenticated in this session
     const adminData = sessionStorage.getItem('adminSession')
     if (adminData) {
@@ -38,7 +45,7 @@ export default function AdminGuard({ children }: AdminGuardProps) {
     } else {
       setIsAuthenticated(false)
     }
-  }, [])
+  }, [isMounted])
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault()
@@ -84,8 +91,8 @@ export default function AdminGuard({ children }: AdminGuardProps) {
     setAttempts(0)
   }
 
-  // Show loading state
-  if (isAuthenticated === null) {
+  // Show loading state while mounting or checking authentication
+  if (!isMounted || isAuthenticated === null) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>

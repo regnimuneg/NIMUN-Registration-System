@@ -3,6 +3,7 @@
 import QRCode from 'react-qr-code'
 import { parseQRData } from '@/lib/qrHelper'
 import { useRef, useCallback } from 'react'
+import { Participant } from '@/types/participant'
 
 interface QRCodeGeneratorProps {
   value: string
@@ -145,4 +146,133 @@ export function QRCodeDisplay({ qrData, participantId, size = 250 }: QRCodeDispl
       </div>
     </div>
   )
+}
+
+// Helper function to generate QR code as canvas for bulk download
+export const generateQRCanvas = async (
+  value: string, 
+  size: number = 300, 
+  bgColor: string = 'transparent',
+  fgColor: string = '#000000'
+): Promise<HTMLCanvasElement> => {
+  return new Promise((resolve, reject) => {
+    try {
+      // Create a temporary container
+      const container = document.createElement('div')
+      container.style.position = 'absolute'
+      container.style.left = '-9999px'
+      document.body.appendChild(container)
+      
+      // Create QR code SVG
+      const qrContainer = document.createElement('div')
+      container.appendChild(qrContainer)
+      
+      // We need to create the QR code SVG manually since we can't use React here
+      // Using a simple QR code generation approach
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('Could not get canvas context')
+      
+      // Set canvas size with padding
+      const padding = 20
+      canvas.width = size + (padding * 2)
+      canvas.height = size + (padding * 2)
+      
+      // For white background version, fill with white
+      if (bgColor === 'white') {
+        ctx.fillStyle = 'white'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+      }
+      
+      // Create SVG string for QR code (we'll use a library approach)
+      import('qrcode').then((QRCodeLib) => {
+        QRCodeLib.default.toCanvas(canvas, value, {
+          width: size + (padding * 2),
+          margin: 1,
+          color: {
+            dark: fgColor,
+            light: bgColor === 'white' ? '#FFFFFF' : '#00000000' // transparent or white
+          },
+          errorCorrectionLevel: 'H'
+        }, (error: Error | null | undefined) => {
+          document.body.removeChild(container)
+          if (error) {
+            reject(error)
+          } else {
+            resolve(canvas)
+          }
+        })
+      }).catch(reject)
+      
+    } catch (error) {
+      reject(error)
+    }
+  })
+}
+
+// Bulk QR download function
+export const downloadAllQRCodes = async (
+  participants: Participant[], 
+  onProgress?: (current: number, total: number) => void
+) => {
+  if (participants.length === 0) return
+  
+  try {
+    // Dynamic import of JSZip to avoid SSR issues
+    const JSZip = (await import('jszip')).default
+    const zip = new JSZip()
+    
+    // Create folders for different background versions
+    const transparentFolder = zip.folder('QR_Codes_Transparent')
+    const whiteFolder = zip.folder('QR_Codes_White_Background')
+    
+    for (let i = 0; i < participants.length; i++) {
+      const participant = participants[i]
+      onProgress?.(i + 1, participants.length)
+      
+      // Generate QR data
+      const qrData = JSON.stringify({
+        id: participant.id,
+        name: participant.name,
+        timestamp: Date.now()
+      })
+      
+      // Clean filename (remove special characters)
+      const cleanName = participant.name.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_')
+      const filename = `${participant.id}_${cleanName}`
+      
+      try {
+        // Generate transparent version
+        const transparentCanvas = await generateQRCanvas(qrData, 300, 'transparent')
+        const transparentBlob = await new Promise<Blob>((resolve) => {
+          transparentCanvas.toBlob((blob) => resolve(blob!), 'image/png')
+        })
+        transparentFolder?.file(`${filename}_transparent.png`, transparentBlob)
+        
+        // Generate white background version
+        const whiteCanvas = await generateQRCanvas(qrData, 300, 'white')
+        const whiteBlob = await new Promise<Blob>((resolve) => {
+          whiteCanvas.toBlob((blob) => resolve(blob!), 'image/png')
+        })
+        whiteFolder?.file(`${filename}_white.png`, whiteBlob)
+        
+      } catch (error) {
+        console.error(`Error generating QR for ${participant.id}:`, error)
+      }
+    }
+    
+    // Generate and download ZIP
+    const zipBlob = await zip.generateAsync({ type: 'blob' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(zipBlob)
+    link.download = `JNIMUN_QR_Codes_${new Date().toISOString().split('T')[0]}.zip`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(link.href)
+    
+  } catch (error) {
+    console.error('Error creating QR codes ZIP:', error)
+    throw error
+  }
 } 

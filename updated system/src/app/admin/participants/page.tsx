@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { QRCodeDisplay } from '@/components/QRCodeGenerator'
+import { QRCodeDisplay, downloadAllQRCodes } from '@/components/QRCodeGenerator'
 import ParticipantHistory from '@/components/ParticipantHistory'
 import { Participant } from '@/types/participant'
 
@@ -19,6 +19,10 @@ export default function ParticipantsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<Participant | null>(null)
   const [showHistory, setShowHistory] = useState<Participant | null>(null)
   const [success, setSuccess] = useState<string>('')
+  
+  // QR Download states
+  const [downloadingQR, setDownloadingQR] = useState(false)
+  const [downloadProgress, setDownloadProgress] = useState({ current: 0, total: 0 })
 
   // Get unique committees from participants
   const committees = [...new Set(participants.map(p => p.position))].sort()
@@ -71,6 +75,29 @@ export default function ParticipantsPage() {
     setSearchTerm('')
     setFilterCommittee('')
     setFilterGender('')
+  }
+
+  const handleDownloadAllQR = async () => {
+    if (participants.length === 0) return
+    
+    try {
+      setDownloadingQR(true)
+      setError('')
+      setDownloadProgress({ current: 0, total: participants.length })
+      
+      await downloadAllQRCodes(participants, (current, total) => {
+        setDownloadProgress({ current, total })
+      })
+      
+      setSuccess(`Successfully downloaded ${participants.length} QR codes!`)
+      setTimeout(() => setSuccess(''), 5000)
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to download QR codes')
+    } finally {
+      setDownloadingQR(false)
+      setDownloadProgress({ current: 0, total: 0 })
+    }
   }
 
   const deleteParticipant = async (participantId: string) => {
@@ -173,16 +200,60 @@ export default function ParticipantsPage() {
               View and manage all registered participants. Click on any participant to see their QR code.
             </p>
           </div>
-          {participants.length > 0 && (
-            <button
-              onClick={() => setShowDeleteAllConfirm(true)}
-              disabled={deleteLoading === 'all'}
-              className="btn-danger"
-            >
-              {deleteLoading === 'all' ? 'Deleting...' : 'Delete All Participants'}
-            </button>
-          )}
+          <div className="flex space-x-3">
+            {participants.length > 0 && (
+              <>
+                <button
+                  onClick={handleDownloadAllQR}
+                  disabled={downloadingQR || participants.length === 0}
+                  className="btn-primary flex items-center space-x-2"
+                >
+                  {downloadingQR ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Generating... ({downloadProgress.current}/{downloadProgress.total})</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>📦</span>
+                      <span>Download All QR Codes</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => setShowDeleteAllConfirm(true)}
+                  disabled={deleteLoading === 'all'}
+                  className="btn-danger"
+                >
+                  {deleteLoading === 'all' ? 'Deleting...' : 'Delete All Participants'}
+                </button>
+              </>
+            )}
+          </div>
         </div>
+
+        {/* Download Progress */}
+        {downloadingQR && (
+          <div className="mt-4 bg-blue-50 border border-blue-200 rounded-md p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-blue-800 font-medium">Generating QR Codes...</span>
+              <span className="text-blue-600 text-sm">
+                {downloadProgress.current} of {downloadProgress.total}
+              </span>
+            </div>
+            <div className="w-full bg-blue-200 rounded-full h-2">
+              <div 
+                className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                style={{ 
+                  width: `${downloadProgress.total > 0 ? (downloadProgress.current / downloadProgress.total) * 100 : 0}%` 
+                }}
+              ></div>
+            </div>
+            <p className="text-blue-700 text-sm mt-2">
+              📁 Creating ZIP file with transparent and white background versions...
+            </p>
+          </div>
+        )}
 
         {/* Success Message */}
         {success && (
@@ -282,6 +353,49 @@ export default function ParticipantsPage() {
           <div className="text-sm text-pink-800">Female</div>
         </div>
       </div>
+
+      {/* QR Download Information */}
+      {participants.length > 0 && (
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-6 mb-8">
+          <div className="flex items-start space-x-4">
+            <div className="text-4xl">📦</div>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Bulk QR Code Download
+              </h3>
+              <p className="text-gray-700 mb-4">
+                Download all participant QR codes in a single ZIP file. The download includes two versions of each QR code:
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div className="bg-white rounded-lg p-3 border">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <span className="text-lg">🔍</span>
+                    <strong className="text-gray-900">Transparent Background</strong>
+                  </div>
+                  <p className="text-gray-600">
+                    Perfect for overlaying on designs, posters, or colored backgrounds. 
+                    The QR code will blend seamlessly with your design.
+                  </p>
+                </div>
+                <div className="bg-white rounded-lg p-3 border">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <span className="text-lg">⚪</span>
+                    <strong className="text-gray-900">White Background</strong>
+                  </div>
+                  <p className="text-gray-600">
+                    Ideal for printing on physical materials like badges, cards, or documents. 
+                    Ensures maximum readability on any surface.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 text-sm text-gray-600">
+                <strong>File naming:</strong> Each QR code is named as <code className="bg-gray-200 px-1 rounded">ID_ParticipantName.png</code> 
+                (e.g., <code className="bg-gray-200 px-1 rounded">EX-01_John_Doe_transparent.png</code>)
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Participants List */}
       {filteredParticipants.length === 0 ? (
@@ -497,8 +611,8 @@ export default function ParticipantsPage() {
               </div>
             </div>
           </div>
-                 </div>
-       )}
+        </div>
+      )}
 
       {/* History Modal */}
       {showHistory && (
