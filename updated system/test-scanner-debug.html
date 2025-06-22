@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Scanner Debug - JNIMUN'25</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .debug-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .test-codes {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .qr-item {
+            text-align: center;
+            padding: 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            background: #f9fafb;
+        }
+        .success { background: #dcfce7; border-color: #22c55e; }
+        .error { background: #fef2f2; border-color: #ef4444; }
+        .warning { background: #fffbeb; border-color: #f59e0b; }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #2563eb; }
+        button:disabled { background: #9ca3af; cursor: not-allowed; }
+        #debugLog {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 15px;
+            border-radius: 5px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 QR Scanner Debug Tool</h1>
+        <p>Use this tool to test and debug QR scanner functionality step by step.</p>
+    </div>
+
+    <div class="debug-grid">
+        <!-- Left Column: Test QR Codes -->
+        <div class="container">
+            <h2>📱 Test QR Codes</h2>
+            <p>Scan these with your phone or the scanner:</p>
+            <div class="test-codes" id="testCodes">
+                <!-- QR codes will be generated here -->
+            </div>
+        </div>
+
+        <!-- Right Column: Debug Tools -->
+        <div class="container">
+            <h2>🛠️ Debug Tools</h2>
+            
+            <div style="margin-bottom: 20px;">
+                <h3>Manual Testing:</h3>
+                <input type="text" id="manualInput" placeholder="Enter QR code data or participant ID" style="width: 100%; padding: 10px; margin-bottom: 10px;">
+                <button onclick="testQRData()">Test QR Data</button>
+                <button onclick="clearLog()">Clear Log</button>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <h3>Scanner Status:</h3>
+                <div id="scannerStatus" class="qr-item">
+                    <p>Open <strong>localhost:3000/admin/dashboard</strong> to test scanner</p>
+                </div>
+            </div>
+
+            <h3>Debug Log:</h3>
+            <div id="debugLog"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>📋 Testing Checklist</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
+            <div class="qr-item">
+                <h4>✅ Step 1: Camera Access</h4>
+                <ul style="text-align: left; font-size: 14px;">
+                    <li>Browser shows camera permission prompt</li>
+                    <li>Camera feed appears in video element</li>
+                    <li>No "Camera denied" errors</li>
+                </ul>
+            </div>
+            <div class="qr-item">
+                <h4>🔍 Step 2: QR Detection</h4>
+                <ul style="text-align: left; font-size: 14px;">
+                    <li>QR codes are detected automatically</li>
+                    <li>Console shows "QR Code detected" messages</li>
+                    <li>Scan count increases</li>
+                </ul>
+            </div>
+            <div class="qr-item">
+                <h4>🎯 Step 3: Data Parsing</h4>
+                <ul style="text-align: left; font-size: 14px;">
+                    <li>QR data is parsed correctly</li>
+                    <li>Participant ID is extracted</li>
+                    <li>onScan callback is triggered</li>
+                </ul>
+            </div>
+            <div class="qr-item">
+                <h4>👤 Step 4: Participant Loading</h4>
+                <ul style="text-align: left; font-size: 14px;">
+                    <li>Participant data is fetched from API</li>
+                    <li>Tracking tabs become available</li>
+                    <li>Success message is shown</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Test participant data - matches your actual imported data
+        const testParticipants = [
+            {
+                id: 'EX-01',
+                name: 'Adham Abdelaal',
+                committee: 'Executive',
+                data: JSON.stringify({
+                    id: 'EX-01',
+                    type: 'JNIMUN_PARTICIPANT',
+                    timestamp: new Date().toISOString()
+                })
+            },
+            {
+                id: 'RG-01',
+                name: 'Rawan Anwar',
+                committee: 'Registration Affairs',
+                data: JSON.stringify({
+                    id: 'RG-01',
+                    type: 'JNIMUN_PARTICIPANT',
+                    timestamp: new Date().toISOString()
+                })
+            },
+            // Simple text IDs for testing
+            {
+                id: 'EX-02',
+                name: 'Test Simple ID',
+                committee: 'Executive',
+                data: 'EX-02'  // Just the ID, no JSON
+            },
+            {
+                id: 'OP-01',
+                name: 'Test Operations',
+                committee: 'Operations',
+                data: JSON.stringify({
+                    id: 'OP-01',
+                    type: 'JNIMUN_PARTICIPANT',
+                    timestamp: new Date().toISOString()
+                })
+            }
+        ];
+
+        // Debug logging function
+        function debugLog(message, type = 'info') {
+            const log = document.getElementById('debugLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const emoji = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : '🔍';
+            log.textContent += `[${timestamp}] ${emoji} ${message}\n`;
+            log.scrollTop = log.scrollHeight;
+        }
+
+        // Test QR data parsing
+        function testQRData() {
+            const input = document.getElementById('manualInput');
+            const data = input.value.trim();
+            
+            if (!data) {
+                debugLog('No data entered', 'warning');
+                return;
+            }
+
+            debugLog(`Testing QR data: ${data.substring(0, 50)}${data.length > 50 ? '...' : ''}`, 'info');
+
+            // Test JSON parsing
+            try {
+                const parsed = JSON.parse(data);
+                if (parsed.type === 'JNIMUN_PARTICIPANT' && parsed.id) {
+                    debugLog(`✅ Valid JSON QR data - ID: ${parsed.id}`, 'success');
+                } else {
+                    debugLog(`JSON parsed but not JNIMUN format: ${JSON.stringify(parsed)}`, 'warning');
+                }
+            } catch (e) {
+                debugLog('Not valid JSON, checking other formats...', 'info');
+            }
+
+            // Test direct ID format
+            if (data.match(/^[A-Z]{2}-\d{2}$/)) {
+                debugLog(`✅ Valid direct participant ID: ${data}`, 'success');
+            } else {
+                debugLog(`Not a direct participant ID format (XX-XX)`, 'warning');
+            }
+
+            // Test URL extraction
+            const idMatch = data.match(/(?:id[=:]|participant[=:]|user[=:])([A-Z]{2}-\d{2})/i);
+            if (idMatch) {
+                debugLog(`✅ Extracted ID from URL: ${idMatch[1]}`, 'success');
+            } else {
+                debugLog('No ID found in URL format', 'warning');
+            }
+        }
+
+        function clearLog() {
+            document.getElementById('debugLog').textContent = '';
+        }
+
+        // Generate test QR codes
+        function generateTestCodes() {
+            const container = document.getElementById('testCodes');
+            
+            testParticipants.forEach(participant => {
+                const item = document.createElement('div');
+                item.className = 'qr-item';
+                item.innerHTML = `
+                    <h4>${participant.id}</h4>
+                    <canvas id="qr-${participant.id}" style="margin: 10px 0;"></canvas>
+                    <p><strong>${participant.name}</strong></p>
+                    <p style="font-size: 12px;">${participant.committee}</p>
+                    <button onclick="copyToClipboard('${participant.data.replace(/'/g, "\\'")}')">Copy Data</button>
+                `;
+                
+                container.appendChild(item);
+                
+                // Generate QR code
+                QRCode.toCanvas(document.getElementById(`qr-${participant.id}`), participant.data, {
+                    width: 150,
+                    margin: 1
+                }, function (error) {
+                    if (error) {
+                        debugLog(`Error generating QR for ${participant.id}: ${error}`, 'error');
+                    } else {
+                        debugLog(`Generated QR code for ${participant.id}`, 'success');
+                    }
+                });
+            });
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                debugLog(`Copied to clipboard: ${text.substring(0, 30)}...`, 'success');
+            }).catch(err => {
+                debugLog(`Copy failed: ${err}`, 'error');
+            });
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            debugLog('QR Scanner Debug Tool loaded', 'success');
+            generateTestCodes();
+        });
+    </script>
+</body>
+</html> 
