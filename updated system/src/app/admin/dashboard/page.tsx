@@ -357,20 +357,20 @@ export default function DashboardPage() {
               {[
                 { id: 'scan', label: 'QR Scanner', icon: '📱' },
                 { id: 'attendance', label: 'Attendance', icon: '✅' },
-                currentDay.hasFood && { id: 'food', label: 'Food Tracking', icon: '🍽️' },
+                ...(currentDay.hasFood ? [{ id: 'food', label: 'Food Tracking', icon: '🍽️' }] : []),
                 { id: 'games', label: 'Games & Activities', icon: '🎮' },
-                currentDay.hasBus && { id: 'bus', label: 'Bus Tracking', icon: '🚌' }
-              ].filter(Boolean).map(tab => (
+                ...((currentDay.hasBus === true || currentDay.hasBus === 'to-only') ? [{ id: 'bus', label: 'Bus Tracking', icon: '🚌' }] : [])
+              ].map(tab => (
                 <button
-                  key={tab!.id}
-                  onClick={() => setActiveTab(tab!.id as any)}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === tab!.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  {tab!.icon} {tab!.label}
+                                      key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                      activeTab === tab.id
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    {tab.icon} {tab.label}
                 </button>
               ))}
             </nav>
@@ -383,7 +383,7 @@ export default function DashboardPage() {
             {activeTab === 'scan' && (
               <div>
                 <h2 className="text-xl font-semibold mb-4">QR Code Scanner</h2>
-                <QRScanner onScan={handleQRScan} />
+                <QRScanner onScan={handleQRScan} isActive={activeTab === 'scan'} />
               </div>
             )}
 
@@ -517,9 +517,16 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {activeTab === 'bus' && currentDay.hasBus && (
+            {activeTab === 'bus' && (currentDay.hasBus === true || currentDay.hasBus === 'to-only') && (
               <div>
-                <h2 className="text-xl font-semibold mb-4">Bus Tracking - {currentDay.name}</h2>
+                <h2 className="text-xl font-semibold mb-4">
+                  Bus Tracking - {currentDay.name}
+                  {currentDay.hasBus === 'to-only' && (
+                    <span className="ml-2 text-sm text-orange-600 font-normal">
+                      (To University Only - No Return Buses)
+                    </span>
+                  )}
+                </h2>
                 {!currentParticipant ? (
                   <p className="text-gray-600">Please scan a participant QR code first.</p>
                 ) : trackingData ? (
@@ -553,7 +560,7 @@ export default function DashboardPage() {
                       {busRoutes.map(route => (
                         <div key={route.id} className="border border-gray-200 rounded-lg p-4">
                           <h3 className="text-lg font-medium mb-3">{route.name}</h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className={`grid gap-4 ${currentDay.hasBus === 'to-only' ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
                             <div>
                               <h4 className="font-medium text-green-700 mb-2">Arriving</h4>
                               <div className="space-y-2">
@@ -569,21 +576,31 @@ export default function DashboardPage() {
                               </div>
                             </div>
                             
-                            <div>
-                              <h4 className="font-medium text-blue-700 mb-2">Departing</h4>
-                              <div className="space-y-2">
-                                {route.stops.map(stop => (
-                                  <button
-                                    key={`departing-${stop}`}
-                                    onClick={() => handleBusTracking('departing', route.name, stop)}
-                                    className="w-full p-2 text-left border border-blue-300 bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition-colors text-sm"
-                                  >
-                                    🚌 Departing from {stop}
-                                  </button>
-                                ))}
+                            {currentDay.hasBus === true && (
+                              <div>
+                                <h4 className="font-medium text-blue-700 mb-2">Departing</h4>
+                                <div className="space-y-2">
+                                  {route.stops.map(stop => (
+                                    <button
+                                      key={`departing-${stop}`}
+                                      onClick={() => handleBusTracking('departing', route.name, stop)}
+                                      className="w-full p-2 text-left border border-blue-300 bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition-colors text-sm"
+                                    >
+                                      🚌 Departing from {stop}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {currentDay.hasBus === 'to-only' && (
+                            <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                              <div className="text-sm text-orange-800">
+                                <strong>Note:</strong> No return buses available on closing day. Participants must arrange their own transportation back.
                               </div>
                             </div>
-                          </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -599,7 +616,7 @@ export default function DashboardPage() {
           <ParticipantHistory
             participantId={currentParticipant.id}
             participantName={currentParticipant.name}
-            isOpen={showHistory}
+            isModal={true}
             onClose={() => setShowHistory(false)}
           />
         )}

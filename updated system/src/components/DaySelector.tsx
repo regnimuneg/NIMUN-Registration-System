@@ -8,7 +8,7 @@ export interface EventDay {
   name: string
   type: 'sessions' | 'performance' | 'off' | 'opening' | 'conference'
   hasFood: boolean
-  hasBus: boolean
+  hasBus: boolean | 'to-only'
   foodTypes: string[]
 }
 
@@ -31,7 +31,7 @@ const eventDays: EventDay[] = [
   // Conference Days: July 5-7
   { id: 'conference-day1', date: '5/7', name: 'Conference Day 1', type: 'conference', hasFood: true, hasBus: true, foodTypes: ['breakfast', 'lunch'] },
   { id: 'conference-day2', date: '6/7', name: 'Conference Day 2', type: 'conference', hasFood: true, hasBus: true, foodTypes: ['breakfast', 'lunch'] },
-  { id: 'conference-day3', date: '7/7', name: 'Conference Day 3 (Closing)', type: 'conference', hasFood: true, hasBus: false, foodTypes: ['breakfast', 'lunch'] },
+  { id: 'conference-day3', date: '7/7', name: 'Conference Day 3 (Closing)', type: 'conference', hasFood: true, hasBus: 'to-only', foodTypes: ['breakfast', 'lunch'] }, // Buses TO university only, no return
 ]
 
 interface DaySelectorProps {
@@ -106,7 +106,8 @@ export default function DaySelector({ selectedDay, onDayChange }: DaySelectorPro
                   {day.hasFood && day.foodTypes.length > 0 && (
                     <span className="mr-3">🍽️ {day.foodTypes.join(', ')}</span>
                   )}
-                  {day.hasBus && <span>🚌 Bus Available</span>}
+                  {day.hasBus === true && <span>🚌 Bus Available</span>}
+                  {day.hasBus === 'to-only' && <span>🚌 Bus to University Only</span>}
                   {day.type === 'off' && <span>No Activities</span>}
                 </div>
               </div>
