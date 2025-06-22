@@ -622,4 +622,84 @@ export async function getParticipantTrackingData(participantId: string) {
     console.error('Error getting participant tracking data:', error);
     throw error;
   }
+}
+
+export async function deleteParticipant(participantId: string): Promise<void> {
+  const sheets = await getGoogleSheetsInstance();
+  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+
+  if (!spreadsheetId) {
+    throw new Error('GOOGLE_SHEETS_SPREADSHEET_ID not set');
+  }
+
+  try {
+    // Get all participants to find the row to delete
+    const participants = await getAllParticipants();
+    const participantIndex = participants.findIndex(p => p.id === participantId);
+    
+    if (participantIndex === -1) {
+      throw new Error(`Participant with ID ${participantId} not found`);
+    }
+
+    // Convert to spreadsheet row (add 2: 1 for header, 1 for 0-based index)
+    const rowNumber = participantIndex + 2;
+
+    // Get sheet ID for the Participants sheet
+    const sheetsMetadata = await sheets.spreadsheets.get({
+      spreadsheetId,
+      fields: 'sheets.properties'
+    });
+    
+    const participantsSheet = sheetsMetadata.data.sheets?.find(
+      sheet => sheet.properties?.title === 'Participants'
+    );
+    
+    if (!participantsSheet?.properties?.sheetId) {
+      throw new Error('Participants sheet not found');
+    }
+
+    // Delete the row
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [{
+          deleteDimension: {
+            range: {
+              sheetId: participantsSheet.properties.sheetId,
+              dimension: 'ROWS',
+              startIndex: rowNumber - 1, // 0-based for API
+              endIndex: rowNumber // exclusive end
+            }
+          }
+        }]
+      }
+    });
+
+    console.log(`Successfully deleted participant ${participantId}`);
+  } catch (error) {
+    console.error('Error deleting participant:', error);
+    throw error;
+  }
+}
+
+export async function deleteAllParticipants(): Promise<void> {
+  const sheets = await getGoogleSheetsInstance();
+  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+
+  if (!spreadsheetId) {
+    throw new Error('GOOGLE_SHEETS_SPREADSHEET_ID not set');
+  }
+
+  try {
+    // Clear all data except headers (row 1)
+    await sheets.spreadsheets.values.clear({
+      spreadsheetId,
+      range: 'Participants!A2:Z',
+    });
+
+    console.log('Successfully deleted all participants');
+  } catch (error) {
+    console.error('Error deleting all participants:', error);
+    throw error;
+  }
 } 

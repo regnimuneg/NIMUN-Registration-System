@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAllParticipants } from '@/lib/googleSheets'
+import { getAllParticipants, deleteParticipant } from '@/lib/googleSheets'
 
 export async function GET(
   request: NextRequest,
@@ -32,6 +32,37 @@ export async function GET(
     console.error('Error fetching participant:', error)
     return NextResponse.json(
       { error: 'Failed to fetch participant' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const participantId = params.id
+    
+    if (!participantId) {
+      return NextResponse.json(
+        { error: 'Participant ID is required' },
+        { status: 400 }
+      )
+    }
+
+    // Delete the participant
+    await deleteParticipant(participantId)
+
+    return NextResponse.json({
+      success: true,
+      message: `Participant ${participantId} deleted successfully`
+    })
+    
+  } catch (error) {
+    console.error('Error deleting participant:', error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Failed to delete participant' },
       { status: 500 }
     )
   }
