@@ -36,13 +36,57 @@ export interface Participant {
   };
 }
 
+export interface DayTrackingData {
+  // Sessions: June 28 - July 1 (4 days)
+  sessions: {
+    day1: { attended: boolean; lunch: boolean }
+    day2: { attended: boolean; lunch: boolean }
+    day3: { attended: boolean; lunch: boolean }
+    day4: { attended: boolean; lunch: boolean }
+  }
+  
+  // Performance Day: July 2
+  performanceDay: {
+    attended: boolean
+    breakfast: boolean
+    lunch: boolean
+  }
+  
+  // Off Day: July 3 (no tracking)
+  
+  // Opening Ceremony: July 4
+  openingCeremony: {
+    attended: boolean
+    catering: boolean
+  }
+  
+  // Conference Days: July 5-7 (3 days)
+  conference: {
+    day1: { attended: boolean; breakfast: boolean; lunch: boolean }
+    day2: { attended: boolean; breakfast: boolean; lunch: boolean }
+    day3: { attended: boolean; breakfast: boolean; lunch: boolean } // No bus on this day
+  }
+}
+
 export interface GameActivity {
-  id: string;
-  participantId: string;
-  participantName: string;
-  gameType: 'PR G1' | 'PR G2' | 'General Court 1' | 'General Court 2' | 'Padel Court 1' | 'Padel Court 2' | 'Football Court';
-  timeSpent: number; // in minutes
-  date: string;
+  activity: string;
+  joinTime: string;
+  leaveTime?: string;
+  day: string; // Which day this activity happened
+}
+
+export interface BusTracking {
+  type: 'arriving' | 'departing';
+  route: string; // Route name (will be 1-5);
+  stop: string;
+  timestamp: string;
+  day: string; // Which day this happened
+}
+
+export interface TrackingData {
+  dayTracking: DayTrackingData;
+  games: GameActivity[];
+  bus: BusTracking[];
 }
 
 export interface BulkImportData {

@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react'
 import QRScanner from '@/components/QRScanner'
 import ParticipantHistory from '@/components/ParticipantHistory'
 import DaySelector, { EventDay, eventDays } from '@/components/DaySelector'
-import { Participant, TrackingData, DayTrackingData } from '@/types/participant'
+import { Participant, TrackingData } from '@/types/participant'
 
-export default function DashboardPage() {
+export default function MemberScannerPage() {
   const [currentParticipant, setCurrentParticipant] = useState<Participant | null>(null)
   const [trackingData, setTrackingData] = useState<TrackingData | null>(null)
   const [selectedDay, setSelectedDay] = useState<string>(eventDays[0].id)
@@ -15,7 +15,7 @@ export default function DashboardPage() {
   const [success, setSuccess] = useState<string>('')
   const [showHistory, setShowHistory] = useState(false)
 
-  // Bus routes configuration (placeholder for now)
+  // Bus routes configuration (read-only for members)
   const busRoutes = [
     { id: 'route-1', name: 'Route 1', stops: ['Stop 1A', 'Stop 1B', 'Stop 1C'] },
     { id: 'route-2', name: 'Route 2', stops: ['Stop 2A', 'Stop 2B', 'Stop 2C'] },
@@ -24,7 +24,7 @@ export default function DashboardPage() {
     { id: 'route-5', name: 'Route 5', stops: ['Stop 5A', 'Stop 5B', 'Stop 5C'] },
   ]
 
-  // Games configuration
+  // Games configuration (read-only for members)
   const availableGames = [
     'Football',
     'Basketball',
@@ -118,7 +118,7 @@ export default function DashboardPage() {
           participantId: currentParticipant.id,
           dayKey,
           field,
-          value: true // Mark as attended
+          value: true
         })
       })
 
@@ -288,7 +288,7 @@ export default function DashboardPage() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            JNIMUN'25 Tracking Dashboard
+            JNIMUN'25 Scanner
           </h1>
           <p className="text-gray-600">
             Scan participant QR codes to track attendance, food, games, and transportation
@@ -357,20 +357,20 @@ export default function DashboardPage() {
               {[
                 { id: 'scan', label: 'QR Scanner', icon: '📱' },
                 { id: 'attendance', label: 'Attendance', icon: '✅' },
-                currentDay.hasFood && { id: 'food', label: 'Food Tracking', icon: '🍽️' },
+                ...(currentDay.hasFood ? [{ id: 'food', label: 'Food Tracking', icon: '🍽️' }] : []),
                 { id: 'games', label: 'Games & Activities', icon: '🎮' },
-                currentDay.hasBus && { id: 'bus', label: 'Bus Tracking', icon: '🚌' }
-              ].filter(Boolean).map(tab => (
+                ...(currentDay.hasBus ? [{ id: 'bus', label: 'Bus Tracking', icon: '🚌' }] : [])
+              ].map(tab => (
                 <button
-                  key={tab!.id}
-                  onClick={() => setActiveTab(tab!.id as any)}
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
                   className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === tab!.id
+                    activeTab === tab.id
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  {tab!.icon} {tab!.label}
+                  {tab.icon} {tab.label}
                 </button>
               ))}
             </nav>
@@ -383,7 +383,7 @@ export default function DashboardPage() {
             {activeTab === 'scan' && (
               <div>
                 <h2 className="text-xl font-semibold mb-4">QR Code Scanner</h2>
-                <QRScanner onScan={handleQRScan} />
+                <QRScanner onScan={handleQRScan} isActive={activeTab === 'scan'} />
               </div>
             )}
 
@@ -599,7 +599,7 @@ export default function DashboardPage() {
           <ParticipantHistory
             participantId={currentParticipant.id}
             participantName={currentParticipant.name}
-            isOpen={showHistory}
+            isModal={true}
             onClose={() => setShowHistory(false)}
           />
         )}
