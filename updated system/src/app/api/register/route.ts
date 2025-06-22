@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateParticipantId } from '@/lib/idGenerator'
 import { generateQRCodeUrl } from '@/lib/qrHelper'
-import { addParticipant, createParticipantsSheet } from '@/lib/googleSheets'
+import { addParticipant, createParticipantsSheet, getAllParticipants } from '@/lib/googleSheets'
+import { initializeCountersFromExisting } from '@/lib/idGenerator'
 import { Participant, CommitteeType } from '@/types/participant'
 
 export async function POST(request: NextRequest) {
@@ -27,6 +28,11 @@ export async function POST(request: NextRequest) {
 
     // Ensure the Participants sheet exists
     await createParticipantsSheet()
+    
+    // Get existing participants to initialize ID counters properly
+    const existingParticipants = await getAllParticipants()
+    const existingIds = existingParticipants.map(p => p.id)
+    initializeCountersFromExisting(existingIds)
     
     // Generate ID and QR code
     const participantId = generateParticipantId(position as CommitteeType)

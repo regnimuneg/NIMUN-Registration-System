@@ -65,54 +65,45 @@ export async function createParticipantsSheet(): Promise<void> {
         },
       });
       console.log('Created Participants sheet');
+
+      // Define headers for the participants sheet
+      const headers = [
+        'ID',
+        'Name', 
+        'Phone Number',
+        'Position',
+        'Gender',
+        'QR Data',
+        // Attendance columns
+        'Session 1',
+        'Session 2', 
+        'Session 3',
+        'Session 4',
+        'Conference 1',
+        'Conference 2',
+        'Conference 3',
+        'Performance Day',
+        'Opening Day',
+        // Dynamic food and bus columns can be added later
+      ];
+
+      // Only add headers when creating a new sheet
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: 'Participants!A1',
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [headers],
+        },
+      });
+
+      console.log('Participants sheet initialized successfully');
     } catch (error) {
       console.error('Error creating Participants sheet:', error);
       throw error;
     }
   }
-
-  // Define headers for the participants sheet
-  const headers = [
-    'ID',
-    'Name', 
-    'Phone Number',
-    'Position',
-    'Gender',
-    'QR Data',
-    // Attendance columns
-    'Session 1',
-    'Session 2', 
-    'Session 3',
-    'Session 4',
-    'Conference 1',
-    'Conference 2',
-    'Conference 3',
-    'Performance Day',
-    'Opening Day',
-    // Dynamic food and bus columns can be added later
-  ];
-
-  try {
-    // Clear existing data and add headers
-    await sheets.spreadsheets.values.clear({
-      spreadsheetId,
-      range: 'Participants!A:Z',
-    });
-
-    await sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range: 'Participants!A1',
-      valueInputOption: 'RAW',
-      requestBody: {
-        values: [headers],
-      },
-    });
-
-    console.log('Participants sheet initialized successfully');
-  } catch (error) {
-    console.error('Error creating participants sheet:', error);
-    throw error;
-  }
+  // If sheet already exists, do nothing - don't clear existing data!
 }
 
 export async function addParticipant(participant: Participant): Promise<void> {
