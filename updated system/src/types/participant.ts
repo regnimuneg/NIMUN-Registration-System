@@ -39,17 +39,40 @@ export interface Participant {
 export interface DayTrackingData {
   // Sessions: June 28 - July 1 (4 days)
   sessions: {
-    day1: { attended: boolean; lunch: boolean }
-    day2: { attended: boolean; lunch: boolean }
-    day3: { attended: boolean; lunch: boolean }
-    day4: { attended: boolean; lunch: boolean }
+    day1: { 
+      attended: boolean
+      attendedAt?: string
+      lunch: boolean
+      lunchAt?: string
+    }
+    day2: { 
+      attended: boolean
+      attendedAt?: string
+      lunch: boolean
+      lunchAt?: string
+    }
+    day3: { 
+      attended: boolean
+      attendedAt?: string
+      lunch: boolean
+      lunchAt?: string
+    }
+    day4: { 
+      attended: boolean
+      attendedAt?: string
+      lunch: boolean
+      lunchAt?: string
+    }
   }
   
   // Performance Day: July 2
   performanceDay: {
     attended: boolean
+    attendedAt?: string
     breakfast: boolean
+    breakfastAt?: string
     lunch: boolean
+    lunchAt?: string
   }
   
   // Off Day: July 3 (no tracking)
@@ -57,14 +80,37 @@ export interface DayTrackingData {
   // Opening Ceremony: July 4
   openingCeremony: {
     attended: boolean
+    attendedAt?: string
     catering: boolean
+    cateringAt?: string
   }
   
   // Conference Days: July 5-7 (3 days)
   conference: {
-    day1: { attended: boolean; breakfast: boolean; lunch: boolean }
-    day2: { attended: boolean; breakfast: boolean; lunch: boolean }
-    day3: { attended: boolean; breakfast: boolean; lunch: boolean } // No bus on this day
+    day1: { 
+      attended: boolean
+      attendedAt?: string
+      breakfast: boolean
+      breakfastAt?: string
+      lunch: boolean
+      lunchAt?: string
+    }
+    day2: { 
+      attended: boolean
+      attendedAt?: string
+      breakfast: boolean
+      breakfastAt?: string
+      lunch: boolean
+      lunchAt?: string
+    }
+    day3: { 
+      attended: boolean
+      attendedAt?: string
+      breakfast: boolean
+      breakfastAt?: string
+      lunch: boolean
+      lunchAt?: string
+    } // No bus on this day
   }
 }
 

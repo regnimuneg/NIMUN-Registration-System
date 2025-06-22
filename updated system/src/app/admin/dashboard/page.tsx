@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import QRScanner from '@/components/QRScanner'
 import ParticipantHistory from '@/components/ParticipantHistory'
 import DaySelector, { EventDay, eventDays } from '@/components/DaySelector'
+import ClearTrackingData from '@/components/ClearTrackingData'
 import { Participant, TrackingData, DayTrackingData } from '@/types/participant'
 
 export default function DashboardPage() {
@@ -14,6 +15,20 @@ export default function DashboardPage() {
   const [error, setError] = useState<string>('')
   const [success, setSuccess] = useState<string>('')
   const [showHistory, setShowHistory] = useState(false)
+  const [adminRole, setAdminRole] = useState<'super-admin' | 'admin'>('admin')
+
+  // Get admin role from session storage
+  useEffect(() => {
+    const adminData = sessionStorage.getItem('adminSession')
+    if (adminData) {
+      try {
+        const session = JSON.parse(adminData)
+        setAdminRole(session.role || 'admin')
+      } catch {
+        setAdminRole('admin')
+      }
+    }
+  }, [])
 
   // Bus routes configuration (placeholder for now)
   const busRoutes = [
@@ -158,8 +173,8 @@ export default function DashboardPage() {
         body: JSON.stringify({
           participantId: currentParticipant.id,
           dayKey,
-          mealType,
-          day: selectedDay
+          meal: mealType,
+          value: true
         })
       })
 
@@ -287,12 +302,29 @@ export default function DashboardPage() {
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            JNIMUN'25 Tracking Dashboard
-          </h1>
-          <p className="text-gray-600">
-            Scan participant QR codes to track attendance, food, games, and transportation
-          </p>
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                JNIMUN'25 Tracking Dashboard
+              </h1>
+              <p className="text-gray-600">
+                Scan participant QR codes to track attendance, food, games, and transportation
+              </p>
+            </div>
+            <div className="flex space-x-3">
+              <ClearTrackingData 
+                adminRole={adminRole}
+                onClearComplete={(dataType) => {
+                  setSuccess(`✅ Cleared ${dataType} data successfully`)
+                  // Reset current participant if data was cleared
+                  if (dataType === 'all' || dataType === 'activity-tracking') {
+                    setCurrentParticipant(null)
+                    setTrackingData(null)
+                  }
+                }}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Day Selector */}

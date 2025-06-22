@@ -187,8 +187,10 @@ export async function getAllParticipants(): Promise<Participant[]> {
 
 export async function updateParticipantAttendance(
   participantId: string,
-  attendanceField: string,
-  value: boolean
+  dayKey: string,
+  field: string,
+  value: boolean,
+  timestamp: string
 ): Promise<void> {
   const sheets = await getGoogleSheetsInstance();
   const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
@@ -196,6 +198,70 @@ export async function updateParticipantAttendance(
   if (!spreadsheetId) {
     throw new Error('GOOGLE_SHEETS_SPREADSHEET_ID not set');
   }
+
+  // Create activity tracking sheet if it doesn't exist
+  await createActivityTrackingSheet();
+
+  try {
+    // Add new activity record with timestamp
+    const activityType = field === 'attended' ? 'Attendance' : 'Food';
+    const activityName = field === 'attended' ? `${dayKey} Attendance` : `${dayKey} ${field}`;
+    
+    await sheets.spreadsheets.values.append({
+      spreadsheetId,
+      range: 'ActivityTracking!A:E',
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [[
+          participantId,
+          activityType,
+          activityName,
+          value ? 'TRUE' : 'FALSE',
+          timestamp
+        ]],
+      },
+    });
+
+    // Also update the legacy attendance system for backward compatibility
+    await updateLegacyAttendance(participantId, dayKey, field, value);
+    
+  } catch (error) {
+    console.error('Error updating attendance:', error);
+    throw error;
+  }
+}
+
+// Legacy attendance update for backward compatibility
+async function updateLegacyAttendance(
+  participantId: string,
+  dayKey: string,
+  field: string,
+  value: boolean
+): Promise<void> {
+  if (field !== 'attended') return; // Only update attendance in legacy system
+
+  const sheets = await getGoogleSheetsInstance();
+  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+
+  if (!spreadsheetId) {
+    throw new Error('GOOGLE_SHEETS_SPREADSHEET_ID not set');
+  }
+
+  // Map day keys to legacy attendance fields
+  const legacyFieldMap: Record<string, string> = {
+    'sessions.day1': 'session1',
+    'sessions.day2': 'session2',
+    'sessions.day3': 'session3',
+    'sessions.day4': 'session4',
+    'performanceDay': 'performanceDay',
+    'openingCeremony': 'openingDay',
+    'conference.day1': 'conference1',
+    'conference.day2': 'conference2',
+    'conference.day3': 'conference3',
+  };
+
+  const legacyField = legacyFieldMap[dayKey];
+  if (!legacyField) return;
 
   // Map attendance fields to column indices
   const attendanceColumns: Record<string, number> = {
@@ -210,10 +276,8 @@ export async function updateParticipantAttendance(
     openingDay: 15,   // Column O
   };
 
-  const columnIndex = attendanceColumns[attendanceField];
-  if (columnIndex === undefined) {
-    throw new Error(`Invalid attendance field: ${attendanceField}`);
-  }
+  const columnIndex = attendanceColumns[legacyField];
+  if (columnIndex === undefined) return;
 
   try {
     // Find the participant row
@@ -237,8 +301,8 @@ export async function updateParticipantAttendance(
       },
     });
   } catch (error) {
-    console.error('Error updating attendance:', error);
-    throw error;
+    console.error('Error updating legacy attendance:', error);
+    // Don't throw error for legacy update failures
   }
 }
 
@@ -278,6 +342,52 @@ export async function bulkAddParticipants(participants: Participant[]): Promise<
 
 // Food Tracking Functions
 export async function updateFoodTracking(
+  participantId: string,
+  dayKey: string,
+  meal: string,
+  value: boolean,
+  timestamp: string
+): Promise<void> {
+  const sheets = await getGoogleSheetsInstance();
+  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+
+  if (!spreadsheetId) {
+    throw new Error('GOOGLE_SHEETS_SPREADSHEET_ID not set');
+  }
+
+  // Create activity tracking sheet if it doesn't exist
+  await createActivityTrackingSheet();
+
+  try {
+    // Add new activity record with timestamp
+    const activityName = `${dayKey} ${meal}`;
+    
+    await sheets.spreadsheets.values.append({
+      spreadsheetId,
+      range: 'ActivityTracking!A:E',
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [[
+          participantId,
+          'Food',
+          activityName,
+          value ? 'TRUE' : 'FALSE',
+          timestamp
+        ]],
+      },
+    });
+
+    // Also update the legacy food tracking system for backward compatibility
+    await updateLegacyFoodTracking(participantId, meal, value);
+    
+  } catch (error) {
+    console.error('Error updating food tracking:', error);
+    throw error;
+  }
+}
+
+// Legacy food tracking update for backward compatibility
+async function updateLegacyFoodTracking(
   participantId: string,
   meal: string,
   value: boolean
@@ -351,8 +461,8 @@ export async function updateFoodTracking(
       });
     }
   } catch (error) {
-    console.error('Error updating food tracking:', error);
-    throw error;
+    console.error('Error updating legacy food tracking:', error);
+    // Don't throw error for legacy update failures
   }
 }
 
@@ -536,6 +646,47 @@ async function createBusTrackingSheet(): Promise<void> {
       });
     } catch (error) {
       console.error('Error creating Bus sheet:', error);
+    }
+  }
+}
+
+async function createActivityTrackingSheet(): Promise<void> {
+  const sheets = await getGoogleSheetsInstance();
+  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+
+  if (!spreadsheetId) {
+    throw new Error('GOOGLE_SHEETS_SPREADSHEET_ID not set');
+  }
+
+  const sheetNames = await getSheetNames();
+  if (!sheetNames.includes('ActivityTracking')) {
+    try {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [{
+            addSheet: {
+              properties: {
+                title: 'ActivityTracking',
+              },
+            },
+          }],
+        },
+      });
+
+      // Add headers
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: 'ActivityTracking!A1',
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [['Participant ID', 'Activity Type', 'Activity Name', 'Status', 'Timestamp']],
+        },
+      });
+
+      console.log('Activity tracking sheet created successfully');
+    } catch (error) {
+      console.error('Error creating Activity tracking sheet:', error);
     }
   }
 }
@@ -832,6 +983,84 @@ export async function getParticipantHistory(participantId: string) {
     };
   } catch (error) {
     console.error('Error getting participant history:', error);
+    throw error;
+  }
+}
+
+export async function clearAllTrackingData(dataType: string): Promise<void> {
+  const sheets = await getGoogleSheetsInstance();
+  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+
+  if (!spreadsheetId) {
+    throw new Error('GOOGLE_SHEETS_SPREADSHEET_ID not set');
+  }
+
+  try {
+    const sheetsToClear: string[] = [];
+    
+    switch (dataType) {
+      case 'all':
+        sheetsToClear.push('ActivityTracking', 'Food', 'Games', 'Bus');
+        // Also clear attendance data in Participants sheet
+        await clearAttendanceData();
+        break;
+      case 'attendance':
+        // Clear attendance columns in Participants sheet
+        await clearAttendanceData();
+        break;
+      case 'food':
+        sheetsToClear.push('Food');
+        break;
+      case 'games':
+        sheetsToClear.push('Games');
+        break;
+      case 'bus':
+        sheetsToClear.push('Bus');
+        break;
+      case 'activity-tracking':
+        sheetsToClear.push('ActivityTracking');
+        break;
+      default:
+        throw new Error(`Invalid data type: ${dataType}`);
+    }
+
+    // Clear specified sheets
+    for (const sheetName of sheetsToClear) {
+      try {
+        await sheets.spreadsheets.values.clear({
+          spreadsheetId,
+          range: `${sheetName}!A2:Z`,
+        });
+        console.log(`Cleared ${sheetName} sheet data`);
+      } catch (error) {
+        console.warn(`Could not clear ${sheetName} sheet:`, error);
+      }
+    }
+
+    console.log(`Successfully cleared ${dataType} tracking data`);
+  } catch (error) {
+    console.error('Error clearing tracking data:', error);
+    throw error;
+  }
+}
+
+async function clearAttendanceData(): Promise<void> {
+  const sheets = await getGoogleSheetsInstance();
+  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+
+  if (!spreadsheetId) {
+    throw new Error('GOOGLE_SHEETS_SPREADSHEET_ID not set');
+  }
+
+  try {
+    // Clear attendance columns (G:O) in Participants sheet, keeping participant data
+    await sheets.spreadsheets.values.clear({
+      spreadsheetId,
+      range: 'Participants!G2:O',
+    });
+    console.log('Cleared attendance data from Participants sheet');
+  } catch (error) {
+    console.error('Error clearing attendance data:', error);
     throw error;
   }
 } 

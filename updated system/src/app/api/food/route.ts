@@ -4,22 +4,26 @@ import { updateFoodTracking } from '@/lib/googleSheets'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { participantId, meal, value } = body
+    const { participantId, dayKey, meal, value } = body
     
     // Validate required fields
-    if (!participantId || !meal || typeof value !== 'boolean') {
+    if (!participantId || !dayKey || !meal || typeof value !== 'boolean') {
       return NextResponse.json(
-        { error: 'Missing required fields: participantId, meal, value' },
+        { error: 'Missing required fields: participantId, dayKey, meal, value' },
         { status: 400 }
       )
     }
 
-    // Update food tracking in Google Sheets
-    await updateFoodTracking(participantId, meal, value)
+    // Create timestamp for the action
+    const timestamp = new Date().toISOString()
+
+    // Update food tracking in Google Sheets with timestamp
+    await updateFoodTracking(participantId, dayKey, meal, value, timestamp)
 
     return NextResponse.json({
       success: true,
-      message: `Food tracking updated for ${participantId}: ${meal} = ${value}`
+      message: `Food tracking updated for ${participantId}: ${dayKey}.${meal} = ${value}`,
+      timestamp
     })
     
   } catch (error) {

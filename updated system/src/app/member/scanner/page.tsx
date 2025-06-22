@@ -158,8 +158,8 @@ export default function MemberScannerPage() {
         body: JSON.stringify({
           participantId: currentParticipant.id,
           dayKey,
-          mealType,
-          day: selectedDay
+          meal: mealType,
+          value: true
         })
       })
 
