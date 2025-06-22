@@ -68,14 +68,14 @@ export default function DashboardPage() {
     try {
       setError('')
       setSuccess('')
-
+      
       // Fetch participant data
       const participantResponse = await fetch(`/api/participants/${participantId}`)
       if (!participantResponse.ok) {
         throw new Error('Participant not found')
       }
       const participant = await participantResponse.json()
-
+      
       // Fetch tracking data
       const trackingResponse = await fetch(`/api/participants/${participantId}/tracking`)
       let tracking: TrackingData
@@ -124,7 +124,7 @@ export default function DashboardPage() {
 
   const handleAttendanceUpdate = async (dayKey: string, field: string) => {
     if (!currentParticipant || !trackingData) return
-
+    
     try {
       const response = await fetch('/api/attendance', {
         method: 'POST',
@@ -165,7 +165,7 @@ export default function DashboardPage() {
 
   const handleFoodUpdate = async (dayKey: string, mealType: string) => {
     if (!currentParticipant || !trackingData) return
-
+    
     try {
       const response = await fetch('/api/food', {
         method: 'POST',
@@ -206,7 +206,7 @@ export default function DashboardPage() {
 
   const handleGameActivity = async (activity: string, action: 'join' | 'leave') => {
     if (!currentParticipant || !trackingData) return
-
+    
     try {
       const response = await fetch('/api/games', {
         method: 'POST',
@@ -234,7 +234,7 @@ export default function DashboardPage() {
 
   const handleBusTracking = async (type: 'arriving' | 'departing', route: string, stop: string) => {
     if (!currentParticipant || !trackingData) return
-
+    
     try {
       const response = await fetch('/api/bus', {
         method: 'POST',
@@ -263,18 +263,18 @@ export default function DashboardPage() {
 
   // Helper function to get current day's tracking data
   const getCurrentDayData = () => {
-    if (!trackingData) return null
+    if (!trackingData || !trackingData.dayTracking) return null
     
     switch (selectedDay) {
-      case 'sessions-day1': return trackingData.dayTracking.sessions.day1
-      case 'sessions-day2': return trackingData.dayTracking.sessions.day2
-      case 'sessions-day3': return trackingData.dayTracking.sessions.day3
-      case 'sessions-day4': return trackingData.dayTracking.sessions.day4
-      case 'performance-day': return trackingData.dayTracking.performanceDay
-      case 'opening-ceremony': return trackingData.dayTracking.openingCeremony
-      case 'conference-day1': return trackingData.dayTracking.conference.day1
-      case 'conference-day2': return trackingData.dayTracking.conference.day2
-      case 'conference-day3': return trackingData.dayTracking.conference.day3
+      case 'sessions-day1': return trackingData.dayTracking.sessions?.day1 || null
+      case 'sessions-day2': return trackingData.dayTracking.sessions?.day2 || null
+      case 'sessions-day3': return trackingData.dayTracking.sessions?.day3 || null
+      case 'sessions-day4': return trackingData.dayTracking.sessions?.day4 || null
+      case 'performance-day': return trackingData.dayTracking.performanceDay || null
+      case 'opening-ceremony': return trackingData.dayTracking.openingCeremony || null
+      case 'conference-day1': return trackingData.dayTracking.conference?.day1 || null
+      case 'conference-day2': return trackingData.dayTracking.conference?.day2 || null
+      case 'conference-day3': return trackingData.dayTracking.conference?.day3 || null
       default: return null
     }
   }
@@ -304,12 +304,12 @@ export default function DashboardPage() {
         <div className="mb-8">
           <div className="flex justify-between items-start mb-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                JNIMUN'25 Tracking Dashboard
-              </h1>
-              <p className="text-gray-600">
-                Scan participant QR codes to track attendance, food, games, and transportation
-              </p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            JNIMUN'25 Tracking Dashboard
+          </h1>
+          <p className="text-gray-600">
+            Scan participant QR codes to track attendance, food, games, and transportation
+          </p>
             </div>
             <div className="flex space-x-3">
               <ClearTrackingData 
@@ -385,45 +385,45 @@ export default function DashboardPage() {
         {/* Tab Navigation - Only show if not off day */}
         {currentDay.type !== 'off' && (
           <div className="border-b border-gray-200 mb-6">
-            <nav className="-mb-px flex space-x-8">
-              {[
-                { id: 'scan', label: 'QR Scanner', icon: '📱' },
-                { id: 'attendance', label: 'Attendance', icon: '✅' },
+          <nav className="-mb-px flex space-x-8">
+            {[
+              { id: 'scan', label: 'QR Scanner', icon: '📱' },
+              { id: 'attendance', label: 'Attendance', icon: '✅' },
                 ...(currentDay.hasFood ? [{ id: 'food', label: 'Food Tracking', icon: '🍽️' }] : []),
-                { id: 'games', label: 'Games & Activities', icon: '🎮' },
+              { id: 'games', label: 'Games & Activities', icon: '🎮' },
                 ...((currentDay.hasBus === true || currentDay.hasBus === 'to-only') ? [{ id: 'bus', label: 'Bus Tracking', icon: '🚌' }] : [])
-              ].map(tab => (
-                <button
-                                      key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
-                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                      activeTab === tab.id
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    {tab.icon} {tab.label}
-                </button>
-              ))}
-            </nav>
-          </div>
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === tab.id
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                {tab.icon} {tab.label}
+              </button>
+            ))}
+          </nav>
+        </div>
         )}
 
         {/* Tab Content */}
         {currentDay.type !== 'off' && (
-          <div className="bg-white rounded-lg shadow p-6">
-            {activeTab === 'scan' && (
-              <div>
+        <div className="bg-white rounded-lg shadow p-6">
+          {activeTab === 'scan' && (
+            <div>
                 <h2 className="text-xl font-semibold mb-4">QR Code Scanner</h2>
                 <QRScanner onScan={handleQRScan} isActive={activeTab === 'scan'} />
-              </div>
-            )}
+            </div>
+          )}
 
-            {activeTab === 'attendance' && (
-              <div>
+          {activeTab === 'attendance' && (
+            <div>
                 <h2 className="text-xl font-semibold mb-4">Attendance Tracking - {currentDay.name}</h2>
-                {!currentParticipant ? (
-                  <p className="text-gray-600">Please scan a participant QR code first.</p>
+              {!currentParticipant ? (
+                <p className="text-gray-600">Please scan a participant QR code first.</p>
                 ) : currentDayData ? (
                   <div className="space-y-4">
                     <button
@@ -440,117 +440,117 @@ export default function DashboardPage() {
                         <div className="text-sm opacity-75">{currentDay.name}</div>
                       </div>
                     </button>
-                  </div>
-                ) : null}
-              </div>
-            )}
+                </div>
+              ) : null}
+            </div>
+          )}
 
             {activeTab === 'food' && currentDay.hasFood && (
-              <div>
+            <div>
                 <h2 className="text-xl font-semibold mb-4">Food Tracking - {currentDay.name}</h2>
-                {!currentParticipant ? (
-                  <p className="text-gray-600">Please scan a participant QR code first.</p>
+              {!currentParticipant ? (
+                <p className="text-gray-600">Please scan a participant QR code first.</p>
                 ) : currentDayData ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {currentDay.foodTypes.map(foodType => (
-                      <button
+                    <button
                         key={foodType}
                         onClick={() => handleFoodUpdate(currentDayKey, foodType)}
-                        className={`p-4 rounded-lg border-2 transition-colors ${
+                      className={`p-4 rounded-lg border-2 transition-colors ${
                           (currentDayData as any)[foodType]
-                            ? 'border-green-500 bg-green-50 text-green-700'
-                            : 'border-gray-300 bg-gray-50 text-gray-700 hover:border-gray-400'
-                        }`}
-                      >
-                        <div className="text-center">
+                          ? 'border-green-500 bg-green-50 text-green-700'
+                          : 'border-gray-300 bg-gray-50 text-gray-700 hover:border-gray-400'
+                      }`}
+                    >
+                      <div className="text-center">
                           <div className="text-2xl mb-2">{(currentDayData as any)[foodType] ? '✅' : '🍽️'}</div>
                           <div className="font-medium capitalize">{foodType}</div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          )}
 
-            {activeTab === 'games' && (
-              <div>
+          {activeTab === 'games' && (
+            <div>
                 <h2 className="text-xl font-semibold mb-4">Games & Activities - {currentDay.name}</h2>
-                {!currentParticipant ? (
-                  <p className="text-gray-600">Please scan a participant QR code first.</p>
-                ) : trackingData ? (
-                  <div>
+              {!currentParticipant ? (
+                <p className="text-gray-600">Please scan a participant QR code first.</p>
+              ) : trackingData ? (
+                <div>
                     {/* Current Activities for this day */}
                     {trackingData.games.filter(game => game.day === selectedDay).length > 0 && (
-                      <div className="mb-6">
-                        <h3 className="text-lg font-medium mb-3">Current Activities</h3>
-                        <div className="space-y-2">
+                    <div className="mb-6">
+                      <h3 className="text-lg font-medium mb-3">Current Activities</h3>
+                      <div className="space-y-2">
                           {trackingData.games
                             .filter(game => game.day === selectedDay)
                             .map((game, index) => (
-                            <div key={index} className="p-3 bg-gray-50 rounded-lg flex justify-between items-center">
-                              <div>
-                                <span className="font-medium">{game.activity}</span>
-                                <span className="ml-2 text-sm text-gray-600">
+                          <div key={index} className="p-3 bg-gray-50 rounded-lg flex justify-between items-center">
+                            <div>
+                              <span className="font-medium">{game.activity}</span>
+                              <span className="ml-2 text-sm text-gray-600">
                                   Joined: {new Date(game.joinTime).toLocaleTimeString()}
-                                  {game.leaveTime && ` • Left: ${new Date(game.leaveTime).toLocaleTimeString()}`}
-                                </span>
-                              </div>
-                              <div className="flex gap-2">
-                                {!game.leaveTime && (
-                                  <button
-                                    onClick={() => handleGameActivity(game.activity, 'leave')}
-                                    className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-                                  >
-                                    Leave
-                                  </button>
-                                )}
-                              </div>
+                                {game.leaveTime && ` • Left: ${new Date(game.leaveTime).toLocaleTimeString()}`}
+                              </span>
                             </div>
-                          ))}
-                        </div>
+                            <div className="flex gap-2">
+                              {!game.leaveTime && (
+                                <button
+                                  onClick={() => handleGameActivity(game.activity, 'leave')}
+                                  className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+                                >
+                                  Leave
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    )}
-                    
-                    {/* Available Games */}
-                    <div>
-                      <h3 className="text-lg font-medium mb-3">Available Activities</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {availableGames.map(game => {
+                    </div>
+                  )}
+                  
+                  {/* Available Games */}
+                  <div>
+                    <h3 className="text-lg font-medium mb-3">Available Activities</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {availableGames.map(game => {
                           const currentGame = trackingData.games.find(g => 
                             g.activity === game && 
                             g.day === selectedDay && 
                             !g.leaveTime
                           )
-                          return (
-                            <button
-                              key={game}
-                              onClick={() => handleGameActivity(game, currentGame ? 'leave' : 'join')}
-                              className={`p-4 rounded-lg border-2 transition-colors ${
-                                currentGame
-                                  ? 'border-red-500 bg-red-50 text-red-700'
-                                  : 'border-blue-300 bg-blue-50 text-blue-700 hover:border-blue-400'
-                              }`}
-                            >
-                              <div className="text-center">
-                                <div className="text-2xl mb-2">{currentGame ? '🔴' : '🎮'}</div>
-                                <div className="font-medium">{game}</div>
-                                <div className="text-xs mt-1">
-                                  {currentGame ? 'Click to Leave' : 'Click to Join'}
-                                </div>
+                        return (
+                          <button
+                            key={game}
+                            onClick={() => handleGameActivity(game, currentGame ? 'leave' : 'join')}
+                            className={`p-4 rounded-lg border-2 transition-colors ${
+                              currentGame
+                                ? 'border-red-500 bg-red-50 text-red-700'
+                                : 'border-blue-300 bg-blue-50 text-blue-700 hover:border-blue-400'
+                            }`}
+                          >
+                            <div className="text-center">
+                              <div className="text-2xl mb-2">{currentGame ? '🔴' : '🎮'}</div>
+                              <div className="font-medium">{game}</div>
+                              <div className="text-xs mt-1">
+                                {currentGame ? 'Click to Leave' : 'Click to Join'}
                               </div>
-                            </button>
-                          )
-                        })}
-                      </div>
+                            </div>
+                          </button>
+                        )
+                      })}
                     </div>
                   </div>
-                ) : null}
-              </div>
-            )}
+                </div>
+              ) : null}
+            </div>
+          )}
 
             {activeTab === 'bus' && (currentDay.hasBus === true || currentDay.hasBus === 'to-only') && (
-              <div>
+            <div>
                 <h2 className="text-xl font-semibold mb-4">
                   Bus Tracking - {currentDay.name}
                   {currentDay.hasBus === 'to-only' && (
@@ -559,73 +559,73 @@ export default function DashboardPage() {
                     </span>
                   )}
                 </h2>
-                {!currentParticipant ? (
-                  <p className="text-gray-600">Please scan a participant QR code first.</p>
-                ) : trackingData ? (
-                  <div>
+              {!currentParticipant ? (
+                <p className="text-gray-600">Please scan a participant QR code first.</p>
+              ) : trackingData ? (
+                <div>
                     {/* Bus History for this day */}
                     {trackingData.bus.filter(entry => entry.day === selectedDay).length > 0 && (
-                      <div className="mb-6">
+                    <div className="mb-6">
                         <h3 className="text-lg font-medium mb-3">Today's Bus History</h3>
-                        <div className="space-y-2">
+                      <div className="space-y-2">
                           {trackingData.bus
                             .filter(entry => entry.day === selectedDay)
                             .slice().reverse().map((entry, index) => (
-                            <div key={index} className="p-3 bg-gray-50 rounded-lg flex justify-between items-center">
-                              <div>
-                                <span className={`font-medium ${entry.type === 'arriving' ? 'text-green-600' : 'text-blue-600'}`}>
-                                  {entry.type === 'arriving' ? '🚌 Arrived' : '🚌 Departed'}
-                                </span>
-                                <span className="ml-2">on {entry.route} at {entry.stop}</span>
-                              </div>
-                              <span className="text-sm text-gray-600">
-                                {new Date(entry.timestamp).toLocaleTimeString()}
+                          <div key={index} className="p-3 bg-gray-50 rounded-lg flex justify-between items-center">
+                            <div>
+                              <span className={`font-medium ${entry.type === 'arriving' ? 'text-green-600' : 'text-blue-600'}`}>
+                                {entry.type === 'arriving' ? '🚌 Arrived' : '🚌 Departed'}
                               </span>
+                                <span className="ml-2">on {entry.route} at {entry.stop}</span>
                             </div>
-                          ))}
-                        </div>
+                            <span className="text-sm text-gray-600">
+                                {new Date(entry.timestamp).toLocaleTimeString()}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    )}
-                    
-                    {/* Bus Tracking Controls */}
+                    </div>
+                  )}
+                  
+                  {/* Bus Tracking Controls */}
                     <div className="space-y-6">
                       {busRoutes.map(route => (
                         <div key={route.id} className="border border-gray-200 rounded-lg p-4">
                           <h3 className="text-lg font-medium mb-3">{route.name}</h3>
                           <div className={`grid gap-4 ${currentDay.hasBus === 'to-only' ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
-                            <div>
+                    <div>
                               <h4 className="font-medium text-green-700 mb-2">Arriving</h4>
-                              <div className="space-y-2">
+                      <div className="space-y-2">
                                 {route.stops.map(stop => (
-                                  <button
-                                    key={`arriving-${stop}`}
+                          <button
+                            key={`arriving-${stop}`}
                                     onClick={() => handleBusTracking('arriving', route.name, stop)}
                                     className="w-full p-2 text-left border border-green-300 bg-green-50 text-green-700 rounded hover:bg-green-100 transition-colors text-sm"
-                                  >
-                                    🚌 Arriving at {stop}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                            
+                          >
+                            🚌 Arriving at {stop}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    
                             {currentDay.hasBus === true && (
-                              <div>
+                    <div>
                                 <h4 className="font-medium text-blue-700 mb-2">Departing</h4>
-                                <div className="space-y-2">
+                      <div className="space-y-2">
                                   {route.stops.map(stop => (
-                                    <button
-                                      key={`departing-${stop}`}
+                          <button
+                            key={`departing-${stop}`}
                                       onClick={() => handleBusTracking('departing', route.name, stop)}
                                       className="w-full p-2 text-left border border-blue-300 bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition-colors text-sm"
-                                    >
-                                      🚌 Departing from {stop}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
+                          >
+                            🚌 Departing from {stop}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                             )}
-                          </div>
-                          
+                  </div>
+                  
                           {currentDay.hasBus === 'to-only' && (
                             <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
                               <div className="text-sm text-orange-800">
@@ -633,14 +633,14 @@ export default function DashboardPage() {
                               </div>
                             </div>
                           )}
-                        </div>
-                      ))}
                     </div>
+                      ))}
                   </div>
-                ) : null}
-              </div>
-            )}
-          </div>
+                </div>
+              ) : null}
+            </div>
+          )}
+        </div>
         )}
 
         {/* History Modal */}

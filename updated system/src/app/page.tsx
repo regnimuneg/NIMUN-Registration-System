@@ -28,7 +28,7 @@ export default function HomePage() {
                 </span>
                 <br />
                 <span className="text-gray-900">Management</span>
-              </h1>
+        </h1>
               
               <p className="text-xl md:text-2xl text-gray-600 mb-12 max-w-4xl mx-auto leading-relaxed">
                 Complete participant management system with QR code generation, real-time tracking, 
@@ -37,23 +37,23 @@ export default function HomePage() {
 
               {/* CTA Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-                <Link
+          <Link
                   href="/admin"
                   className="group relative inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-lg font-semibold rounded-2xl hover:from-blue-700 hover:to-blue-800 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
-                >
+          >
                   <span className="mr-3 text-2xl">🔧</span>
                   Admin Dashboard
                   <div className="absolute inset-0 rounded-2xl bg-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
-                </Link>
-                <Link
+          </Link>
+          <Link
                   href="/member/scanner"
                   className="group relative inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-purple-600 to-purple-700 text-white text-lg font-semibold rounded-2xl hover:from-purple-700 hover:to-purple-800 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
-                >
+          >
                   <span className="mr-3 text-2xl">📱</span>
                   Quick Scanner
                   <div className="absolute inset-0 rounded-2xl bg-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
-                </Link>
-              </div>
+          </Link>
+        </div>
             </div>
           </div>
         </div>
@@ -163,8 +163,8 @@ export default function HomePage() {
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">Powerful Features</h2>
             <p className="text-xl text-gray-600">Everything you need for seamless event management</p>
-          </div>
-          
+      </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {/* QR Scanning */}
             <div className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-purple-200">
@@ -172,15 +172,15 @@ export default function HomePage() {
                 <span className="text-2xl">📱</span>
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-4">QR Code Scanning</h3>
-              <p className="text-gray-600 mb-4">
+          <p className="text-gray-600 mb-4">
                 Advanced camera-based scanning with manual input fallback for reliable participant identification.
               </p>
               <ul className="space-y-2 text-sm text-gray-500">
                 <li className="flex items-center"><span className="w-1.5 h-1.5 bg-purple-500 rounded-full mr-2"></span>Real-time camera scanning</li>
                 <li className="flex items-center"><span className="w-1.5 h-1.5 bg-purple-500 rounded-full mr-2"></span>Manual ID input option</li>
                 <li className="flex items-center"><span className="w-1.5 h-1.5 bg-purple-500 rounded-full mr-2"></span>Instant participant lookup</li>
-              </ul>
-            </div>
+          </ul>
+        </div>
 
             {/* Attendance Tracking */}
             <div className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-green-200">
@@ -188,15 +188,15 @@ export default function HomePage() {
                 <span className="text-2xl">✅</span>
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-4">Smart Attendance</h3>
-              <p className="text-gray-600 mb-4">
+          <p className="text-gray-600 mb-4">
                 Day-specific attendance tracking with timeline support and real-time updates.
               </p>
               <ul className="space-y-2 text-sm text-gray-500">
                 <li className="flex items-center"><span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-2"></span>Session-based tracking</li>
                 <li className="flex items-center"><span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-2"></span>Event participation logs</li>
                 <li className="flex items-center"><span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-2"></span>Timestamp recording</li>
-              </ul>
-            </div>
+          </ul>
+        </div>
 
             {/* Food Distribution */}
             <div className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-orange-200">
@@ -204,15 +204,15 @@ export default function HomePage() {
                 <span className="text-2xl">🍽️</span>
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-4">Food Management</h3>
-              <p className="text-gray-600 mb-4">
+          <p className="text-gray-600 mb-4">
                 Comprehensive meal tracking with duplicate prevention and dietary monitoring.
               </p>
               <ul className="space-y-2 text-sm text-gray-500">
                 <li className="flex items-center"><span className="w-1.5 h-1.5 bg-orange-500 rounded-full mr-2"></span>Breakfast & lunch tracking</li>
                 <li className="flex items-center"><span className="w-1.5 h-1.5 bg-orange-500 rounded-full mr-2"></span>Snack distribution</li>
                 <li className="flex items-center"><span className="w-1.5 h-1.5 bg-orange-500 rounded-full mr-2"></span>Duplicate prevention</li>
-              </ul>
-            </div>
+          </ul>
+        </div>
 
             {/* Games & Activities */}
             <div className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-blue-200">
@@ -220,15 +220,15 @@ export default function HomePage() {
                 <span className="text-2xl">🎮</span>
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-4">Activity Tracking</h3>
-              <p className="text-gray-600 mb-4">
+          <p className="text-gray-600 mb-4">
                 Monitor game participation with join/leave timestamps and activity history.
               </p>
               <ul className="space-y-2 text-sm text-gray-500">
                 <li className="flex items-center"><span className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-2"></span>Game participation logs</li>
                 <li className="flex items-center"><span className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-2"></span>Time-based monitoring</li>
                 <li className="flex items-center"><span className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-2"></span>Activity analytics</li>
-              </ul>
-            </div>
+          </ul>
+        </div>
 
             {/* Transportation */}
             <div className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-indigo-200">
@@ -236,15 +236,15 @@ export default function HomePage() {
                 <span className="text-2xl">🚌</span>
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-4">Transportation</h3>
-              <p className="text-gray-600 mb-4">
+          <p className="text-gray-600 mb-4">
                 Bus tracking with arrival/departure monitoring for multiple routes and stops.
               </p>
               <ul className="space-y-2 text-sm text-gray-500">
                 <li className="flex items-center"><span className="w-1.5 h-1.5 bg-indigo-500 rounded-full mr-2"></span>Multi-route support</li>
                 <li className="flex items-center"><span className="w-1.5 h-1.5 bg-indigo-500 rounded-full mr-2"></span>Arrival & departure logs</li>
                 <li className="flex items-center"><span className="w-1.5 h-1.5 bg-indigo-500 rounded-full mr-2"></span>Real-time tracking</li>
-              </ul>
-            </div>
+          </ul>
+        </div>
 
             {/* Security & Management */}
             <div className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-yellow-200">
@@ -252,16 +252,16 @@ export default function HomePage() {
                 <span className="text-2xl">🔒</span>
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-4">Security & Admin</h3>
-              <p className="text-gray-600 mb-4">
+          <p className="text-gray-600 mb-4">
                 Role-based access control with secure authentication and data management.
               </p>
               <ul className="space-y-2 text-sm text-gray-500">
                 <li className="flex items-center"><span className="w-1.5 h-1.5 bg-yellow-500 rounded-full mr-2"></span>Multi-admin support</li>
                 <li className="flex items-center"><span className="w-1.5 h-1.5 bg-yellow-500 rounded-full mr-2"></span>Data clearing tools</li>
                 <li className="flex items-center"><span className="w-1.5 h-1.5 bg-yellow-500 rounded-full mr-2"></span>Permission management</li>
-              </ul>
-            </div>
-          </div>
+          </ul>
+        </div>
+      </div>
         </div>
       </section>
 
@@ -271,8 +271,8 @@ export default function HomePage() {
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">Committee Structure</h2>
             <p className="text-xl text-gray-600">Organized participant management by committee</p>
-          </div>
-          
+      </div>
+
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
             {[
               { code: 'EX', name: 'Executive', color: 'from-blue-500 to-blue-600' },
@@ -317,7 +317,7 @@ export default function HomePage() {
                 <li><Link href="/member/scanner" className="hover:text-white transition-colors">QR Scanner</Link></li>
                 <li><Link href="/admin/register" className="hover:text-white transition-colors">Register Participant</Link></li>
               </ul>
-            </div>
+        </div>
             
             <div>
               <h3 className="text-lg font-semibold mb-4">Features</h3>
@@ -327,12 +327,12 @@ export default function HomePage() {
                 <li>Food Distribution</li>
                 <li>Transportation Management</li>
               </ul>
-            </div>
-          </div>
+        </div>
+        </div>
           
           <div className="border-t border-gray-800 mt-12 pt-8 text-center text-gray-400">
             <p>&copy; 2025 JNIMUN. All rights reserved. Built with Next.js and Tailwind CSS.</p>
-          </div>
+        </div>
         </div>
       </footer>
     </div>

@@ -248,18 +248,18 @@ export default function MemberScannerPage() {
 
   // Helper function to get current day's tracking data
   const getCurrentDayData = () => {
-    if (!trackingData) return null
+    if (!trackingData || !trackingData.dayTracking) return null
     
     switch (selectedDay) {
-      case 'sessions-day1': return trackingData.dayTracking.sessions.day1
-      case 'sessions-day2': return trackingData.dayTracking.sessions.day2
-      case 'sessions-day3': return trackingData.dayTracking.sessions.day3
-      case 'sessions-day4': return trackingData.dayTracking.sessions.day4
-      case 'performance-day': return trackingData.dayTracking.performanceDay
-      case 'opening-ceremony': return trackingData.dayTracking.openingCeremony
-      case 'conference-day1': return trackingData.dayTracking.conference.day1
-      case 'conference-day2': return trackingData.dayTracking.conference.day2
-      case 'conference-day3': return trackingData.dayTracking.conference.day3
+      case 'sessions-day1': return trackingData.dayTracking.sessions?.day1 || null
+      case 'sessions-day2': return trackingData.dayTracking.sessions?.day2 || null
+      case 'sessions-day3': return trackingData.dayTracking.sessions?.day3 || null
+      case 'sessions-day4': return trackingData.dayTracking.sessions?.day4 || null
+      case 'performance-day': return trackingData.dayTracking.performanceDay || null
+      case 'opening-ceremony': return trackingData.dayTracking.openingCeremony || null
+      case 'conference-day1': return trackingData.dayTracking.conference?.day1 || null
+      case 'conference-day2': return trackingData.dayTracking.conference?.day2 || null
+      case 'conference-day3': return trackingData.dayTracking.conference?.day3 || null
       default: return null
     }
   }
