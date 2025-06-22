@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import QRScanner from '@/components/QRScanner'
+import ParticipantHistory from '@/components/ParticipantHistory'
 import { Participant } from '@/types/participant'
 
 interface TrackingData {
@@ -42,6 +43,7 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<'scan' | 'attendance' | 'food' | 'games' | 'bus'>('scan')
   const [error, setError] = useState<string>('')
   const [success, setSuccess] = useState<string>('')
+  const [showHistory, setShowHistory] = useState(false)
 
   // Bus stops configuration
   const [busStops, setBusStops] = useState<string[]>([
@@ -317,7 +319,15 @@ export default function DashboardPage() {
         {/* Current Participant Info */}
         {currentParticipant && (
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h2 className="text-lg font-semibold text-blue-900 mb-2">Current Participant</h2>
+            <div className="flex justify-between items-start mb-2">
+              <h2 className="text-lg font-semibold text-blue-900">Current Participant</h2>
+              <button
+                onClick={() => setShowHistory(true)}
+                className="btn-secondary text-sm"
+              >
+                📋 View History
+              </button>
+            </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
                 <span className="font-medium">ID:</span> {currentParticipant.id}
@@ -600,6 +610,16 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+
+        {/* History Modal */}
+        {showHistory && currentParticipant && (
+          <ParticipantHistory
+            participantId={currentParticipant.id}
+            participantName={currentParticipant.name}
+            isModal={true}
+            onClose={() => setShowHistory(false)}
+          />
+        )}
       </div>
     </div>
   )

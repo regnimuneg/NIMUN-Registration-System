@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { QRCodeDisplay } from '@/components/QRCodeGenerator'
+import ParticipantHistory from '@/components/ParticipantHistory'
 import { Participant } from '@/types/participant'
 
 export default function ParticipantsPage() {
@@ -16,6 +17,7 @@ export default function ParticipantsPage() {
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null) // participantId being deleted
   const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<Participant | null>(null)
+  const [showHistory, setShowHistory] = useState<Participant | null>(null)
   const [success, setSuccess] = useState<string>('')
 
   // Get unique committees from participants
@@ -358,6 +360,12 @@ export default function ParticipantsPage() {
                           Track
                         </a>
                         <button
+                          onClick={() => setShowHistory(participant)}
+                          className="text-purple-600 hover:text-purple-900"
+                        >
+                          History
+                        </button>
+                        <button
                           onClick={() => setShowDeleteConfirm(participant)}
                           disabled={deleteLoading === participant.id}
                           className="text-red-600 hover:text-red-900 disabled:opacity-50"
@@ -489,7 +497,17 @@ export default function ParticipantsPage() {
               </div>
             </div>
           </div>
-        </div>
+                 </div>
+       )}
+
+      {/* History Modal */}
+      {showHistory && (
+        <ParticipantHistory
+          participantId={showHistory.id}
+          participantName={showHistory.name}
+          isModal={true}
+          onClose={() => setShowHistory(null)}
+        />
       )}
     </div>
   )

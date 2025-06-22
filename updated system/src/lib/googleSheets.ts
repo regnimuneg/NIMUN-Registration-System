@@ -702,4 +702,136 @@ export async function deleteAllParticipants(): Promise<void> {
     console.error('Error deleting all participants:', error);
     throw error;
   }
+}
+
+// Get comprehensive participant history
+export async function getParticipantHistory(participantId: string) {
+  const sheets = await getGoogleSheetsInstance();
+  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+
+  if (!spreadsheetId) {
+    throw new Error('GOOGLE_SHEETS_SPREADSHEET_ID not set');
+  }
+
+  try {
+    const history: any[] = [];
+
+    // Get attendance history from main participant data
+    try {
+      const participant = await getAllParticipants();
+      const participantData = participant.find(p => p.id === participantId);
+      if (participantData?.attendance) {
+        Object.entries(participantData.attendance).forEach(([event, attended]) => {
+          if (attended) {
+            history.push({
+              type: 'attendance',
+              action: 'attended',
+              details: event.replace(/([A-Z])/g, ' $1').trim(),
+              timestamp: new Date().toISOString(), // Note: attendance doesn't have timestamps in current system
+              icon: '✅'
+            });
+          }
+        });
+      }
+    } catch (error) {
+      console.warn('Error reading attendance data:', error);
+    }
+
+    // Get food history
+    try {
+      const foodResponse = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: 'Food!A:Z',
+      });
+      
+      const foodRows = foodResponse.data.values || [];
+      const foodRow = foodRows.find(row => row[0] === participantId);
+      if (foodRow) {
+        const meals = ['breakfast', 'lunch', 'dinner', 'snack1', 'snack2'];
+        meals.forEach((meal, index) => {
+          if (foodRow[index + 1] === 'TRUE') {
+            history.push({
+              type: 'food',
+              action: 'consumed',
+              details: meal.charAt(0).toUpperCase() + meal.slice(1).replace(/(\d)/, ' $1'),
+              timestamp: new Date().toISOString(), // Note: food doesn't have timestamps in current system
+              icon: '🍽️'
+            });
+          }
+        });
+      }
+    } catch (error) {
+      console.warn('Food sheet not found or error reading:', error);
+    }
+
+    // Get games history
+    try {
+      const gamesResponse = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: 'Games!A:Z',
+      });
+      
+      const gamesRows = gamesResponse.data.values || [];
+      const participantGames = gamesRows
+        .filter(row => row[0] === participantId)
+        .map(row => ({
+          activity: row[1],
+          action: row[2],
+          timestamp: row[3]
+        }));
+
+      participantGames.forEach(game => {
+        history.push({
+          type: 'games',
+          action: game.action,
+          details: game.activity,
+          timestamp: game.timestamp,
+          icon: game.action === 'join' ? '🎮' : '🏁'
+        });
+      });
+    } catch (error) {
+      console.warn('Games sheet not found or error reading:', error);
+    }
+
+    // Get bus history
+    try {
+      const busResponse = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: 'Bus!A:Z',
+      });
+      
+      const busRows = busResponse.data.values || [];
+      const participantBus = busRows
+        .filter(row => row[0] === participantId)
+        .map(row => ({
+          type: row[1],
+          stop: row[2],
+          timestamp: row[3]
+        }));
+
+      participantBus.forEach(bus => {
+        history.push({
+          type: 'bus',
+          action: bus.type,
+          details: `${bus.stop}`,
+          timestamp: bus.timestamp,
+          icon: bus.type === 'arriving' ? '🚌📍' : '🚌💨'
+        });
+      });
+    } catch (error) {
+      console.warn('Bus sheet not found or error reading:', error);
+    }
+
+    // Sort history by timestamp (most recent first)
+    history.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    return {
+      participantId,
+      totalTransactions: history.length,
+      history
+    };
+  } catch (error) {
+    console.error('Error getting participant history:', error);
+    throw error;
+  }
 } 
