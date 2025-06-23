@@ -3,11 +3,15 @@
 import { useState, useRef, useCallback } from 'react'
 import QRCode from 'react-qr-code'
 import QrScanner from 'qr-scanner'
+import { generateWhiteBackgroundQR, generateTransparentQR } from '@/lib/qrHelper'
 
 export default function QRUploadDebugPage() {
   const [debugLogs, setDebugLogs] = useState<string[]>(['🎯 QR Upload Debug Test loaded'])
   const [isDragOver, setIsDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [useExternalAPI, setUseExternalAPI] = useState(false)
+  const [testingAPI, setTestingAPI] = useState(false)
+  const [apiTestResult, setApiTestResult] = useState<string>('')
 
   const addLog = useCallback((message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info') => {
     const timestamp = new Date().toLocaleTimeString()
@@ -190,6 +194,65 @@ export default function QRUploadDebugPage() {
     document.body.removeChild(tempDiv)
   }, [addLog])
 
+    const testQRServerAPI = async () => {
+    setTestingAPI(true)
+    setApiTestResult('')
+    
+    try {
+      addLog('Testing QR Server API...', 'info')
+      
+      // Test white background QR
+      addLog('Testing white background QR...', 'info')
+      const whiteBlob = await generateWhiteBackgroundQR('TEST-WHITE-123', 300, 'png')
+      
+      if (whiteBlob && whiteBlob.size > 0) {
+        addLog('✅ White background QR test successful!', 'success')
+        
+        // Download the white QR code
+        const url = URL.createObjectURL(whiteBlob)
+        const link = document.createElement('a')
+        link.download = 'qr-white-test.png'
+        link.href = url
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+        
+        addLog('White background QR downloaded successfully', 'success')
+      }
+
+      // Test transparent background QR
+      addLog('Testing transparent background QR...', 'info')
+      const transparentBlob = await generateTransparentQR('TEST-TRANSPARENT-123', 300, 'png')
+      
+      if (transparentBlob && transparentBlob.size > 0) {
+        addLog('✅ Transparent background QR test successful!', 'success')
+        
+        // Download the transparent QR code
+        const url = URL.createObjectURL(transparentBlob)
+        const link = document.createElement('a')
+        link.download = 'qr-transparent-test.png'
+        link.href = url
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+        
+        addLog('Transparent background QR downloaded successfully', 'success')
+        setApiTestResult('✅ QR Server API working perfectly! Both white and transparent QR codes downloaded.')
+      } else {
+        addLog('❌ Transparent QR test failed', 'error')
+        setApiTestResult('White QR works but transparent failed')
+      }
+      
+    } catch (error) {
+      addLog(`❌ API test error: ${error}`, 'error')
+      setApiTestResult(`Error: ${error}`)
+    } finally {
+      setTestingAPI(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -304,6 +367,48 @@ export default function QRUploadDebugPage() {
               ))
             )}
           </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-xl font-semibold mb-4">QR Code API Testing</h2>
+          
+          {/* Toggle for external API */}
+          <div className="mb-4">
+            <label className="flex items-center space-x-2">
+              <input 
+                type="checkbox" 
+                checked={useExternalAPI}
+                onChange={(e) => setUseExternalAPI(e.target.checked)}
+                className="rounded"
+              />
+              <span className="text-sm font-medium">Use External High-Quality QR API</span>
+            </label>
+            {useExternalAPI && (
+              <p className="text-xs text-gray-600 mt-1">
+                This will use external APIs like QRCodeMonkey for higher quality QR codes
+              </p>
+            )}
+          </div>
+
+                     {/* QR Server API Test */}
+           <div className="mb-4 p-4 bg-green-50 rounded-lg">
+             <h3 className="font-semibold text-green-900 mb-2">QR Server API Test</h3>
+             <button
+               onClick={testQRServerAPI}
+               disabled={testingAPI}
+               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+             >
+               {testingAPI ? 'Testing API...' : 'Test QR Server API'}
+             </button>
+             {apiTestResult && (
+               <p className={`mt-2 text-sm ${apiTestResult.includes('Error') ? 'text-red-600' : 'text-green-600'}`}>
+                 {apiTestResult}
+               </p>
+             )}
+             <p className="text-xs text-green-700 mt-2">
+               This will test both white and transparent background QR codes and download samples.
+             </p>
+           </div>
         </div>
       </div>
     </div>

@@ -1,8 +1,9 @@
 'use client'
 
 import QRCode from 'react-qr-code'
-import { parseQRData } from '@/lib/qrHelper'
-import { useRef, useCallback } from 'react'
+import { parseQRData, generateQRCodeWithQRServer, generateTransparentQR, generateWhiteBackgroundQR, downloadQRCodeFromBlob } from '@/lib/qrHelper'
+import { useRef, useCallback, useState } from 'react'
+import React from 'react'
 import { Participant } from '@/types/participant'
 
 interface QRCodeGeneratorProps {
@@ -12,6 +13,7 @@ interface QRCodeGeneratorProps {
   fgColor?: string
   participantId?: string
   className?: string
+  useExternalAPI?: boolean
 }
 
 export default function QRCodeGenerator({
@@ -20,17 +22,149 @@ export default function QRCodeGenerator({
   bgColor = 'white',
   fgColor = '#000000',
   participantId,
-  className = ''
+  className = '',
+  useExternalAPI = false
 }: QRCodeGeneratorProps) {
   
   const qrRef = useRef<HTMLDivElement>(null)
+  const [externalQRUrl, setExternalQRUrl] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  
+  // Load external QR code when component mounts or when useExternalAPI changes
+  React.useEffect(() => {
+    if (useExternalAPI && participantId) {
+      loadExternalQR()
+    }
+  }, [useExternalAPI, participantId])
+
+  const loadExternalQR = useCallback(async () => {
+    if (!participantId) return
+    
+    setIsLoading(true)
+    try {
+      // Use QR Server API for high-quality QR codes with white background
+      const qrBlob = await generateWhiteBackgroundQR(participantId, size, 'png')
+      if (qrBlob) {
+        const qrUrl = URL.createObjectURL(qrBlob)
+        setExternalQRUrl(qrUrl)
+      }
+    } catch (error) {
+      console.error('Failed to load external QR code:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [participantId, size])
   
   const downloadQR = useCallback(async (backgroundType: 'transparent' | 'white') => {
-    if (!participantId || !qrRef.current) return
+    if (!participantId) return
     
+    // Declare URL at the top to avoid scoping issues
+    const URLConstructor = window.URL || window.webkitURL || window
+    
+    setIsLoading(true)
     try {
-      // Get the SVG element
-      const svg = qrRef.current.querySelector('svg') as SVGElement
+      if (useExternalAPI) {
+        // Always use API when external API is enabled
+        console.log(`Downloading ${backgroundType} QR code using API for ${participantId}`)
+        
+        if (backgroundType === 'transparent') {
+          // For transparent, we get SVG from the API and convert to PNG
+          const blob = await generateTransparentQR(participantId, size, 'png')
+          
+          if (blob) {
+            // Check if we got SVG (which means it's transparent)
+            const blobText = await blob.text()
+            
+            if (blobText.includes('<svg')) {
+              console.log('Received SVG for transparent QR, converting to PNG...')
+              
+              // Convert SVG to PNG with transparency
+              const canvas = document.createElement('canvas')
+              const ctx = canvas.getContext('2d')
+              if (!ctx) return
+              
+              canvas.width = size
+              canvas.height = size
+              
+              // Don't fill canvas - keeps it transparent
+              
+              // Create image from SVG
+              const img = new Image()
+              img.onload = () => {
+                ctx.drawImage(img, 0, 0, size, size)
+                
+                // Convert to PNG with transparency
+                canvas.toBlob((pngBlob) => {
+                  if (pngBlob) {
+                    const filename = `qr_${participantId}_transparent_api.png`
+                    const url = URLConstructor.createObjectURL(pngBlob)
+                    const link = document.createElement('a')
+                    link.download = filename
+                    link.href = url
+                    document.body.appendChild(link)
+                    link.click()
+                    document.body.removeChild(link)
+                    URLConstructor.revokeObjectURL(url)
+                  }
+                }, 'image/png')
+              }
+              
+              img.onerror = () => {
+                console.error('Failed to load SVG image')
+                // Fallback: download the SVG directly
+                const filename = `qr_${participantId}_transparent_api.svg`
+                const url = URLConstructor.createObjectURL(blob)
+                const link = document.createElement('a')
+                link.download = filename
+                link.href = url
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
+                URLConstructor.revokeObjectURL(url)
+              }
+              
+              // Convert SVG text to data URL
+              const svgDataUrl = 'data:image/svg+xml;base64,' + btoa(blobText)
+              img.src = svgDataUrl
+              
+            } else {
+              // It's already a PNG, download directly
+              const filename = `qr_${participantId}_transparent_api.png`
+              const url = URLConstructor.createObjectURL(blob)
+              const link = document.createElement('a')
+              link.download = filename
+              link.href = url
+              document.body.appendChild(link)
+              link.click()
+              document.body.removeChild(link)
+              URLConstructor.revokeObjectURL(url)
+            }
+            return
+          }
+        } else {
+          // White background - use regular API
+          const blob = await generateWhiteBackgroundQR(participantId, size, 'png')
+          
+          if (blob) {
+            const filename = `qr_${participantId}_white_api.png`
+            const url = URLConstructor.createObjectURL(blob)
+            const link = document.createElement('a')
+            link.download = filename
+            link.href = url
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            URLConstructor.revokeObjectURL(url)
+            return
+          }
+        }
+        
+        console.error('Failed to generate QR code blob')
+      }
+      
+      // Fallback to existing SVG method only if API is not enabled or failed
+      console.log(`Falling back to SVG method for ${backgroundType} QR code`)
+      const svg = qrRef.current?.querySelector('svg') as SVGElement
       if (!svg) return
       
       // Create canvas with proper size
@@ -53,8 +187,7 @@ export default function QRCodeGenerator({
       // Convert SVG to data URL
       const svgData = new XMLSerializer().serializeToString(svg)
       const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' })
-      const URL = window.URL || window.webkitURL || window
-      const svgUrl = URL.createObjectURL(svgBlob)
+      const svgUrl = URLConstructor.createObjectURL(svgBlob)
       
       // Create image and draw on canvas
       const img = new Image()
@@ -66,15 +199,15 @@ export default function QRCodeGenerator({
         canvas.toBlob((blob) => {
           if (blob) {
             const link = document.createElement('a')
-            link.download = `qr_${participantId}_${backgroundType}.png`
-            link.href = URL.createObjectURL(blob)
+            link.download = `qr_${participantId}_${backgroundType}_fallback.png`
+            link.href = URLConstructor.createObjectURL(blob)
             document.body.appendChild(link)
             link.click()
             document.body.removeChild(link)
             
             // Clean up
-            URL.revokeObjectURL(svgUrl)
-            URL.revokeObjectURL(link.href)
+            URLConstructor.revokeObjectURL(svgUrl)
+            URLConstructor.revokeObjectURL(link.href)
           }
         }, 'image/png')
       }
@@ -83,44 +216,80 @@ export default function QRCodeGenerator({
       
     } catch (error) {
       console.error('Error downloading QR code:', error)
+    } finally {
+      setIsLoading(false)
     }
-  }, [participantId, size])
+  }, [participantId, size, useExternalAPI])
   
   return (
     <div className={`inline-block ${className}`}>
-      <div 
-        ref={qrRef}
-        style={{ 
-          background: bgColor,
-          padding: '16px',
-          borderRadius: '8px'
-        }}
-      >
-        <QRCode
-          value={value}
-          size={size}
-          bgColor={bgColor}
-          fgColor={fgColor}
-          level="H"
-        />
+      {/* Centered QR code container */}
+      <div className="flex justify-center items-center">
+        <div 
+          ref={qrRef}
+          style={{ 
+            background: bgColor,
+            padding: '16px',
+            borderRadius: '8px'
+          }}
+          className="flex justify-center items-center"
+        >
+          {useExternalAPI && externalQRUrl ? (
+            <div className="relative">
+              {isLoading && (
+                <div className="absolute inset-0 bg-gray-100 flex items-center justify-center rounded">
+                  <div className="text-sm text-gray-600">Loading...</div>
+                </div>
+              )}
+              <img 
+                src={externalQRUrl} 
+                alt={`QR Code for ${participantId}`}
+                width={size}
+                height={size}
+                className="block"
+              />
+            </div>
+          ) : (
+            <QRCode
+              value={value}
+              size={size}
+              bgColor={bgColor}
+              fgColor={fgColor}
+              level="H"
+            />
+          )}
+        </div>
       </div>
       
       {participantId && (
-        <div className="mt-3 flex flex-col sm:flex-row gap-2 justify-center">
-          <button
-            onClick={() => downloadQR('white')}
-            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium flex items-center justify-center space-x-2"
-          >
-            <span>⚪</span>
-            <span>White Background</span>
-          </button>
-          <button
-            onClick={() => downloadQR('transparent')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center justify-center space-x-2"
-          >
-            <span>🔍</span>
-            <span>Transparent</span>
-          </button>
+        <div className="mt-3 space-y-2">
+          {/* Standard download options */}
+          <div className="flex flex-col sm:flex-row gap-2 justify-center">
+            <button
+              onClick={() => downloadQR('white')}
+              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium flex items-center justify-center space-x-2"
+              disabled={isLoading}
+            >
+              <span>⚪</span>
+              <span>White Background</span>
+            </button>
+            <button
+              onClick={() => downloadQR('transparent')}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center justify-center space-x-2"
+              disabled={isLoading}
+            >
+              <span>🔍</span>
+              <span>Transparent</span>
+            </button>
+          </div>
+          
+          {useExternalAPI && (
+            <div className="text-center">
+              <p className="text-xs text-green-600 font-medium">
+                ✅ Using High-Quality QR Server API
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -131,9 +300,10 @@ interface QRCodeDisplayProps {
   qrData: string
   participantId: string
   size?: number
+  useExternalAPI?: boolean
 }
 
-export function QRCodeDisplay({ qrData, participantId, size = 250 }: QRCodeDisplayProps) {
+export function QRCodeDisplay({ qrData, participantId, size = 300, useExternalAPI = true }: QRCodeDisplayProps) {
   const parsedData = parseQRData(qrData)
   
   return (
@@ -144,6 +314,7 @@ export function QRCodeDisplay({ qrData, participantId, size = 250 }: QRCodeDispl
         participantId={participantId}
         className="mx-auto"
         bgColor="white"
+        useExternalAPI={useExternalAPI}
       />
       
       <div className="mt-3 text-sm text-gray-600">
@@ -166,12 +337,17 @@ export function QRCodeDisplay({ qrData, participantId, size = 250 }: QRCodeDispl
             <span>Transparent: For designs</span>
           </div>
         </div>
+        {useExternalAPI && (
+          <div className="mt-2 pt-2 border-t border-blue-300">
+            <p className="text-green-700 font-medium">Using QR Server API for high quality</p>
+          </div>
+        )}
       </div>
     </div>
   )
 }
 
-// Simplified bulk QR download function using SVG to Canvas conversion
+// Simplified bulk QR download function using the free QR Server API
 export const downloadAllQRCodes = async (
   participants: Participant[], 
   onProgress?: (current: number, total: number) => void
@@ -199,7 +375,6 @@ Bulk download will be available in the next system update.
     onProgress?.(participants.length, participants.length)
     
   } catch (error) {
-    console.error('Error in QR download:', error)
-    throw error
+    console.error('Error downloading all QR codes:', error)
   }
 } 

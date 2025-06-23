@@ -29,6 +29,9 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
   const [scanStatus, setScanStatus] = useState<'idle' | 'scanning' | 'detected'>('idle')
   const [isDroidCam, setIsDroidCam] = useState(false)
   const [virtualCameraDetected, setVirtualCameraDetected] = useState(false)
+  const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([])
+  const [selectedCameraId, setSelectedCameraId] = useState<string>('')
+  const [showCameraSelection, setShowCameraSelection] = useState(false)
 
   // Check camera support and permissions - memoized to prevent re-creation
   const checkCameraSupport = useCallback(async () => {
@@ -47,6 +50,9 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
         return false
       }
 
+      // Store available cameras for selection
+      setAvailableCameras(videoDevices)
+
       // Check for virtual cameras (DroidCam, OBS, etc.)
       const virtualCameraNames = ['droidcam', 'obs', 'virtual', 'webcam', 'manycam', 'splitcam']
       const hasVirtualCamera = videoDevices.some(device => 
@@ -60,12 +66,23 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
         console.log('🎥 Virtual camera detected:', videoDevices.map(d => d.label))
       }
 
-      // Debug: Log all camera devices
-      console.log('📹 All video devices:', videoDevices.map(d => ({
-        label: d.label,
-        deviceId: d.deviceId,
-        isVirtual: virtualCameraNames.some(name => d.label.toLowerCase().includes(name))
-      })))
+      // Debug: Log all camera devices with types
+      console.log('📹 All video devices:', videoDevices.map(d => {
+        const isVirtual = virtualCameraNames.some(name => d.label.toLowerCase().includes(name))
+        const isDroidCam = d.label.toLowerCase().includes('droidcam')
+        return {
+          label: d.label,
+          deviceId: d.deviceId,
+          isVirtual,
+          isDroidCam,
+          type: isDroidCam ? 'DroidCam' : isVirtual ? 'Virtual' : 'Native'
+        }
+      }))
+
+      // Show camera selection if multiple cameras available
+      if (videoDevices.length > 1) {
+        setShowCameraSelection(true)
+      }
 
       // Check camera permissions
       if ('permissions' in navigator) {
@@ -275,36 +292,46 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
         throw new Error('Video element not found')
       }
 
+      // Build camera configuration based on selected camera
+      const baseVideoConfig = {
+        width: { ideal: virtualCameraDetected ? 1280 : 1920, min: 640 },
+        height: { ideal: virtualCameraDetected ? 720 : 1080, min: 480 },
+        focusMode: virtualCameraDetected ? undefined : 'continuous',
+        exposureMode: virtualCameraDetected ? undefined : 'continuous'
+      }
+
       // Try different camera configurations - optimized for QR scanning
-      const configs = [
-        // High resolution for better QR detection
+      const configs = []
+
+      // If a specific camera is selected, use it first
+      if (selectedCameraId) {
+        configs.push({
+          video: {
+            deviceId: { exact: selectedCameraId },
+            ...baseVideoConfig
+          }
+        })
+      }
+
+      // Fallback configurations
+      configs.push(
+        // Environment (back) camera
         { 
           video: { 
             facingMode: 'environment',
-            width: { ideal: virtualCameraDetected ? 1280 : 1920, min: 640 },
-            height: { ideal: virtualCameraDetected ? 720 : 1080, min: 480 },
-            focusMode: virtualCameraDetected ? undefined : 'continuous',
-            exposureMode: virtualCameraDetected ? undefined : 'continuous'
+            ...baseVideoConfig
           }
         },
-        // Front camera high res
+        // User (front) camera
         {
           video: {
             facingMode: 'user',
-            width: { ideal: virtualCameraDetected ? 1280 : 1920, min: 640 },
-            height: { ideal: virtualCameraDetected ? 720 : 1080, min: 480 },
-            focusMode: virtualCameraDetected ? undefined : 'continuous',
-            exposureMode: virtualCameraDetected ? undefined : 'continuous'
+            ...baseVideoConfig
           }
         },
-        // Any camera high res
+        // Any camera with high resolution
         {
-          video: {
-            width: { ideal: virtualCameraDetected ? 1280 : 1920, min: 640 },
-            height: { ideal: virtualCameraDetected ? 720 : 1080, min: 480 },
-            focusMode: virtualCameraDetected ? undefined : 'continuous',
-            exposureMode: virtualCameraDetected ? undefined : 'continuous'
-          }
+          video: baseVideoConfig
         },
         // Medium resolution fallback
         {
@@ -317,7 +344,7 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
         {
           video: true
         }
-      ]
+      )
 
       let mediaStream: MediaStream | null = null
       
@@ -671,6 +698,58 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
           </div>
         )}
 
+        {/* Camera Selection */}
+        {showCameraSelection && availableCameras.length > 1 && !scanning && (
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="text-sm font-medium text-blue-800 mb-2">📱 Select Camera</h4>
+            <div className="space-y-2">
+              {availableCameras.map((camera) => {
+                const isVirtual = ['droidcam', 'obs', 'virtual', 'webcam', 'manycam', 'splitcam'].some(name => 
+                  camera.label.toLowerCase().includes(name)
+                )
+                const isDroidCam = camera.label.toLowerCase().includes('droidcam')
+                const isNative = !isVirtual
+                
+                return (
+                  <button
+                    key={camera.deviceId}
+                    onClick={() => {
+                      setSelectedCameraId(camera.deviceId)
+                      console.log('Selected camera:', camera.label, camera.deviceId)
+                    }}
+                    className={`w-full text-left p-2 rounded border text-sm ${
+                      selectedCameraId === camera.deviceId
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="font-medium">
+                          {isDroidCam ? '📱 DroidCam' : isVirtual ? '🎥 Virtual' : '📷 Native'}: {camera.label || 'Unknown Camera'}
+                        </span>
+                        {isDroidCam && (
+                          <div className="text-xs opacity-75 mt-1">
+                            Uses your phone's camera via DroidCam app
+                          </div>
+                        )}
+                        {isNative && (
+                          <div className="text-xs opacity-75 mt-1">
+                            Built-in device camera
+                          </div>
+                        )}
+                      </div>
+                      {selectedCameraId === camera.deviceId && (
+                        <span className="text-white">✓</span>
+                      )}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Primary controls */}
         <div className="flex gap-2 justify-center">
           <button
@@ -688,6 +767,15 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
              isStartingRef.current ? 'Starting...' :
              scanning ? 'Stop Camera' : 'Start Camera'}
           </button>
+          
+          {!scanning && availableCameras.length > 1 && (
+            <button
+              onClick={() => setShowCameraSelection(!showCameraSelection)}
+              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm"
+            >
+              📷 {showCameraSelection ? 'Hide' : 'Select'} Camera
+            </button>
+          )}
         </div>
 
         {/* Input methods */}
