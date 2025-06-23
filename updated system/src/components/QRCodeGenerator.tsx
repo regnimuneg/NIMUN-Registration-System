@@ -5,6 +5,7 @@ import { parseQRData, generateQRCodeWithQRServer, generateTransparentQR, generat
 import { useRef, useCallback, useState } from 'react'
 import React from 'react'
 import { Participant } from '@/types/participant'
+import * as QRCodeLib from 'qrcode'
 
 interface QRCodeGeneratorProps {
   value: string
@@ -68,51 +69,35 @@ export default function QRCodeGenerator({
         console.log(`Downloading ${backgroundType} QR code using API for ${participantId}`)
         
         if (backgroundType === 'transparent') {
-          // For transparent, we get SVG from the API and convert to PNG
-          const blob = await generateTransparentQR(participantId, size, 'png')
+          // Use client-side qrcode library for true transparency
+          console.log('Generating transparent QR using qrcode library...')
           
-          if (blob) {
-            // Check if we got SVG (which means it's transparent)
-            const blobText = await blob.text()
+          try {
+            // Generate QR data
+            const qrData = JSON.stringify({
+              id: participantId,
+              type: 'JNIMUN',
+              t: Math.floor(Date.now() / 1000)
+            })
             
-            if (blobText.includes('<svg')) {
-              console.log('Received SVG for transparent QR, converting to PNG...')
-              
-              // Convert SVG to PNG with transparency
-              const canvas = document.createElement('canvas')
-              const ctx = canvas.getContext('2d')
-              if (!ctx) return
-              
-              canvas.width = size
-              canvas.height = size
-              
-              // Don't fill canvas - keeps it transparent
-              
-              // Create image from SVG
-              const img = new Image()
-              img.onload = () => {
-                ctx.drawImage(img, 0, 0, size, size)
-                
-                // Convert to PNG with transparency
-                canvas.toBlob((pngBlob) => {
-                  if (pngBlob) {
-                    const filename = `qr_${participantId}_transparent_api.png`
-                    const url = URLConstructor.createObjectURL(pngBlob)
-                    const link = document.createElement('a')
-                    link.download = filename
-                    link.href = url
-                    document.body.appendChild(link)
-                    link.click()
-                    document.body.removeChild(link)
-                    URLConstructor.revokeObjectURL(url)
-                  }
-                }, 'image/png')
+            // Create canvas for transparent QR
+            const canvas = document.createElement('canvas')
+            
+            // Generate QR code with transparent background
+            await QRCodeLib.toCanvas(canvas, qrData, {
+              width: size,
+              margin: 2,
+              errorCorrectionLevel: 'H',
+              color: {
+                dark: '#000000',    // Black QR code
+                light: '#00000000'  // Transparent background (RGBA with alpha=0)
               }
-              
-              img.onerror = () => {
-                console.error('Failed to load SVG image')
-                // Fallback: download the SVG directly
-                const filename = `qr_${participantId}_transparent_api.svg`
+            })
+            
+            // Convert to blob and download
+            canvas.toBlob((blob) => {
+              if (blob) {
+                const filename = `qr_${participantId}_transparent_client.png`
                 const url = URLConstructor.createObjectURL(blob)
                 const link = document.createElement('a')
                 link.download = filename
@@ -122,24 +107,12 @@ export default function QRCodeGenerator({
                 document.body.removeChild(link)
                 URLConstructor.revokeObjectURL(url)
               }
-              
-              // Convert SVG text to data URL
-              const svgDataUrl = 'data:image/svg+xml;base64,' + btoa(blobText)
-              img.src = svgDataUrl
-              
-            } else {
-              // It's already a PNG, download directly
-              const filename = `qr_${participantId}_transparent_api.png`
-              const url = URLConstructor.createObjectURL(blob)
-              const link = document.createElement('a')
-              link.download = filename
-              link.href = url
-              document.body.appendChild(link)
-              link.click()
-              document.body.removeChild(link)
-              URLConstructor.revokeObjectURL(url)
-            }
+            }, 'image/png')
+            
             return
+          } catch (error) {
+            console.error('Error generating transparent QR with qrcode library:', error)
+            // Continue to fallback
           }
         } else {
           // White background - use regular API
@@ -225,13 +198,13 @@ export default function QRCodeGenerator({
     <div className={`inline-block ${className}`}>
       {/* Centered QR code container */}
       <div className="flex justify-center items-center">
-        <div 
-          ref={qrRef}
-          style={{ 
-            background: bgColor,
-            padding: '16px',
-            borderRadius: '8px'
-          }}
+      <div 
+        ref={qrRef}
+        style={{ 
+          background: bgColor,
+          padding: '16px',
+          borderRadius: '8px'
+        }}
           className="flex justify-center items-center"
         >
           {useExternalAPI && externalQRUrl ? (
@@ -250,13 +223,13 @@ export default function QRCodeGenerator({
               />
             </div>
           ) : (
-            <QRCode
-              value={value}
-              size={size}
-              bgColor={bgColor}
-              fgColor={fgColor}
-              level="H"
-            />
+        <QRCode
+          value={value}
+          size={size}
+          bgColor={bgColor}
+          fgColor={fgColor}
+          level="H"
+        />
           )}
         </div>
       </div>
@@ -265,22 +238,22 @@ export default function QRCodeGenerator({
         <div className="mt-3 space-y-2">
           {/* Standard download options */}
           <div className="flex flex-col sm:flex-row gap-2 justify-center">
-            <button
-              onClick={() => downloadQR('white')}
-              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium flex items-center justify-center space-x-2"
+          <button
+            onClick={() => downloadQR('white')}
+            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium flex items-center justify-center space-x-2"
               disabled={isLoading}
-            >
-              <span>⚪</span>
-              <span>White Background</span>
-            </button>
-            <button
-              onClick={() => downloadQR('transparent')}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center justify-center space-x-2"
+          >
+            <span>⚪</span>
+            <span>White Background</span>
+          </button>
+          <button
+            onClick={() => downloadQR('transparent')}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center justify-center space-x-2"
               disabled={isLoading}
-            >
-              <span>🔍</span>
-              <span>Transparent</span>
-            </button>
+          >
+            <span>🔍</span>
+            <span>Transparent</span>
+          </button>
           </div>
           
           {useExternalAPI && (

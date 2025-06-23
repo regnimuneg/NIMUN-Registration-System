@@ -71,8 +71,8 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
         const isVirtual = virtualCameraNames.some(name => d.label.toLowerCase().includes(name))
         const isDroidCam = d.label.toLowerCase().includes('droidcam')
         return {
-          label: d.label,
-          deviceId: d.deviceId,
+        label: d.label,
+        deviceId: d.deviceId,
           isVirtual,
           isDroidCam,
           type: isDroidCam ? 'DroidCam' : isVirtual ? 'Virtual' : 'Native'

@@ -91,17 +91,40 @@ export async function generateQRCodeWithQRServer(
   });
 }
 
-// Generate transparent QR code
+// Generate transparent QR code using QuickChart API for true PNG transparency
 export async function generateTransparentQR(
   participantId: string,
   size: number = 300,
   format: 'png' | 'svg' = 'png'
 ): Promise<Blob | null> {
+  // Try QuickChart for true transparent PNG
+  try {
+    const qrData = generateQRCodeUrl(participantId)
+    const quickChartUrl =
+      `https://quickchart.io/qr` +
+      `?text=${encodeURIComponent(qrData)}` +
+      `&size=${size}` +
+      `&ecLevel=H` +
+      `&dark=${encodeURIComponent('#000000')}` +
+      `&light=${encodeURIComponent('rgba(0,0,0,0)')}`
+
+    const response = await fetch(quickChartUrl)
+    if (response.ok) {
+      return await response.blob()
+    } else {
+      console.error('QuickChart API error:', response.status)
+    }
+  } catch (error) {
+    console.error('Error generating transparent QR via QuickChart:', error)
+  }
+  
+  // Fallback to QR Server API
+  console.log('Falling back to QR Server API for transparent QR')
   return generateQRCodeWithBackground(participantId, {
     size,
     format,
     transparent: true
-  });
+  })
 }
 
 // Generate white background QR code

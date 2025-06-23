@@ -395,7 +395,7 @@ export default function ParticipantsPage() {
                 <QRCodeDisplay 
                   qrData={selectedParticipant.qrUrl}
                   participantId={selectedParticipant.id}
-                  size={300}
+                  size={250}
                   useExternalAPI={true}
                 />
               )}

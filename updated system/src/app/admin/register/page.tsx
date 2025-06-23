@@ -138,7 +138,7 @@ export default function RegisterPage() {
             <QRCodeDisplay 
               qrData={registeredParticipant.qrUrl || ''}
               participantId={registeredParticipant.id}
-              size={300}
+              size={250}
               useExternalAPI={true}
             />
           </div>
