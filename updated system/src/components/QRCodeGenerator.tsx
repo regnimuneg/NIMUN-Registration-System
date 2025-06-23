@@ -89,7 +89,7 @@ export default function QRCodeGenerator({
               margin: 2,
               errorCorrectionLevel: 'H',
               color: {
-                dark: '#000000',    // Black QR code
+                dark: '#0031a7',    // Black QR code
                 light: '#00000000'  // Transparent background (RGBA with alpha=0)
               }
             })
@@ -310,6 +310,10 @@ export function QRCodeDisplay({ qrData, participantId, size = 300, useExternalAP
             <span>Transparent: For designs</span>
           </div>
         </div>
+        <div className="mt-2 pt-2 border-t border-blue-300 text-center">
+          <p className="text-blue-700 font-medium mb-1">💡 Bulk Download Available</p>
+          <p className="text-blue-600">Visit Admin → Participants to download all QR codes as a ZIP file</p>
+        </div>
         {useExternalAPI && (
           <div className="mt-2 pt-2 border-t border-blue-300">
             <p className="text-green-700 font-medium">Using QR Server API for high quality</p>
@@ -320,34 +324,129 @@ export function QRCodeDisplay({ qrData, participantId, size = 300, useExternalAP
   )
 }
 
-// Simplified bulk QR download function using the free QR Server API
+// Comprehensive bulk QR download function with zip support for transparent QR codes
 export const downloadAllQRCodes = async (
   participants: Participant[], 
-  onProgress?: (current: number, total: number) => void
+  backgroundType: 'transparent' | 'white' = 'transparent',
+  onProgress?: (current: number, total: number, status: string) => void
 ) => {
-  if (participants.length === 0) return
+  if (participants.length === 0) {
+    alert('No participants to download QR codes for.')
+    return
+  }
   
   try {
-    // Show user that we're starting
-    onProgress?.(0, participants.length)
+    // Dynamic import to avoid build issues
+    const JSZip = (await import('jszip')).default
+    const QRCodeLib = await import('qrcode')
     
-    // Create a simple alert for now since dynamic imports are causing issues
-    alert(`Starting download of ${participants.length} QR codes. This feature will be available in the next update.`)
+    const zip = new JSZip()
+    const qrFolder = zip.folder('qr-codes')
     
-    // For now, we'll provide instructions for manual download
-    const instructions = `
-To download individual QR codes:
-1. Go to each participant's QR view
-2. Choose "White Background" for printing or "Transparent" for designs
-3. Or use the "View QR" button in the participants table
-
-Bulk download will be available in the next system update.
-    `
+    if (!qrFolder) {
+      throw new Error('Failed to create zip folder')
+    }
     
-    console.log(instructions)
-    onProgress?.(participants.length, participants.length)
+    onProgress?.(0, participants.length, 'Starting QR code generation...')
+    
+    for (let i = 0; i < participants.length; i++) {
+      const participant = participants[i]
+      
+      try {
+        onProgress?.(i + 1, participants.length, `Generating QR code for ${participant.name} (${participant.id})...`)
+        
+        // Generate QR data
+        const qrData = JSON.stringify({
+          id: participant.id,
+          type: 'JNIMUN',
+          t: Math.floor(Date.now() / 1000)
+        })
+        
+        if (backgroundType === 'transparent') {
+          // Generate transparent QR code using qrcode library
+          const qrDataUrl = await QRCodeLib.toDataURL(qrData, {
+            width: 300,
+            margin: 2,
+            errorCorrectionLevel: 'H',
+            color: {
+              dark: '#000000',    // Black QR code
+              light: '#00000000'  // Transparent background (RGBA with alpha=0)
+            }
+          })
+          
+          // Convert data URL to blob
+          const response = await fetch(qrDataUrl)
+          const blob = await response.blob()
+          const arrayBuffer = await blob.arrayBuffer()
+          
+          // Add to zip with participant info in filename
+          const filename = `${participant.id}_${participant.name.replace(/[^a-zA-Z0-9]/g, '_')}_transparent.png`
+          qrFolder.file(filename, arrayBuffer)
+          
+        } else {
+          // Generate white background QR code
+          const qrDataUrl = await QRCodeLib.toDataURL(qrData, {
+            width: 300,
+            margin: 2,
+            errorCorrectionLevel: 'H',
+            color: {
+              dark: '#000000',
+              light: '#FFFFFF'
+            }
+          })
+          
+          // Convert data URL to blob
+          const response = await fetch(qrDataUrl)
+          const blob = await response.blob()
+          const arrayBuffer = await blob.arrayBuffer()
+          
+          // Add to zip
+          const filename = `${participant.id}_${participant.name.replace(/[^a-zA-Z0-9]/g, '_')}_white.png`
+          qrFolder.file(filename, arrayBuffer)
+        }
+        
+        // Small delay to prevent overwhelming the browser
+        if (i % 10 === 0 && i > 0) {
+          await new Promise(resolve => setTimeout(resolve, 100))
+        }
+        
+      } catch (error) {
+        console.error(`Failed to generate QR code for ${participant.id}:`, error)
+        // Continue with next participant instead of stopping entire process
+      }
+    }
+    
+    onProgress?.(participants.length, participants.length, 'Creating zip file...')
+    
+    // Generate the zip file
+    const zipBlob = await zip.generateAsync({
+      type: 'blob',
+      compression: 'DEFLATE',
+      compressionOptions: {
+        level: 6
+      }
+    })
+    
+    // Create download link
+    const url = window.URL.createObjectURL(zipBlob)
+    const link = document.createElement('a')
+    link.href = url
+    
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-')
+    const backgroundSuffix = backgroundType === 'transparent' ? 'transparent' : 'white'
+    link.download = `JNIMUN_QR_Codes_${backgroundSuffix}_${timestamp}.zip`
+    
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    
+    // Clean up
+    window.URL.revokeObjectURL(url)
+    
+    onProgress?.(participants.length, participants.length, `Successfully downloaded ${participants.length} QR codes!`)
     
   } catch (error) {
     console.error('Error downloading all QR codes:', error)
+    alert(`Error downloading QR codes: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 } 

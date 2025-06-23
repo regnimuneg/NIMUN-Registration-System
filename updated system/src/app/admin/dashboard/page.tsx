@@ -312,6 +312,13 @@ export default function DashboardPage() {
           </p>
             </div>
             <div className="flex space-x-3">
+              <a
+                href="/admin/participants"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center space-x-2"
+              >
+                <span>📦</span>
+                <span>Download All QR Codes</span>
+              </a>
               <ClearTrackingData 
                 adminRole={adminRole}
                 onClearComplete={(dataType) => {

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { QRCodeDisplay } from '@/components/QRCodeGenerator'
+import { QRCodeDisplay, downloadAllQRCodes } from '@/components/QRCodeGenerator'
 import ParticipantHistory from '@/components/ParticipantHistory'
 import { Participant } from '@/types/participant'
 
@@ -19,6 +19,17 @@ export default function ParticipantsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<Participant | null>(null)
   const [showHistory, setShowHistory] = useState<Participant | null>(null)
   const [success, setSuccess] = useState<string>('')
+  const [downloadProgress, setDownloadProgress] = useState<{
+    current: number
+    total: number
+    status: string
+    isDownloading: boolean
+  }>({
+    current: 0,
+    total: 0,
+    status: '',
+    isDownloading: false
+  })
 
   // Get unique committees from participants
   const committees = [...new Set(participants.map(p => p.position))].sort()
@@ -130,6 +141,38 @@ export default function ParticipantsPage() {
     } finally {
       setDeleteLoading(null)
     }
+  }
+
+  const handleBulkDownload = async (backgroundType: 'transparent' | 'white') => {
+    setDownloadProgress({
+      current: 0,
+      total: filteredParticipants.length,
+      status: 'Preparing download...',
+      isDownloading: true
+    })
+
+    await downloadAllQRCodes(
+      filteredParticipants,
+      backgroundType,
+      (current, total, status) => {
+        setDownloadProgress({
+          current,
+          total,
+          status,
+          isDownloading: current < total
+        })
+      }
+    )
+
+    // Reset progress after a delay
+    setTimeout(() => {
+      setDownloadProgress({
+        current: 0,
+        total: 0,
+        status: '',
+        isDownloading: false
+      })
+    }, 3000)
   }
 
   if (loading) {
@@ -282,6 +325,90 @@ export default function ParticipantsPage() {
           <div className="text-sm text-pink-800">Female</div>
         </div>
       </div>
+
+      {/* Bulk QR Download Section */}
+      {filteredParticipants.length > 0 && (
+        <div className="card mb-8">
+          <h2 className="text-xl font-semibold mb-4">Bulk QR Code Download</h2>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+            <div className="flex items-start space-x-3">
+              <div className="text-blue-600 text-2xl">📦</div>
+              <div>
+                <h3 className="font-medium text-blue-900 mb-2">Download All QR Codes as ZIP</h3>
+                <p className="text-sm text-blue-800 mb-3">
+                  Download QR codes for all {filteredParticipants.length} {filteredParticipants.length === 1 ? 'participant' : 'participants'} 
+                  {searchTerm || filterCommittee || filterGender ? ' (filtered)' : ''} in a convenient ZIP file.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={() => handleBulkDownload('transparent')}
+                    disabled={downloadProgress.isDownloading}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span>🔍</span>
+                    <span>Download Transparent QR Codes</span>
+                  </button>
+                  <button
+                    onClick={() => handleBulkDownload('white')}
+                    disabled={downloadProgress.isDownloading}
+                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span>⚪</span>
+                    <span>Download White Background QR Codes</span>
+                  </button>
+                </div>
+                <div className="mt-2 text-xs text-blue-600">
+                  💡 Transparent QR codes are perfect for overlaying on designs, while white background QR codes are ideal for printing.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Download Progress */}
+          {downloadProgress.isDownloading && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-center space-x-3">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div>
+                <div className="flex-1">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium text-green-900">
+                      {downloadProgress.status}
+                    </span>
+                    <span className="text-sm text-green-700">
+                      {downloadProgress.current}/{downloadProgress.total}
+                    </span>
+                  </div>
+                  <div className="w-full bg-green-200 rounded-full h-2">
+                    <div 
+                      className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                      style={{ 
+                        width: `${downloadProgress.total > 0 ? (downloadProgress.current / downloadProgress.total) * 100 : 0}%` 
+                      }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Success Message for Download */}
+          {!downloadProgress.isDownloading && downloadProgress.current > 0 && downloadProgress.current === downloadProgress.total && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-center space-x-3">
+                <div className="text-green-600 text-xl">✅</div>
+                <div>
+                  <p className="text-sm font-medium text-green-900">
+                    {downloadProgress.status}
+                  </p>
+                  <p className="text-xs text-green-700">
+                    Your ZIP file should start downloading automatically.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Participants List */}
       {filteredParticipants.length === 0 ? (
