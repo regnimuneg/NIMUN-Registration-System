@@ -282,16 +282,30 @@ export default function MemberScannerPage() {
   const currentDayData = getCurrentDayData()
   const currentDayKey = getCurrentDayKey()
 
+  const [isMobileDevice, setIsMobileDevice] = useState(false)
+
+  // Client-side mobile detection to avoid SSR mismatch
+  useEffect(() => {
+    const checkMobile = () => {
+      const userAgent = typeof window !== 'undefined' ? navigator.userAgent : ''
+      setIsMobileDevice(/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent))
+    }
+    checkMobile()
+  }, [])
+
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-gray-50">
+      <div className={`max-w-6xl mx-auto ${isMobileDevice ? 'p-2' : 'p-4'}`}>
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            JNIMUN'25 Scanner
+        <div className={`mb-8 ${isMobileDevice ? 'text-center' : ''}`}>
+          <h1 className={`font-bold text-gray-900 mb-2 ${isMobileDevice ? 'text-2xl' : 'text-3xl'}`}>
+            📱 JNIMUN'25 Scanner
           </h1>
-          <p className="text-gray-600">
-            Scan participant QR codes to track attendance, food, games, and transportation
+          <p className={`text-gray-600 ${isMobileDevice ? 'text-sm' : ''}`}>
+            {isMobileDevice 
+              ? 'Tap to scan QR codes and track participants' 
+              : 'Scan participant QR codes to track attendance, food, games, and transportation'
+            }
           </p>
         </div>
 
@@ -352,25 +366,31 @@ export default function MemberScannerPage() {
 
         {/* Tab Navigation - Only show if not off day */}
         {currentDay.type !== 'off' && (
-          <div className="border-b border-gray-200 mb-6">
-            <nav className="-mb-px flex space-x-8">
+          <div className={`border-b border-gray-200 mb-6 ${isMobileDevice ? 'overflow-x-auto' : ''}`}>
+            <nav className={`-mb-px flex ${isMobileDevice ? 'space-x-2' : 'space-x-8'}`}>
               {[
-                { id: 'scan', label: 'QR Scanner', icon: '📱' },
+                { id: 'scan', label: isMobileDevice ? 'Scanner' : 'QR Scanner', icon: '📱' },
                 { id: 'attendance', label: 'Attendance', icon: '✅' },
-                ...(currentDay.hasFood ? [{ id: 'food', label: 'Food Tracking', icon: '🍽️' }] : []),
-                { id: 'games', label: 'Games & Activities', icon: '🎮' },
-                ...((currentDay.hasBus === true || currentDay.hasBus === 'to-only') ? [{ id: 'bus', label: 'Bus Tracking', icon: '🚌' }] : [])
+                ...(currentDay.hasFood ? [{ id: 'food', label: isMobileDevice ? 'Food' : 'Food Tracking', icon: '🍽️' }] : []),
+                { id: 'games', label: isMobileDevice ? 'Games' : 'Games & Activities', icon: '🎮' },
+                ...((currentDay.hasBus === true || currentDay.hasBus === 'to-only') ? [{ id: 'bus', label: isMobileDevice ? 'Bus' : 'Bus Tracking', icon: '🚌' }] : [])
               ].map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  className={`border-b-2 font-medium ${
+                    isMobileDevice ? 'py-3 px-3 text-xs whitespace-nowrap' : 'py-2 px-1 text-sm'
+                  } ${
                     activeTab === tab.id
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  {tab.icon} {tab.label}
+                  <div className={isMobileDevice ? 'flex flex-col items-center' : ''}>
+                    <span className={isMobileDevice ? 'text-lg' : ''}>{tab.icon}</span>
+                    {isMobileDevice && <span className="mt-1">{tab.label}</span>}
+                    {!isMobileDevice && <span className="ml-1">{tab.label}</span>}
+                  </div>
                 </button>
               ))}
             </nav>

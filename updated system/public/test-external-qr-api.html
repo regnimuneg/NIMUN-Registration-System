@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>External QR API Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .result {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+            background-color: #f8f9fa;
+        }
+        .success { border-left-color: #28a745; background-color: #d4edda; }
+        .error { border-left-color: #dc3545; background-color: #f8d7da; }
+        .warning { border-left-color: #ffc107; background-color: #fff3cd; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            margin: 20px 0;
+            cursor: pointer;
+        }
+        .upload-area:hover { border-color: #007bff; }
+        .upload-area.dragover { border-color: #007bff; background-color: #f0f8ff; }
+        #fileInput { display: none; }
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .qr-preview {
+            max-width: 200px;
+            margin: 10px auto;
+            display: block;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌐 External QR Scanner API Test</h1>
+        <p>This page tests the external QR scanning API integration using QuickChart's QR reader service.</p>
+        
+        <!-- Test 1: Generate and scan QR code -->
+        <div class="test-section">
+            <h2>Test 1: Generate & Scan QR Code</h2>
+            <p>Generate a QR code for a participant ID and then scan it using the external API.</p>
+            
+            <div>
+                <label for="participantId">Participant ID:</label>
+                <input type="text" id="participantId" value="EX-01" placeholder="e.g., EX-01">
+                <button onclick="generateQRCode()">Generate QR Code</button>
+            </div>
+            
+            <div id="generatedQR" style="margin: 20px 0; text-align: center;"></div>
+            
+            <button onclick="scanGeneratedQR()" id="scanGenerated" disabled>Scan Generated QR with API</button>
+            <div id="generateResult" class="result" style="display: none;"></div>
+        </div>
+
+        <!-- Test 2: Upload QR image -->
+        <div class="test-section">
+            <h2>Test 2: Upload QR Code Image</h2>
+            <p>Upload a QR code image to test the external API scanning.</p>
+            
+            <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                <div>📁 Click to upload QR code image</div>
+                <div style="font-size: 14px; color: #666; margin-top: 10px;">
+                    Drag & drop also supported<br>
+                    Supported formats: PNG, JPG, GIF, WebP
+                </div>
+            </div>
+            
+            <input type="file" id="fileInput" accept="image/*" onchange="handleFileUpload(event)">
+            <div id="uploadPreview" style="text-align: center; margin: 20px 0;"></div>
+            <button onclick="scanUploadedImage()" id="scanUploaded" disabled>Scan Uploaded Image with API</button>
+            <div id="uploadResult" class="result" style="display: none;"></div>
+        </div>
+
+        <!-- Test 3: API status -->
+        <div class="test-section">
+            <h2>Test 3: API Connection Test</h2>
+            <p>Test if the QuickChart QR reader API is accessible.</p>
+            
+            <button onclick="testAPIConnection()">Test API Connection</button>
+            <div id="apiResult" class="result" style="display: none;"></div>
+        </div>
+
+        <!-- Results -->
+        <div id="allResults" style="margin-top: 30px;"></div>
+    </div>
+
+    <script>
+        let currentImageBlob = null;
+        let scanResults = [];
+
+        function log(message, type = 'info') {
+            console.log(message);
+            const timestamp = new Date().toLocaleTimeString();
+            scanResults.push(`[${timestamp}] ${message}`);
+            
+            // Update results display
+            const resultsDiv = document.getElementById('allResults');
+            resultsDiv.innerHTML = '<h3>Scan Log:</h3><pre>' + 
+                scanResults.slice(-10).join('\n') + '</pre>';
+        }
+
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.className = `result ${type}`;
+            element.innerHTML = message;
+            element.style.display = 'block';
+            log(message, type);
+        }
+
+        // Generate QR code using QuickChart
+        function generateQRCode() {
+            const participantId = document.getElementById('participantId').value.trim();
+            if (!participantId) {
+                showResult('generateResult', 'Please enter a participant ID', 'error');
+                return;
+            }
+
+            log(`Generating QR code for participant: ${participantId}`);
+            
+            // Create QR data in the same format as the app
+            const qrData = JSON.stringify({
+                id: participantId,
+                type: 'JNIMUN',
+                t: Math.floor(Date.now() / 1000)
+            });
+
+            // Generate QR code using QuickChart
+            const qrUrl = `https://quickchart.io/qr?text=${encodeURIComponent(qrData)}&size=200&ecLevel=H`;
+            
+            const qrDiv = document.getElementById('generatedQR');
+            qrDiv.innerHTML = `
+                <img src="${qrUrl}" alt="Generated QR Code" class="qr-preview" onload="enableScanButton()">
+                <div style="font-size: 12px; color: #666; margin-top: 10px;">
+                    QR Data: ${qrData}
+                </div>
+            `;
+            
+            // Store the URL for scanning
+            window.generatedQRUrl = qrUrl;
+            
+            showResult('generateResult', `✅ QR code generated for ${participantId}`, 'success');
+        }
+
+        function enableScanButton() {
+            document.getElementById('scanGenerated').disabled = false;
+        }
+
+        // Scan generated QR code
+        async function scanGeneratedQR() {
+            if (!window.generatedQRUrl) {
+                showResult('generateResult', 'No QR code generated yet', 'error');
+                return;
+            }
+
+            log('Converting generated QR to blob for API scanning...');
+            
+            try {
+                // Convert image URL to blob
+                const response = await fetch(window.generatedQRUrl);
+                const blob = await response.blob();
+                
+                const result = await scanWithExternalAPI(blob);
+                showResult('generateResult', `✅ API Scan Result: ${result}`, 'success');
+                
+            } catch (error) {
+                showResult('generateResult', `❌ API Scan Failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Handle file upload
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            log(`File uploaded: ${file.name} (${file.type}, ${(file.size/1024).toFixed(2)}KB)`);
+            
+            // Preview the image
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const preview = document.getElementById('uploadPreview');
+                preview.innerHTML = `
+                    <img src="${e.target.result}" alt="Uploaded QR Code" class="qr-preview">
+                    <div style="font-size: 12px; color: #666; margin-top: 10px;">
+                        File: ${file.name}
+                    </div>
+                `;
+            };
+            reader.readAsDataURL(file);
+            
+            // Store for scanning
+            currentImageBlob = file;
+            document.getElementById('scanUploaded').disabled = false;
+            
+            showResult('uploadResult', `📁 Image uploaded: ${file.name}`, 'info');
+        }
+
+        // Scan uploaded image
+        async function scanUploadedImage() {
+            if (!currentImageBlob) {
+                showResult('uploadResult', 'No image uploaded yet', 'error');
+                return;
+            }
+
+            try {
+                const result = await scanWithExternalAPI(currentImageBlob);
+                showResult('uploadResult', `✅ API Scan Result: ${result}`, 'success');
+                
+            } catch (error) {
+                showResult('uploadResult', `❌ API Scan Failed: ${error.message}`, 'error');
+            }
+        }
+
+        // External API scanning function (same as in the app)
+        async function scanWithExternalAPI(imageBlob) {
+            log('🌐 Attempting external API scan with QuickChart...');
+            
+            try {
+                // Try QuickChart QR reader API
+                const formData = new FormData();
+                formData.append('image', imageBlob, 'qr-image.png');
+                
+                const response = await fetch('https://quickchart.io/qr/read', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                log(`API Response Status: ${response.status}`);
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    log(`API Response: ${JSON.stringify(result)}`);
+                    
+                    if (result.text) {
+                        log(`✅ External API detected QR: ${result.text}`);
+                        return result.text;
+                    }
+                }
+                
+                throw new Error(`API returned ${response.status}: ${response.statusText}`);
+                
+            } catch (error) {
+                log(`❌ External API scan failed: ${error.message}`);
+                throw error;
+            }
+        }
+
+        // Test API connection
+        async function testAPIConnection() {
+            log('Testing QuickChart QR API connection...');
+            
+            try {
+                // Create a simple test QR code image
+                const testData = 'TEST-CONNECTION';
+                const testQRUrl = `https://quickchart.io/qr?text=${encodeURIComponent(testData)}&size=100`;
+                
+                // First test: Generate QR
+                const generateResponse = await fetch(testQRUrl);
+                if (!generateResponse.ok) {
+                    throw new Error(`QR generation failed: ${generateResponse.status}`);
+                }
+                
+                log('✅ QR generation API accessible');
+                
+                // Second test: Read QR (using the generated QR)
+                const qrBlob = await generateResponse.blob();
+                const result = await scanWithExternalAPI(qrBlob);
+                
+                if (result === testData) {
+                    showResult('apiResult', '✅ QuickChart QR API is fully functional!', 'success');
+                } else {
+                    showResult('apiResult', `⚠️ API accessible but result mismatch. Expected: ${testData}, Got: ${result}`, 'warning');
+                }
+                
+            } catch (error) {
+                showResult('apiResult', `❌ API connection failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Drag and drop functionality
+        const uploadArea = document.querySelector('.upload-area');
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                document.getElementById('fileInput').files = files;
+                handleFileUpload({target: {files: files}});
+            }
+        });
+
+        // Initial log
+        log('🎯 External QR API Test Page loaded');
+        log('Ready to test QuickChart QR scanning API');
+    </script>
+</body>
+</html> 

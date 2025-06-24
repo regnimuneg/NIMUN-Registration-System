@@ -32,6 +32,9 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
   const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([])
   const [selectedCameraId, setSelectedCameraId] = useState<string>('')
   const [showCameraSelection, setShowCameraSelection] = useState(false)
+  const [useExternalAPI, setUseExternalAPI] = useState(false)
+  const [apiScanLoading, setApiScanLoading] = useState(false)
+  const [success, setSuccess] = useState<string | null>(null)
 
   // Check camera support and permissions - memoized to prevent re-creation
   const checkCameraSupport = useCallback(async () => {
@@ -119,27 +122,28 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
 
     setScanStatus('scanning')
     
-    // Initialize QR Scanner - optimized for low quality cameras
+    // Initialize QR Scanner - optimized for mobile and low quality cameras
     qrScannerRef.current = new QrScanner(
       videoRef.current,
-      (result) => {
+      (result: any) => {
         const now = Date.now()
-        console.log(`🔍 QR scan result received: "${result.data}" (Virtual camera: ${virtualCameraDetected})`)
+        const qrData = result?.data || result
+        console.log(`🔍 QR scan result received: "${qrData}" (Mobile: ${isMobileDevice}, Virtual camera: ${virtualCameraDetected})`)
         
         // Prevent scanning the same code multiple times quickly
-        // Use longer cooldown for virtual cameras to prevent stuck green state
-        const cooldownTime = virtualCameraDetected ? 3000 : 1000
+        // Adjust cooldown based on device type
+        const cooldownTime = virtualCameraDetected ? 3000 : (isMobileDevice ? 800 : 1000)
         console.log(`⏰ Cooldown check: Last scan ${now - lastScanTimeRef.current}ms ago, required: ${cooldownTime}ms`)
         
         if (now - lastScanTimeRef.current > cooldownTime) {
           lastScanTimeRef.current = now
-          console.log(`✅ Processing QR scan (Virtual camera mode: ${virtualCameraDetected})`)
+          console.log(`✅ Processing QR scan (Mobile: ${isMobileDevice}, Virtual camera mode: ${virtualCameraDetected})`)
           setScanStatus('detected')
-          setLastScannedCode(result.data)
-          handleQRDetection(result.data)
+          setLastScannedCode(qrData)
+          handleQRDetection(qrData)
           
-          // Longer pause for virtual cameras
-          const pauseTime = virtualCameraDetected ? 2000 : 500
+          // Adjust pause time based on device type
+          const pauseTime = virtualCameraDetected ? 2000 : (isMobileDevice ? 300 : 500)
           console.log(`⏳ Setting ${pauseTime}ms pause before resuming scan`)
           setTimeout(() => {
             console.log('🔄 Resuming scan after pause')
@@ -150,14 +154,15 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
         }
       },
       {
-        highlightScanRegion: true, // Show scan region to help users
-        highlightCodeOutline: true, // Highlight detected codes
-        maxScansPerSecond: virtualCameraDetected ? 2 : 5, // Slower for virtual cameras
-        preferredCamera: 'environment', // Try back camera first on mobile
-        calculateScanRegion: (video) => {
-          // Use center 60% of video for better focus
+        highlightScanRegion: true,
+        highlightCodeOutline: true,
+        maxScansPerSecond: virtualCameraDetected ? 2 : (isMobileDevice ? 4 : 5),
+        preferredCamera: 'environment',
+        calculateScanRegion: (video: any) => {
+          // Mobile-optimized scan region - larger area for easier scanning
           const smallerDimension = Math.min(video.videoWidth, video.videoHeight)
-          const scanSize = Math.round(0.6 * smallerDimension)
+          const scanSizeRatio = isMobileDevice ? 0.8 : 0.6 // Larger scan area on mobile
+          const scanSize = Math.round(scanSizeRatio * smallerDimension)
           return {
             x: Math.round((video.videoWidth - scanSize) / 2),
             y: Math.round((video.videoHeight - scanSize) / 2),
@@ -292,12 +297,23 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
         throw new Error('Video element not found')
       }
 
-      // Build camera configuration based on selected camera
+      // Build camera configuration optimized for mobile devices
       const baseVideoConfig = {
-        width: { ideal: virtualCameraDetected ? 1280 : 1920, min: 640 },
-        height: { ideal: virtualCameraDetected ? 720 : 1080, min: 480 },
+        width: { 
+          ideal: isMobileDevice ? 1280 : (virtualCameraDetected ? 1280 : 1920), 
+          min: 640, 
+          max: isMobileDevice ? 1920 : 3840 
+        },
+        height: { 
+          ideal: isMobileDevice ? 720 : (virtualCameraDetected ? 720 : 1080), 
+          min: 480, 
+          max: isMobileDevice ? 1080 : 2160 
+        },
         focusMode: virtualCameraDetected ? undefined : 'continuous',
-        exposureMode: virtualCameraDetected ? undefined : 'continuous'
+        exposureMode: virtualCameraDetected ? undefined : 'continuous',
+        // Mobile-specific optimizations
+        frameRate: { ideal: isMobileDevice ? 30 : 24, max: 30 },
+        aspectRatio: isMobileDevice ? { ideal: 16/9 } : undefined
       }
 
       // Try different camera configurations - optimized for QR scanning
@@ -313,27 +329,67 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
         })
       }
 
-      // Fallback configurations
-      configs.push(
-        // Environment (back) camera
-        { 
-          video: { 
-            facingMode: 'environment',
-            ...baseVideoConfig
+      // Fallback configurations - prioritize mobile-optimized settings
+      if (isMobileDevice) {
+        configs.push(
+          // Mobile: Environment (back) camera with autofocus
+          { 
+            video: { 
+              facingMode: 'environment',
+              ...baseVideoConfig,
+              focusMode: 'continuous',
+              focusDistance: { ideal: 0.3 } // Optimize for QR scanning distance
+            }
+          },
+          // Mobile: Environment camera with basic constraints
+          { 
+            video: { 
+              facingMode: 'environment',
+              width: { ideal: 1280, min: 640 },
+              height: { ideal: 720, min: 480 },
+              frameRate: { ideal: 30 }
+            }
+          },
+          // Mobile: User (front) camera fallback
+          {
+            video: {
+              facingMode: 'user',
+              width: { ideal: 1280, min: 640 },
+              height: { ideal: 720, min: 480 },
+              frameRate: { ideal: 30 }
+            }
           }
-        },
-        // User (front) camera
+        )
+      } else {
+        configs.push(
+          // Desktop: Environment (back) camera
+          { 
+            video: { 
+              facingMode: 'environment',
+              ...baseVideoConfig
+            }
+          },
+          // Desktop: User (front) camera
+          {
+            video: {
+              facingMode: 'user',
+              ...baseVideoConfig
+            }
+          }
+        )
+      }
+      
+      // Common fallbacks for both mobile and desktop
+      configs.push(
+        // Any camera with optimized resolution
         {
           video: {
-            facingMode: 'user',
-            ...baseVideoConfig
+            width: { ideal: isMobileDevice ? 1280 : 1920, min: 640 },
+            height: { ideal: isMobileDevice ? 720 : 1080, min: 480 },
+            frameRate: { ideal: 30, max: 30 }
           }
         },
-        // Any camera with high resolution
-        {
-          video: baseVideoConfig
-        },
-        // Medium resolution fallback
+        // Basic fallback
         {
           video: {
             width: { ideal: 1280, min: 640 },
@@ -422,6 +478,78 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
     stopCamera()
   }, [stopCamera])
 
+  // External QR API scan function
+  const scanWithExternalAPI = useCallback(async (imageBlob: Blob) => {
+    setApiScanLoading(true)
+    try {
+      console.log('🌐 Attempting external API scan...')
+      
+      // Try QuickChart QR reader API
+      const formData = new FormData()
+      formData.append('image', imageBlob, 'qr-image.png')
+      
+      const response = await fetch('https://quickchart.io/qr/read', {
+        method: 'POST',
+        body: formData
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        if (result.text) {
+          console.log('✅ External API detected QR:', result.text)
+          return result.text
+        }
+      }
+      
+      throw new Error('No QR code detected by external API')
+      
+    } catch (error) {
+      console.error('External API scan failed:', error)
+      throw error
+    } finally {
+      setApiScanLoading(false)
+    }
+  }, [])
+
+  // Capture current video frame and try external API
+  const captureAndScanWithAPI = useCallback(async () => {
+    if (!videoRef.current || !canvasRef.current) return
+
+    try {      
+      const video = videoRef.current
+      const canvas = canvasRef.current
+      const ctx = canvas.getContext('2d')
+      
+      if (!ctx) throw new Error('Canvas context not available')
+      
+      // Set canvas size to video size
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      
+      // Capture current frame
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+      
+      // Convert to blob
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob)
+          else reject(new Error('Failed to create blob'))
+        }, 'image/png')
+      })
+      
+      // Try external API
+      const result = await scanWithExternalAPI(blob)
+      if (result) {
+        handleQRDetection(result)
+        setSuccess('✅ QR detected using external API!')
+      }
+      
+    } catch (error) {
+      console.error('Capture and scan failed:', error)
+      setError('External API scan failed. Try manual input or file upload.')
+    }
+  }, [scanWithExternalAPI, handleQRDetection])
+
   // Handle file upload for QR scanning
   const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -431,23 +559,46 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
     
     try {
       console.log('🔍 Attempting to scan QR from uploaded image...')
-      const result = await QrScanner.scanImage(file)
       
-      if (result) {
-        console.log('✅ QR Code detected from file:', result)
-        await handleQRDetection(result)
-      } else {
-        console.log('❌ No QR code found in uploaded image')
-        setError('No QR code found in the uploaded image. Please try a different image or use the camera scanner.')
+      // Try regular qr-scanner first
+      try {
+        const result = await QrScanner.scanImage(file)
+        if (result) {
+          console.log('✅ QR Code detected from file:', result)
+          await handleQRDetection(result)
+          setSuccess('✅ QR code scanned from uploaded image!')
+          return
+        }
+      } catch (qrScanError) {
+        console.log('Regular scanner failed, trying external API...')
       }
+      
+      // If regular scanner fails, try external API
+      if (useExternalAPI) {
+        try {
+          const result = await scanWithExternalAPI(file)
+          if (result) {
+            console.log('✅ External API detected QR from file:', result)
+            await handleQRDetection(result)
+            setSuccess('✅ QR code detected using external API!')
+            return
+          }
+        } catch (apiError) {
+          console.log('External API also failed:', apiError)
+        }
+      }
+      
+      console.log('❌ No QR code found in uploaded image')
+      setError('No QR code found in the uploaded image. Please try a different image or use manual input.')
+      
     } catch (error) {
       console.error('❌ Error scanning QR from uploaded image:', error)
-      setError('Failed to scan QR code from image. Please try again or use the camera scanner.')
+      setError('Failed to scan QR code from image. Please try again or use manual input.')
     }
     
     // Reset the input
     event.target.value = ''
-  }, [handleQRDetection])
+  }, [handleQRDetection, scanWithExternalAPI, useExternalAPI])
 
   // Handle manual input
   const handleManualInput = useCallback(() => {
@@ -456,6 +607,8 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
       onScan(participantId.trim().toUpperCase())
     }
   }, [onScan])
+
+
 
   // Force refresh scanner (for virtual cameras)
   const forceRefreshScanner = useCallback(() => {
@@ -468,6 +621,7 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
     setScanStatus('idle')
     setLastScannedCode(null)
     setError(null)
+    setSuccess(null)
     lastScanTimeRef.current = 0
     
     // Wait a moment then restart
@@ -510,7 +664,7 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
     }
   }, [])
 
-  // Clear error after some time
+  // Clear error and success messages after some time
   useEffect(() => {
     if (error) {
       const timeoutId = setTimeout(() => {
@@ -521,363 +675,384 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
     }
   }, [error])
 
+  useEffect(() => {
+    if (success) {
+      const timeoutId = setTimeout(() => {
+        setSuccess(null)
+      }, 5000) // Clear success message after 5 seconds
+      
+      return () => clearTimeout(timeoutId)
+    }
+  }, [success])
+
+  const [isMobileDevice, setIsMobileDevice] = useState(false)
+
+  // Client-side mobile detection to avoid SSR mismatch
+  useEffect(() => {
+    const checkMobile = () => {
+      const userAgent = typeof window !== 'undefined' ? navigator.userAgent : ''
+      setIsMobileDevice(/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent))
+    }
+    checkMobile()
+  }, [])
+
+  // Mobile-specific optimizations
+  useEffect(() => {
+    if (isMobileDevice) {
+      // Prevent zoom on double tap
+      let lastTouchEnd = 0
+      const preventZoom = (e: TouchEvent) => {
+        const now = (new Date()).getTime()
+        if (now - lastTouchEnd <= 300) {
+          e.preventDefault()
+        }
+        lastTouchEnd = now
+      }
+      
+      document.addEventListener('touchend', preventZoom, { passive: false })
+      
+      // Keep screen awake during scanning
+      let wakeLock: any = null
+      const requestWakeLock = async () => {
+        try {
+          if ('wakeLock' in navigator) {
+            wakeLock = await (navigator as any).wakeLock.request('screen')
+            console.log('Screen wake lock activated')
+          }
+        } catch (err) {
+          console.log('Wake lock not supported or failed:', err)
+        }
+      }
+      
+      if (scanning) {
+        requestWakeLock()
+      }
+      
+      return () => {
+        document.removeEventListener('touchend', preventZoom)
+        if (wakeLock) {
+          wakeLock.release()
+          console.log('Screen wake lock released')
+        }
+      }
+    }
+  }, [scanning, isMobileDevice])
+
   return (
-    <div className="qr-scanner">
-      {/* Camera Status */}
-      <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-        <div className="flex items-center justify-between">
-          <div>
-            <span className="text-sm font-medium text-blue-900">Camera Status:</span>
-            <span className={`ml-2 text-sm ${
-              scanning ? 'text-green-600' :
-              cameraPermission === 'granted' ? 'text-blue-600' : 
-              cameraPermission === 'denied' ? 'text-red-600' : 'text-yellow-600'
-            }`}>
-              {scanning ? '🟢 Active' :
-               isStartingRef.current ? '⏳ Starting...' :
-               cameraPermission === 'granted' ? '✅ Ready' :
-               cameraPermission === 'denied' ? '❌ Denied' :
-               cameraPermission === 'prompt' ? '⏳ Permission needed' : '❓ Unknown'}
-            </span>
+    <div className={`bg-white rounded-lg shadow-lg ${isMobileDevice ? 'p-3 mx-2' : 'p-6'}`}>
+      <h2 className={`font-bold mb-4 text-gray-800 ${isMobileDevice ? 'text-xl text-center' : 'text-2xl'}`}>
+        📱 QR Code Scanner
+      </h2>
+      
+              {/* Mobile-specific instructions */}
+        {isMobileDevice && (
+          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h3 className="font-medium text-blue-800 mb-2">📱 Mobile Scanning Tips</h3>
+            <div className="text-sm text-blue-700 space-y-1">
+              <p>• Hold phone steady and keep QR code well-lit</p>
+              <p>• Ensure QR code fills 60-80% of camera frame</p>
+              <p>• Use back camera for better focus</p>
+              <p>• Screen will stay awake during scanning</p>
+              {useExternalAPI && <p>• Use "Scan with API" if auto-scan fails</p>}
+            </div>
           </div>
-          <div className="text-right">
-            {!cameraSupported && (
-              <span className="text-xs text-red-600 block">Camera not supported</span>
-            )}
-            <div className="flex flex-col items-end">
-              {scanCount > 0 && (
-                <span className="text-xs text-green-600">Scans: {scanCount}</span>
-              )}
-              {scanning && (
-                <span className={`text-xs ${
-                  scanStatus === 'scanning' ? 'text-blue-600' :
-                  scanStatus === 'detected' ? 'text-green-600' : 'text-gray-600'
+        )}
+
+        {/* Camera Status and Controls */}
+        <div className={`mb-4 p-4 bg-gray-50 rounded-lg ${isMobileDevice ? 'text-center' : ''}`}>
+          <div className={`mb-2 ${isMobileDevice ? 'space-y-2' : 'flex items-center justify-between'}`}>
+            <div className={`flex items-center ${isMobileDevice ? 'justify-center' : ''} space-x-2`}>
+              <span className="text-sm font-medium text-gray-700">Camera Status:</span>
+              <span className={`text-sm font-medium ${
+                scanning ? 'text-green-600' : 'text-gray-500'
+              }`}>
+                {scanning ? '🟢 Active' : '⚫ Inactive'}
+              </span>
+              {virtualCameraDetected && (
+                <span className={`text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded ${
+                  isMobileDevice ? 'block mt-1' : ''
                 }`}>
-                  {scanStatus === 'scanning' ? '🔍 Scanning...' :
-                   scanStatus === 'detected' ? '✅ Detected!' : '⏸️ Idle'}
+                  📹 Virtual Camera Detected
                 </span>
               )}
             </div>
+            
+            {/* External API Toggle */}
+            <div className={`flex items-center space-x-2 ${isMobileDevice ? 'justify-center mt-2' : ''}`}>
+              <label className="text-sm text-gray-600 flex items-center">
+                <input
+                  type="checkbox"
+                  checked={useExternalAPI}
+                  onChange={(e) => setUseExternalAPI(e.target.checked)}
+                  className="mr-2"
+                />
+                <span className={isMobileDevice ? 'font-medium' : ''}>Use External API</span>
+              </label>
+            </div>
+          </div>
+          
+          {scanning && (
+            <div className={`flex items-center space-x-2 text-sm text-gray-600 ${
+              isMobileDevice ? 'justify-center' : ''
+            }`}>
+              <span>Scanning...</span>
+              {scanStatus === 'scanning' && <span className="text-blue-600">🔍 Scanning...</span>}
+              {scanStatus === 'detected' && <span className="text-green-600">✅ Detected!</span>}
+              {apiScanLoading && <span className="text-purple-600">🌐 API processing...</span>}
+            </div>
+          )}
+        </div>
+
+      {/* Camera Controls */}
+      <div className={`mb-4 ${isMobileDevice ? 'space-y-2' : 'flex flex-wrap gap-2'}`}>
+        {!scanning ? (
+          <button
+            onClick={handleStartCamera}
+            disabled={!cameraSupported}
+            className={`bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white rounded-lg flex items-center justify-center space-x-2 ${
+              isMobileDevice ? 'w-full py-3 text-lg' : 'px-4 py-2'
+            }`}
+          >
+            <span>📷</span>
+            <span>Start Camera</span>
+          </button>
+        ) : (
+          <>
+            <button
+              onClick={handleStopCamera}
+              className={`bg-red-500 hover:bg-red-600 text-white rounded-lg flex items-center justify-center space-x-2 ${
+                isMobileDevice ? 'w-full py-3 text-lg' : 'px-4 py-2'
+              }`}
+            >
+              <span>⏹️</span>
+              <span>Stop Camera</span>
+            </button>
+            
+            {/* External API Scan Button */}
+            {useExternalAPI && (
+              <button
+                onClick={captureAndScanWithAPI}
+                disabled={apiScanLoading}
+                className={`bg-purple-500 hover:bg-purple-600 disabled:bg-gray-400 text-white rounded-lg flex items-center justify-center space-x-2 ${
+                  isMobileDevice ? 'w-full py-3 text-lg' : 'px-4 py-2'
+                }`}
+              >
+                <span>🌐</span>
+                <span>{apiScanLoading ? 'Scanning...' : 'Scan with API'}</span>
+              </button>
+            )}
+          </>
+        )}
+        
+        <div className={`${isMobileDevice ? 'grid grid-cols-2 gap-2' : 'flex gap-2'}`}>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className={`bg-green-500 hover:bg-green-600 text-white rounded-lg flex items-center justify-center space-x-2 ${
+              isMobileDevice ? 'py-3' : 'px-4 py-2'
+            }`}
+          >
+            <span>📁</span>
+            <span>{isMobileDevice ? 'Upload' : 'Upload Image'}</span>
+          </button>
+          
+          <button
+            onClick={handleManualInput}
+            className={`bg-gray-500 hover:bg-gray-600 text-white rounded-lg flex items-center justify-center space-x-2 ${
+              isMobileDevice ? 'py-3' : 'px-4 py-2'
+            }`}
+          >
+            <span>⌨️</span>
+            <span>{isMobileDevice ? 'Manual' : 'Manual Input'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Camera Selection */}
+      {showCameraSelection && availableCameras.length > 1 && (
+        <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Select Camera:
+          </label>
+          <select
+            value={selectedCameraId}
+            onChange={(e) => setSelectedCameraId(e.target.value)}
+            className="w-full p-2 border border-gray-300 rounded-md text-sm"
+          >
+            <option value="">Auto-select camera</option>
+            {availableCameras.map((camera) => (
+              <option key={camera.deviceId} value={camera.deviceId}>
+                {camera.label || `Camera ${camera.deviceId.substring(0, 8)}...`}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Video Display */}
+      <div className="relative mb-4">
+        <video
+          ref={videoRef}
+          className={`w-full ${isMobileDevice ? 'h-auto aspect-square max-w-full' : 'max-w-md'} mx-auto border-4 rounded-lg ${
+            scanStatus === 'detected' ? 'border-green-500 bg-green-50' : 
+            scanStatus === 'scanning' ? 'border-blue-500' : 'border-gray-300'
+          }`}
+          style={{ display: scanning ? 'block' : 'none' }}
+          playsInline
+          muted
+          autoPlay
+        />
+        
+        {/* Mobile scan guidance overlay */}
+        {scanning && isMobileDevice && (
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="w-full h-full flex items-center justify-center">
+              <div className="border-2 border-white opacity-50 rounded-lg animate-pulse"
+                   style={{ 
+                     width: '70%', 
+                     height: '70%',
+                     boxShadow: '0 0 0 9999px rgba(0,0,0,0.3)'
+                   }}>
+              </div>
+            </div>
+            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-70 text-white px-3 py-1 rounded text-sm">
+              📱 Position QR code in the frame
+            </div>
+          </div>
+        )}
+        
+        {/* Hidden canvas for frame capture */}
+        <canvas
+          ref={canvasRef}
+          style={{ display: 'none' }}
+        />
+        
+        {!scanning && (
+          <div className={`w-full ${isMobileDevice ? 'aspect-square max-w-full' : 'max-w-md h-64'} mx-auto border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50`}>
+            <div className="text-center text-gray-500">
+              <div className={`mb-2 ${isMobileDevice ? 'text-6xl' : 'text-4xl'}`}>📷</div>
+              <div className={isMobileDevice ? 'text-lg font-medium' : ''}>Camera not active</div>
+              <div className={`${isMobileDevice ? 'text-sm mt-2' : 'text-sm'}`}>
+                {isMobileDevice ? 'Tap "Start Camera" to begin' : 'Click "Start Camera" to begin scanning'}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Virtual Camera Instructions */}
+      {virtualCameraDetected && (
+        <div className="mb-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+          <h3 className="font-medium text-purple-800 mb-2">📹 Virtual Camera Detected (DroidCam/OBS)</h3>
+          <div className="text-sm text-purple-700 space-y-1">
+            <p>• Using optimized settings for virtual cameras</p>
+            <p>• Slower scan rate to prevent freezing</p>
+            <p>• Longer cooldown between scans</p>
+            <p>• Try the "Scan with API" button if regular scanning fails</p>
+            <p>• Consider using "Upload Image" or "Manual Input" as alternatives</p>
+          </div>
+          {scanning && (
+            <button
+              onClick={forceRefreshScanner}
+              className="mt-2 bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded text-sm"
+            >
+              🔄 Force Refresh
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Scan Information */}
+      <div className={`mb-4 ${isMobileDevice ? 'space-y-3' : 'grid grid-cols-1 md:grid-cols-3 gap-4'}`}>
+        <div className={`bg-gray-50 rounded-lg ${isMobileDevice ? 'p-4 flex justify-between items-center' : 'p-3'}`}>
+          <div className="text-sm text-gray-600">Scans Count</div>
+          <div className={`font-bold text-gray-800 ${isMobileDevice ? 'text-2xl' : 'text-xl'}`}>{scanCount}</div>
+        </div>
+        
+        <div className={`bg-gray-50 rounded-lg ${isMobileDevice ? 'p-4' : 'p-3'}`}>
+          <div className="text-sm text-gray-600 mb-1">Last Scanned</div>
+          <div className={`font-mono text-gray-800 break-all ${isMobileDevice ? 'text-base' : 'text-sm'}`}>
+            {lastScannedCode ? (
+              lastScannedCode.length > (isMobileDevice ? 30 : 20)
+                ? `${lastScannedCode.substring(0, isMobileDevice ? 30 : 20)}...` 
+                : lastScannedCode
+            ) : 'None'}
+          </div>
+        </div>
+        
+        <div className={`bg-gray-50 rounded-lg ${isMobileDevice ? 'p-4 flex justify-between items-center' : 'p-3'}`}>
+          <div className="text-sm text-gray-600">Status</div>
+          <div className={`font-medium ${isMobileDevice ? 'text-base' : 'text-sm'}`}>
+            {scanStatus === 'idle' && '⏸️ Idle'}
+            {scanStatus === 'scanning' && '🔍 Scanning...'}
+            {scanStatus === 'detected' && '✅ Detected!'}
+            {apiScanLoading && (isMobileDevice ? '🌐 API...' : ' + 🌐 API Processing')}
           </div>
         </div>
       </div>
 
       {/* Error Display */}
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-sm text-red-700">{error}</p>
-        </div>
-      )}
-
-      {/* Last Scanned Code Display */}
-      {lastScannedCode && (
-        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-          <p className="text-sm text-green-700">
-            <strong>Last scanned:</strong> {lastScannedCode.substring(0, 50)}
-            {lastScannedCode.length > 50 ? '...' : ''}
-          </p>
-        </div>
-      )}
-
-      {/* Camera View */}
-      <div className="relative bg-black rounded-lg overflow-hidden">
-        <video
-          ref={videoRef}
-          className="w-full h-64 object-cover"
-          playsInline
-          muted
-          autoPlay
-          style={{ display: scanning ? 'block' : 'none' }}
-        />
-        <canvas
-          ref={canvasRef}
-          className="hidden"
-        />
-        
-        {/* Placeholder when camera is not active */}
-        {!scanning && (
-          <div className="w-full h-64 flex items-center justify-center bg-gray-800 text-white">
-            <div className="text-center">
-              <div className="text-4xl mb-2">📷</div>
-              <p className="text-sm">
-                {!cameraSupported ? 'Camera not supported' :
-                 cameraPermission === 'denied' ? 'Camera access denied' :
-                 !userInitiated ? 'Click "Start Camera" to begin' :
-                 isStartingRef.current ? 'Starting camera...' : 'Camera ready'}
-              </p>
-              {!userInitiated && cameraSupported && (
-                <p className="text-xs text-gray-400 mt-2">Camera view with automatic QR detection</p>
-              )}
-            </div>
-          </div>
-        )}
-        
-        {/* Visual guide overlay */}
-        {scanning && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className={`w-48 h-48 border-2 rounded-lg relative transition-colors ${
-              scanStatus === 'detected' ? 'border-green-400 bg-green-400 bg-opacity-20' :
-              scanStatus === 'scanning' ? 'border-blue-500' : 'border-green-500'
-            }`}>
-              <div className={`absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 ${
-                scanStatus === 'detected' ? 'border-green-400' : 'border-green-500'
-              }`}></div>
-              <div className={`absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 ${
-                scanStatus === 'detected' ? 'border-green-400' : 'border-green-500'
-              }`}></div>
-              <div className={`absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 ${
-                scanStatus === 'detected' ? 'border-green-400' : 'border-green-500'
-              }`}></div>
-              <div className={`absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 ${
-                scanStatus === 'detected' ? 'border-green-400' : 'border-green-500'
-              }`}></div>
-            </div>
-          </div>
-        )}
-        
-        {/* Status text overlay */}
-        {scanning && (
-          <div className="absolute bottom-2 left-2 right-2 text-center">
-            <p className="text-white text-sm bg-black bg-opacity-50 rounded px-2 py-1">
-              {scanStatus === 'detected' ? '✅ QR Code Detected!' :
-               scanStatus === 'scanning' ? '🔍 Looking for QR codes...' :
-               'Position QR code in frame for automatic detection'}
-            </p>
-          </div>
-        )}
-      </div>
-      
-      {/* Controls */}
-      <div className="mt-4 space-y-3">
-        {/* Virtual camera detection */}
-        {virtualCameraDetected && (
-          <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
-            <h4 className="text-sm font-medium text-purple-800 mb-2">📱 Virtual Camera Detected (DroidCam/OBS)</h4>
-            <div className="text-xs text-purple-700 space-y-1">
-              <p>• Using optimized settings for virtual cameras</p>
-              <p>• Slower scan rate to prevent freezing</p>
-              <p>• Longer cooldown between scans</p>
-              {scanStatus === 'detected' && (
-                <button
-                  onClick={() => {
-                    setScanStatus('scanning')
-                    setLastScannedCode(null)
-                    lastScanTimeRef.current = 0
-                  }}
-                  className="mt-2 px-3 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700"
-                >
-                  🔄 Reset Scanner (if stuck)
-                </button>
-              )}
-              <button
-                onClick={forceRefreshScanner}
-                className="mt-2 ml-2 px-3 py-1 bg-orange-600 text-white rounded text-xs hover:bg-orange-700"
-              >
-                🔄 Force Refresh
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Manual virtual camera toggle for testing */}
-        {!virtualCameraDetected && (
-          <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-            <h4 className="text-sm font-medium text-gray-800 mb-2">🔧 Debug Options</h4>
-            <button
-              onClick={() => {
-                setVirtualCameraDetected(true)
-                console.log('🎥 Manually enabled virtual camera mode for testing')
-                if (scanning) {
-                  forceRefreshScanner()
-                }
-              }}
-              className="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
-            >
-              🎥 Enable Virtual Camera Mode (for DroidCam)
-            </button>
-          </div>
-        )}
-
-        {/* Camera Selection */}
-        {showCameraSelection && availableCameras.length > 1 && !scanning && (
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <h4 className="text-sm font-medium text-blue-800 mb-2">📱 Select Camera</h4>
-            <div className="space-y-2">
-              {availableCameras.map((camera) => {
-                const isVirtual = ['droidcam', 'obs', 'virtual', 'webcam', 'manycam', 'splitcam'].some(name => 
-                  camera.label.toLowerCase().includes(name)
-                )
-                const isDroidCam = camera.label.toLowerCase().includes('droidcam')
-                const isNative = !isVirtual
-                
-                return (
-                  <button
-                    key={camera.deviceId}
-                    onClick={() => {
-                      setSelectedCameraId(camera.deviceId)
-                      console.log('Selected camera:', camera.label, camera.deviceId)
-                    }}
-                    className={`w-full text-left p-2 rounded border text-sm ${
-                      selectedCameraId === camera.deviceId
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="font-medium">
-                          {isDroidCam ? '📱 DroidCam' : isVirtual ? '🎥 Virtual' : '📷 Native'}: {camera.label || 'Unknown Camera'}
-                        </span>
-                        {isDroidCam && (
-                          <div className="text-xs opacity-75 mt-1">
-                            Uses your phone's camera via DroidCam app
-                          </div>
-                        )}
-                        {isNative && (
-                          <div className="text-xs opacity-75 mt-1">
-                            Built-in device camera
-                          </div>
-                        )}
-                      </div>
-                      {selectedCameraId === camera.deviceId && (
-                        <span className="text-white">✓</span>
-                      )}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Primary controls */}
-        <div className="flex gap-2 justify-center">
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="text-red-800 whitespace-pre-line">{error}</div>
           <button
-            onClick={scanning ? handleStopCamera : handleStartCamera}
-            disabled={!cameraSupported || isStartingRef.current}
-            className={`px-4 py-2 rounded-lg font-medium ${
-              !cameraSupported ? 'bg-gray-400 text-gray-600 cursor-not-allowed' :
-              isStartingRef.current ? 'bg-yellow-600 text-white cursor-not-allowed' :
-              scanning 
-                ? 'bg-red-600 text-white hover:bg-red-700' 
-                : 'bg-green-600 text-white hover:bg-green-700'
-            }`}
+            onClick={() => setError(null)}
+            className="mt-2 text-red-600 hover:text-red-800 text-sm underline"
           >
-            {!cameraSupported ? 'Camera Not Supported' :
-             isStartingRef.current ? 'Starting...' :
-             scanning ? 'Stop Camera' : 'Start Camera'}
+            Dismiss
           </button>
-          
-          {!scanning && availableCameras.length > 1 && (
-            <button
-              onClick={() => setShowCameraSelection(!showCameraSelection)}
-              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm"
-            >
-              📷 {showCameraSelection ? 'Hide' : 'Select'} Camera
-            </button>
-          )}
         </div>
+      )}
 
-        {/* Input methods */}
-        <div className="border-t pt-3">
-          <p className="text-sm text-gray-600 mb-2 text-center">Alternative input methods:</p>
-          <div className="flex gap-2 justify-center flex-wrap">
-            <button
-              onClick={handleManualInput}
-              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm"
-            >
-              📝 Manual Input
-            </button>
-            
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium text-sm"
-            >
-              📁 Upload QR Image
-            </button>
-          </div>
+      {/* Success Message */}
+      {success && (
+        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+          <div className="text-green-800">{success}</div>
+          <button
+            onClick={() => setSuccess(null)}
+            className="mt-2 text-green-600 hover:text-green-800 text-sm underline"
+          >
+            Dismiss
+          </button>
         </div>
-        
-        {/* Hidden file input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleFileUpload}
-          className="hidden"
-        />
-        
-        {/* Camera troubleshooting */}
-        {cameraPermission === 'denied' && (
-          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <h4 className="text-sm font-medium text-yellow-800 mb-2">Camera Access Help:</h4>
-            <ul className="text-xs text-yellow-700 space-y-1">
-              <li>• Look for a camera icon in your browser's address bar</li>
-              <li>• Click it and select "Always allow" for camera access</li>
-              <li>• Refresh the page and try again</li>
-              <li>• On mobile: Check Settings → Safari/Chrome → Camera permissions</li>
-              <li>• Make sure you're using HTTPS (not HTTP)</li>
-            </ul>
-          </div>
-        )}
-        
-        {!cameraSupported && (
-          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <h4 className="text-sm font-medium text-red-800 mb-2">Camera Not Supported:</h4>
-            <ul className="text-xs text-red-700 space-y-1">
-              <li>• Try using Chrome, Firefox, Safari, or Edge</li>
-              <li>• Make sure you're on a secure connection (HTTPS)</li>
-              <li>• Use the "Manual Input" option for participant IDs</li>
-            </ul>
-          </div>
-        )}
-        
-        {/* Notice about automatic scanning */}
-        <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-          <h4 className="text-sm font-medium text-green-800 mb-2">🎯 Automatic QR Detection:</h4>
-          <ul className="text-xs text-green-700 space-y-1">
-            <li>• <strong>Live scanning:</strong> Automatically detects QR codes in camera view</li>
-            <li>• <strong>Real-time feedback:</strong> Green frame indicates successful detection</li>
-            <li>• <strong>Smart filtering:</strong> Prevents duplicate scans with 2-second cooldown</li>
-            <li>• <strong>Multiple formats:</strong> Supports participant IDs, URLs, and encoded data</li>
-          </ul>
-        </div>
-        
-        {/* Usage instructions */}
-        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <h4 className="text-sm font-medium text-blue-800 mb-2">📱 How to scan:</h4>
-          <ul className="text-xs text-blue-700 space-y-1">
-            <li>• <strong>Step 1:</strong> Click "Start Camera" to begin</li>
-            <li>• <strong>Step 2:</strong> Point camera at QR code</li>
-            <li>• <strong>Step 3:</strong> Keep QR code in the green frame</li>
-            <li>• <strong>Step 4:</strong> Wait for automatic detection (usually 1-2 seconds)</li>
-            <li>• <strong>Backup:</strong> Use manual input if automatic detection fails</li>
-          </ul>
-        </div>
+      )}
 
-        {/* Low-quality camera tips */}
-        <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-          <h4 className="text-sm font-medium text-orange-800 mb-2">💡 Tips for Low-Quality Cameras:</h4>
-          <ul className="text-xs text-orange-700 space-y-1">
-            <li>• <strong>Distance:</strong> Hold QR code 6-12 inches from camera</li>
-            <li>• <strong>Lighting:</strong> Use bright, even lighting (avoid shadows)</li>
-            <li>• <strong>Stability:</strong> Hold both device and QR code steady</li>
-            <li>• <strong>Size:</strong> QR code should fill about 60% of the green frame</li>
-            <li>• <strong>Focus:</strong> Wait 2-3 seconds for camera to auto-focus</li>
-            <li>• <strong>Angle:</strong> Keep QR code flat and perpendicular to camera</li>
-            <li>• <strong>Clean lens:</strong> Wipe camera lens with soft cloth</li>
-            <li>• <strong>Alternative:</strong> Use "Upload QR Image" for better quality photos</li>
-            {virtualCameraDetected && (
-              <>
-                <li>• <strong>DroidCam/Virtual:</strong> Ensure good phone camera focus</li>
-                <li>• <strong>Connection:</strong> Check WiFi/USB connection stability</li>
-                <li>• <strong>Phone position:</strong> Keep phone steady and well-lit</li>
-                <li>• <strong>Reset:</strong> Use reset button if scanner gets stuck green</li>
-              </>
-            )}
-          </ul>
+      {/* Camera Permission Status */}
+      {cameraPermission === 'denied' && (
+        <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="text-yellow-800">
+            <strong>Camera Permission Denied</strong><br />
+            Please allow camera access in your browser settings and refresh the page.
+          </div>
+        </div>
+      )}
+
+      {!cameraSupported && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="text-red-800">
+            <strong>Camera Not Supported</strong><br />
+            Your device doesn't support camera access. Please use the file upload or manual input options.
+          </div>
+        </div>
+      )}
+
+      {/* Alternative Methods */}
+      <div className="border-t pt-4">
+        <h3 className="font-medium text-gray-700 mb-2">Alternative Methods</h3>
+        <div className="text-sm text-gray-600 space-y-1">
+          <p>• <strong>Upload Image:</strong> Take a photo of the QR code and upload it</p>
+          <p>• <strong>Manual Input:</strong> Type the participant ID directly (e.g., EX-01)</p>
+          {useExternalAPI && <p>• <strong>External API:</strong> Uses cloud-based QR detection for better accuracy</p>}
         </div>
       </div>
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileUpload}
+        className="hidden"
+      />
     </div>
   )
 } 
