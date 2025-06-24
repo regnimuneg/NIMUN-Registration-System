@@ -1,6 +1,7 @@
 import { Participant, BulkImportData, CommitteeType } from '@/types/participant';
 import { generateParticipantId, initializeCountersFromExisting } from './idGenerator';
 import { generateQRCodeUrl } from './qrHelper';
+import { mapRouteNameToId, getBusRouteById } from './busRoutes';
 
 export interface ImportResult {
   success: boolean;
@@ -26,6 +27,8 @@ export function parseCSVData(csvText: string): BulkImportData[] {
   const genderIndex = headers.findIndex(h => h.includes('gender'));
   const phoneIndex = headers.findIndex(h => h.includes('phone'));
   const committeeIndex = headers.findIndex(h => h.includes('committee'));
+  const lineIndex = headers.findIndex(h => h.includes('line') || h.includes('route'));
+  const stopIndex = headers.findIndex(h => h.includes('stop'));
   
   if (nameIndex === -1 || genderIndex === -1 || phoneIndex === -1 || committeeIndex === -1) {
     throw new Error('Required columns not found. CSV must contain: Full Name, Gender, Phone Number, Committee');
@@ -45,6 +48,8 @@ export function parseCSVData(csvText: string): BulkImportData[] {
     const gender = values[genderIndex]?.replace(/['"]/g, '') as 'Male' | 'Female';
     const phoneNumber = values[phoneIndex]?.replace(/['"]/g, '') || '';
     const committee = values[committeeIndex]?.replace(/['"]/g, '') || '';
+    const line = lineIndex !== -1 ? values[lineIndex]?.replace(/['"]/g, '') || '' : '';
+    const stop = stopIndex !== -1 ? values[stopIndex]?.replace(/['"]/g, '') || '' : '';
     
     if (fullName && gender && phoneNumber && committee) {
       data.push({
@@ -52,11 +57,69 @@ export function parseCSVData(csvText: string): BulkImportData[] {
         gender,
         phoneNumber,
         committee,
+        line: line || undefined,
+        stop: stop || undefined,
       });
     }
   }
   
   return data;
+}
+
+// Helper function to normalize stop names for flexible matching
+function normalizeStopName(stopName: string): string {
+  return stopName
+    .toLowerCase()
+    .trim()
+    .replace(/[.\-،]/g, '') // Remove dots, dashes, Arabic commas
+    .replace(/\s+/g, ' ')   // Normalize spaces
+    .replace(/\(.*?\)/g, '') // Remove content in parentheses
+    .replace(/\b(gate|mosque|mall|hotel|club)\b/g, '') // Remove common words
+    .replace(/\b\d+[a-z]?\b/g, '') // Remove standalone numbers like "5A"
+    // Handle specific transliterations
+    .replace(/koshary|kushary|koshari/g, 'كشري')
+    .replace(/el aarees|al aarees|aarees/g, 'العريس')
+    .replace(/khofo|khufu|خوفو/g, 'خوفو')
+    .replace(/hosary|husary|حصري/g, 'حصري')
+    .trim();
+}
+
+// Additional function for more flexible matching
+function isStopMatch(inputStop: string, routeStop: string): boolean {
+  const normalizedInput = normalizeStopName(inputStop);
+  const normalizedRoute = normalizeStopName(routeStop);
+  
+  // Direct matches
+  if (normalizedInput === normalizedRoute) return true;
+  if (normalizedInput.includes(normalizedRoute) || normalizedRoute.includes(normalizedInput)) return true;
+  
+  // Special case handling
+  const specialMatches = [
+    // Koshary el aarees variations
+    { input: ['koshary el aarees', 'kushary al aarees'], route: 'كشري العريس' },
+    { input: ['khofo gate 1', 'khufu gate 1', 'khofo gate'], route: 'خوفو' },
+    { input: ['hosary mosque', 'al hosary mosque'], route: 'حصري' }
+  ];
+  
+  for (const match of specialMatches) {
+    const inputMatches = match.input.some(variant => 
+      normalizedInput.includes(normalizeStopName(variant)) || 
+      normalizeStopName(variant).includes(normalizedInput)
+    );
+    const routeMatches = normalizedRoute.includes(match.route) || match.route.includes(normalizedRoute);
+    
+    if (inputMatches && routeMatches) return true;
+  }
+  
+  // Word-based matching (at least 1 significant word for short inputs, 2 for longer)
+  const inputWords = normalizedInput.split(' ').filter(w => w.length > 2);
+  const routeWords = normalizedRoute.split(' ').filter(w => w.length > 2);
+  const matchingWords = inputWords.filter(word => 
+    routeWords.some(routeWord => routeWord.includes(word) || word.includes(routeWord))
+  );
+  
+  const requiredMatches = inputWords.length <= 2 ? 1 : 2;
+  return matchingWords.length >= requiredMatches;
 }
 
 export function mapCommitteeToStandardName(committee: string): CommitteeType | null {
@@ -84,6 +147,8 @@ export function mapCommitteeToStandardName(committee: string): CommitteeType | n
     'press': 'Press Delegates',
     'un women delegates': 'UN Women Delegates',
     'un women': 'UN Women Delegates',
+    'unwomen': 'UN Women Delegates',
+    'unwomen delegates': 'UN Women Delegates',
     'unodc delegates': 'UNODC Delegates',
     'unodc': 'UNODC Delegates',
   };
@@ -138,16 +203,52 @@ export async function processBulkImport(
       }
       
       // Check for duplicate phone numbers in existing data
-      const phoneExists = existingParticipants.some(p => p.phoneNumber === row.phoneNumber) ||
-                         result.participants.some(p => p.phoneNumber === row.phoneNumber);
+      // Allow specific phone numbers to appear multiple times
+      const allowedDuplicatePhones = ['01147280844'];
+      const phoneExists = !allowedDuplicatePhones.includes(row.phoneNumber) && (
+        existingParticipants.some(p => p.phoneNumber === row.phoneNumber) ||
+        result.participants.some(p => p.phoneNumber === row.phoneNumber)
+      );
       if (phoneExists) {
         result.errors.push(`Row ${i + 2}: Phone number '${row.phoneNumber}' already exists`);
         result.summary.failed++;
         continue;
       }
       
-      // Generate ID and QR code
-      const participantId = generateParticipantId(standardCommittee);
+      // Validate and process bus information
+      let busRoute: string | undefined;
+      let busStop: string | undefined;
+      
+      if (row.line) {
+        const routeId = mapRouteNameToId(row.line);
+        if (!routeId) {
+          result.errors.push(`Row ${i + 2}: Unknown bus route '${row.line}'. Valid routes: 6th of October, 5th Settlement, Sheikh Zayed, Feisal, Maadi`);
+          result.summary.failed++;
+          continue;
+        }
+        
+        busRoute = routeId;
+        
+        // Validate bus stop if provided
+        if (row.stop) {
+          const route = getBusRouteById(routeId);
+          if (route) {
+            // Normalize the input stop name for comparison
+            const normalizedInputStop = normalizeStopName(row.stop);
+            const matchingStop = route.stops.find(stop => isStopMatch(row.stop!, stop));
+            
+            if (!matchingStop) {
+              result.errors.push(`Row ${i + 2}: Bus stop '${row.stop}' not found in route '${row.line}'. Valid stops: ${route.stops.join(', ')}`);
+              result.summary.failed++;
+              continue;
+            }
+            busStop = matchingStop; // Use the actual stop name from the system
+          }
+        }
+      }
+      
+      // Generate ID and QR code (pass name for reserved ID check)
+      const participantId = generateParticipantId(standardCommittee, row.fullName);
       const qrData = generateQRCodeUrl(participantId);
       
       const participant: Participant = {
@@ -157,6 +258,8 @@ export async function processBulkImport(
         position: standardCommittee,
         gender: row.gender,
         qrUrl: qrData,
+        busRoute,
+        busStop,
       };
       
       result.participants.push(participant);

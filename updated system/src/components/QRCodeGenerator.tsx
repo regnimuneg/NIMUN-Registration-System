@@ -89,7 +89,7 @@ export default function QRCodeGenerator({
               margin: 2,
               errorCorrectionLevel: 'H',
               color: {
-                dark: '#0031a7',    // Black QR code
+                dark: '#0033AE',    // Black QR code
                 light: '#00000000'  // Transparent background (RGBA with alpha=0)
               }
             })
@@ -97,7 +97,7 @@ export default function QRCodeGenerator({
             // Convert to blob and download
             canvas.toBlob((blob) => {
               if (blob) {
-                const filename = `qr_${participantId}_transparent_client.png`
+                const filename = `qr-${participantId}.png`
                 const url = URLConstructor.createObjectURL(blob)
                 const link = document.createElement('a')
                 link.download = filename
@@ -119,7 +119,7 @@ export default function QRCodeGenerator({
           const blob = await generateWhiteBackgroundQR(participantId, size, 'png')
           
           if (blob) {
-            const filename = `qr_${participantId}_white_api.png`
+            const filename = `qr-${participantId}.png`
             const url = URLConstructor.createObjectURL(blob)
             const link = document.createElement('a')
             link.download = filename
@@ -171,9 +171,11 @@ export default function QRCodeGenerator({
         // Download as PNG
         canvas.toBlob((blob) => {
           if (blob) {
+            const filename = `qr-${participantId}.png`
+            const url = URLConstructor.createObjectURL(blob)
             const link = document.createElement('a')
-            link.download = `qr_${participantId}_${backgroundType}_fallback.png`
-            link.href = URLConstructor.createObjectURL(blob)
+            link.download = filename
+            link.href = url
             document.body.appendChild(link)
             link.click()
             document.body.removeChild(link)
@@ -369,7 +371,7 @@ export const downloadAllQRCodes = async (
             margin: 2,
             errorCorrectionLevel: 'H',
             color: {
-              dark: '#000000',    // Black QR code
+              dark: '#0033AE',    // Black QR code
               light: '#00000000'  // Transparent background (RGBA with alpha=0)
             }
           })
@@ -380,7 +382,7 @@ export const downloadAllQRCodes = async (
           const arrayBuffer = await blob.arrayBuffer()
           
           // Add to zip with participant info in filename
-          const filename = `${participant.id}_${participant.name.replace(/[^a-zA-Z0-9]/g, '_')}_transparent.png`
+          const filename = `qr-${participant.id}.png`
           qrFolder.file(filename, arrayBuffer)
           
         } else {
@@ -401,7 +403,7 @@ export const downloadAllQRCodes = async (
           const arrayBuffer = await blob.arrayBuffer()
           
           // Add to zip
-          const filename = `${participant.id}_${participant.name.replace(/[^a-zA-Z0-9]/g, '_')}_white.png`
+          const filename = `qr-${participant.id}.png`
           qrFolder.file(filename, arrayBuffer)
         }
         

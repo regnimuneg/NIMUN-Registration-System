@@ -211,7 +211,7 @@ export default function QRUploadDebugPage() {
         // Download the white QR code
         const url = URL.createObjectURL(whiteBlob)
         const link = document.createElement('a')
-        link.download = 'qr-white-test.png'
+        link.download = 'qr-TEST-WHITE-123.png'
         link.href = url
         document.body.appendChild(link)
         link.click()
@@ -231,7 +231,7 @@ export default function QRUploadDebugPage() {
         // Download the transparent QR code
         const url = URL.createObjectURL(transparentBlob)
         const link = document.createElement('a')
-        link.download = 'qr-transparent-test.png'
+        link.download = 'qr-TEST-TRANSPARENT-123.png'
         link.href = url
         document.body.appendChild(link)
         link.click()

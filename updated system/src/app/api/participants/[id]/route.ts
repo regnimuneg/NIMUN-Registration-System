@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAllParticipants, deleteParticipant } from '@/lib/googleSheets'
+import { markIdAsDeleted } from '@/lib/idGenerator'
 
 export async function GET(
   request: NextRequest,
@@ -51,12 +52,15 @@ export async function DELETE(
       )
     }
 
+    // Mark the ID as deleted to prevent reuse
+    markIdAsDeleted(participantId)
+    
     // Delete the participant
     await deleteParticipant(participantId)
 
     return NextResponse.json({
       success: true,
-      message: `Participant ${participantId} deleted successfully`
+      message: `Participant ${participantId} deleted successfully (ID will not be reused)`
     })
     
   } catch (error) {

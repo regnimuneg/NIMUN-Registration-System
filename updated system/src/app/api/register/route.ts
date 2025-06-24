@@ -8,7 +8,7 @@ import { Participant, CommitteeType } from '@/types/participant'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, phoneNumber, position, gender } = body
+    const { name, phoneNumber, position, gender, busRoute, busStop } = body
     
     // Validate required fields
     if (!name || !phoneNumber || !position || !gender) {
@@ -34,8 +34,8 @@ export async function POST(request: NextRequest) {
     const existingIds = existingParticipants.map(p => p.id)
     initializeCountersFromExisting(existingIds)
     
-    // Generate ID and QR code
-    const participantId = generateParticipantId(position as CommitteeType)
+    // Generate ID and QR code (pass name for reserved ID check)
+    const participantId = generateParticipantId(position as CommitteeType, name)
     const qrData = generateQRCodeUrl(participantId)
     
     const participant: Participant = {
@@ -44,7 +44,9 @@ export async function POST(request: NextRequest) {
       phoneNumber,
       position: position as CommitteeType,
       gender,
-      qrUrl: qrData
+      qrUrl: qrData,
+      busRoute: busRoute || undefined,
+      busStop: busStop || undefined
     }
     
     // Save to Google Sheets

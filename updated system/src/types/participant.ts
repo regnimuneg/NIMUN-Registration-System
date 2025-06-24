@@ -5,6 +5,8 @@ export interface Participant {
   position: string;
   gender: 'Male' | 'Female';
   qrUrl?: string;
+  busRoute?: string; // Bus route ID (route-1, route-2, etc.)
+  busStop?: string;  // Specific bus stop name
   
   // Attendance tracking
   attendance?: {
@@ -140,6 +142,8 @@ export interface BulkImportData {
   gender: 'Male' | 'Female';
   phoneNumber: string;
   committee: string;
+  line?: string;  // Bus route/line
+  stop?: string;  // Bus stop
 }
 
 export interface IdPrefixConfig {

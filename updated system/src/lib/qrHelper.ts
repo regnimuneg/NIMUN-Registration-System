@@ -160,7 +160,7 @@ export function parseQRData(qrString: string): { id: string; type: string; times
 
 export function downloadQRCode(canvas: HTMLCanvasElement, participantId: string): void {
   const link = document.createElement('a');
-  link.download = `qr_${participantId}.png`;
+  link.download = `qr-${participantId}.png`;
   link.href = canvas.toDataURL('image/png');
   link.click();
 }
@@ -169,7 +169,7 @@ export function downloadQRCode(canvas: HTMLCanvasElement, participantId: string)
 export function downloadQRCodeFromBlob(blob: Blob, participantId: string, format: string = 'png'): void {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
-  link.download = `qr_${participantId}_professional.${format}`;
+  link.download = `qr-${participantId}.${format}`;
   link.href = url;
   document.body.appendChild(link);
   link.click();

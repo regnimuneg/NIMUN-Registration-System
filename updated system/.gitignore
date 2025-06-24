@@ -42,3 +42,4 @@ dist/
 
 # Google Sheets credentials (keep private)
 *-service-account-*.json 
+certificates

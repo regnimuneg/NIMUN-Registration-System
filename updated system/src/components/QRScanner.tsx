@@ -19,6 +19,18 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
   const qrScannerRef = useRef<QrScanner | null>(null)
   const lastScanTimeRef = useRef<number>(0)
   
+  // Mobile device detection (moved to top to fix hoisting issues)
+  const [isMobileDevice, setIsMobileDevice] = useState(false)
+
+  // Client-side mobile detection to avoid SSR mismatch
+  useEffect(() => {
+    const checkMobile = () => {
+      const userAgent = typeof window !== 'undefined' ? navigator.userAgent : ''
+      setIsMobileDevice(/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent))
+    }
+    checkMobile()
+  }, [])
+  
   const [scanning, setScanning] = useState(false)
   const [cameraSupported, setCameraSupported] = useState(true)
   const [cameraPermission, setCameraPermission] = useState<'granted' | 'denied' | 'prompt' | 'unknown'>('unknown')
@@ -112,15 +124,24 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
     setScanStatus('idle')
   }, [])
 
-  // Start QR code scanning
+  // Start QR scanning with enhanced debugging
   const startQRScanning = useCallback(() => {
     if (!videoRef.current) {
+      console.warn('Cannot start QR scanning: Video element not available')
       return
     }
 
     stopQRScanning() // Clear any existing scanning
 
     setScanStatus('scanning')
+    
+    console.log('🔍 Starting QR scanner with enhanced debugging...')
+    console.log('📹 Video element state:', {
+      videoWidth: videoRef.current.videoWidth,
+      videoHeight: videoRef.current.videoHeight,
+      readyState: videoRef.current.readyState,
+      networkState: videoRef.current.networkState
+    })
     
     // Initialize QR Scanner - optimized for mobile and low quality cameras
     qrScannerRef.current = new QrScanner(
@@ -163,6 +184,15 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
           const smallerDimension = Math.min(video.videoWidth, video.videoHeight)
           const scanSizeRatio = isMobileDevice ? 0.8 : 0.6 // Larger scan area on mobile
           const scanSize = Math.round(scanSizeRatio * smallerDimension)
+          
+          console.log('📏 Scan region calculated:', {
+            videoWidth: video.videoWidth,
+            videoHeight: video.videoHeight,
+            scanSize,
+            scanSizeRatio,
+            isMobile: isMobileDevice
+          })
+          
           return {
             x: Math.round((video.videoWidth - scanSize) / 2),
             y: Math.round((video.videoHeight - scanSize) / 2),
@@ -175,17 +205,37 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
 
     console.log(`🚀 QR Scanner initialized with settings:`, {
       virtualCameraDetected,
-      maxScansPerSecond: virtualCameraDetected ? 2 : 5,
+      maxScansPerSecond: virtualCameraDetected ? 2 : (isMobileDevice ? 4 : 5),
       highlightScanRegion: true,
-      highlightCodeOutline: true
+      highlightCodeOutline: true,
+      scanRegionRatio: isMobileDevice ? 0.8 : 0.6
     })
 
-    // Start scanning
-    qrScannerRef.current.start().catch((err) => {
-      console.warn('QR Scanner start error:', err)
+    // Start scanning with error handling
+    qrScannerRef.current.start().then(() => {
+      console.log('✅ QR Scanner started successfully')
+    }).catch((err) => {
+      console.warn('❌ QR Scanner start error:', err)
       setScanStatus('idle')
+      // Suggest using external API when native scanner fails
+      setError('Native QR scanner failed to start. Please use the "🌐 Scan with API" button below.')
     })
-  }, [])
+    
+    // Add periodic debugging
+    const debugInterval = setInterval(() => {
+      if (qrScannerRef.current && scanStatus === 'scanning') {
+        console.log('🔍 Scanner status check:', {
+          scanStatus,
+          scanCount,
+          cameraActive: !!streamRef.current,
+          videoReady: videoRef.current?.readyState === 4
+        })
+      } else {
+        clearInterval(debugInterval)
+      }
+    }, 5000) // Log every 5 seconds
+    
+  }, [virtualCameraDetected, isMobileDevice, scanStatus, scanCount])
 
   // Stable stop camera function
   const stopCamera = useCallback(() => {
@@ -483,25 +533,42 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
     setApiScanLoading(true)
     try {
       console.log('🌐 Attempting external API scan...')
+      console.log('📁 Image blob details:', {
+        size: imageBlob.size,
+        type: imageBlob.type
+      })
       
-      // Try QuickChart QR reader API
+      // Use our internal API route to avoid CORS issues
       const formData = new FormData()
       formData.append('image', imageBlob, 'qr-image.png')
       
-      const response = await fetch('https://quickchart.io/qr/read', {
+      const response = await fetch('/api/qr/external-scan', {
         method: 'POST',
         body: formData
       })
       
+      console.log('📡 API response status:', response.status)
+      
       if (response.ok) {
         const result = await response.json()
-        if (result.text) {
+        console.log('📋 API response:', result)
+        if (result.success && result.text) {
           console.log('✅ External API detected QR:', result.text)
           return result.text
         }
       }
       
-      throw new Error('No QR code detected by external API')
+      const errorData = await response.json().catch(() => ({}))
+      console.log('❌ API error response:', errorData)
+      
+      let errorMessage = errorData.error || 'No QR code detected by external API'
+      
+      // Add helpful suggestions based on the error
+      if (errorMessage.includes('No QR code detected')) {
+        errorMessage += '\n\nTroubleshooting tips:\n• Ensure QR code is clearly visible and well-lit\n• Try moving camera closer or further from QR code\n• Check that QR code is not damaged or partially obscured\n• Try taking a photo and uploading instead'
+      }
+      
+      throw new Error(errorMessage)
       
     } catch (error) {
       console.error('External API scan failed:', error)
@@ -526,16 +593,71 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
       canvas.width = video.videoWidth
       canvas.height = video.videoHeight
       
+      console.log('📷 Capturing frame:', {
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight,
+        canvasWidth: canvas.width,
+        canvasHeight: canvas.height
+      })
+      
       // Capture current frame
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
       
-      // Convert to blob
+      // Debug: Show captured image quality info
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      const totalPixels = imageData.data.length / 4
+      let brightPixels = 0
+      let darkPixels = 0
+      
+      for (let i = 0; i < imageData.data.length; i += 4) {
+        const brightness = (imageData.data[i] + imageData.data[i + 1] + imageData.data[i + 2]) / 3
+        if (brightness > 200) brightPixels++
+        if (brightness < 50) darkPixels++
+      }
+      
+      console.log('🖼️ Image quality analysis:', {
+        totalPixels,
+        brightPixels,
+        darkPixels,
+        brightRatio: (brightPixels / totalPixels * 100).toFixed(1) + '%',
+        darkRatio: (darkPixels / totalPixels * 100).toFixed(1) + '%',
+        contrastRatio: brightPixels > 0 && darkPixels > 0 ? (brightPixels / darkPixels).toFixed(2) : 'N/A'
+      })
+      
+      // Convert to blob with higher quality
       const blob = await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob((blob) => {
-          if (blob) resolve(blob)
-          else reject(new Error('Failed to create blob'))
-        }, 'image/png')
+          if (blob) {
+            console.log('📁 Created blob:', {
+              size: blob.size,
+              type: blob.type,
+              sizeKB: (blob.size / 1024).toFixed(1) + 'KB'
+            })
+            resolve(blob)
+          } else {
+            reject(new Error('Failed to create blob'))
+          }
+        }, 'image/png', 0.95) // High quality PNG
       })
+      
+      // Debug: Create download link for captured image (for testing)
+      if (process.env.NODE_ENV === 'development') {
+        const url = URL.createObjectURL(blob)
+        console.log('🔍 Debug: Download captured image:', url)
+        
+        // Temporarily show download link for debugging
+        const debugLink = document.createElement('a')
+        debugLink.href = url
+        debugLink.download = `qr-capture-${Date.now()}.png`
+        debugLink.textContent = 'Download Captured Image (Debug)'
+        debugLink.style.cssText = 'position:fixed;top:10px;right:10px;z-index:9999;background:red;color:white;padding:5px;'
+        document.body.appendChild(debugLink)
+        
+        setTimeout(() => {
+          document.body.removeChild(debugLink)
+          URL.revokeObjectURL(url)
+        }, 10000) // Remove after 10 seconds
+      }
       
       // Try external API
       const result = await scanWithExternalAPI(blob)
@@ -546,7 +668,15 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
       
     } catch (error) {
       console.error('Capture and scan failed:', error)
-      setError('External API scan failed. Try manual input or file upload.')
+      
+      // Provide specific error messages based on error type
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        setError('🌐 Network error. Check internet connection and try again.')
+      } else if (error instanceof Error && error.message.includes('No QR code detected')) {
+        setError('📷 No QR code detected in camera view. Position QR code clearly in scan area.\n\nTips:\n• Ensure good lighting\n• Hold camera steady\n• Move closer/further for better focus\n• Try uploading a photo instead')
+      } else {
+        setError('❌ External API scan failed. Try manual input or file upload.')
+      }
     }
   }, [scanWithExternalAPI, handleQRDetection])
 
@@ -585,6 +715,11 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
           }
         } catch (apiError) {
           console.log('External API also failed:', apiError)
+          // Check if it's a network error
+          if (apiError instanceof TypeError && apiError.message.includes('fetch')) {
+            setError('🌐 Network error accessing external QR API. Check internet connection.')
+            return
+          }
         }
       }
       
@@ -607,8 +742,6 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
       onScan(participantId.trim().toUpperCase())
     }
   }, [onScan])
-
-
 
   // Force refresh scanner (for virtual cameras)
   const forceRefreshScanner = useCallback(() => {
@@ -685,17 +818,6 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
     }
   }, [success])
 
-  const [isMobileDevice, setIsMobileDevice] = useState(false)
-
-  // Client-side mobile detection to avoid SSR mismatch
-  useEffect(() => {
-    const checkMobile = () => {
-      const userAgent = typeof window !== 'undefined' ? navigator.userAgent : ''
-      setIsMobileDevice(/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent))
-    }
-    checkMobile()
-  }, [])
-
   // Mobile-specific optimizations
   useEffect(() => {
     if (isMobileDevice) {
@@ -737,6 +859,68 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
       }
     }
   }, [scanning, isMobileDevice])
+
+  // Check if we're accessing via network IP (not localhost/HTTPS)
+  const isNetworkAccess = useCallback(() => {
+    if (typeof window === 'undefined') return false
+    const location = window.location
+    const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+    const isHTTPS = location.protocol === 'https:'
+    const isNetworkIP = /^\d+\.\d+\.\d+\.\d+$/.test(location.hostname)
+    
+    return isNetworkIP && !isHTTPS
+  }, [])
+
+  // Get appropriate error message for camera access failures
+  const getCameraErrorMessage = useCallback((error: any) => {
+    const isNetwork = isNetworkAccess()
+    
+    if (isNetwork) {
+      return {
+        title: '🔒 HTTPS Required for Network Access',
+        message: 'Camera access requires HTTPS when using network IP addresses.',
+        solutions: [
+          'Use HTTPS: npm run dev:network, then visit https://192.168.1.4:3000',
+          'Or access via localhost: http://localhost:3000',
+          'Or enable Chrome flag: chrome://flags/#unsafely-treat-insecure-origin-as-secure'
+        ]
+      }
+    }
+    
+    if (error?.name === 'NotAllowedError' || error?.name === 'PermissionDeniedError') {
+      return {
+        title: '📷 Camera Permission Denied',
+        message: 'Please allow camera access to scan QR codes.',
+        solutions: [
+          'Click the camera icon in your browser address bar',
+          'Select "Allow" for camera permissions',
+          'Refresh the page and try again'
+        ]
+      }
+    }
+    
+    if (error?.name === 'NotFoundError' || error?.name === 'DevicesNotFoundError') {
+      return {
+        title: '📷 No Camera Found',
+        message: 'No camera devices were detected on this device.',
+        solutions: [
+          'Check if your camera is properly connected',
+          'Try refreshing the page',
+          'Use file upload as an alternative'
+        ]
+      }
+    }
+    
+    return {
+      title: '❌ Camera Error',
+      message: `Camera initialization failed: ${error?.message || 'Unknown error'}`,
+      solutions: [
+        'Try refreshing the page',
+        'Check browser camera permissions',
+        'Use file upload as an alternative'
+      ]
+    }
+  }, [isNetworkAccess])
 
   return (
     <div className={`bg-white rounded-lg shadow-lg ${isMobileDevice ? 'p-3 mx-2' : 'p-6'}`}>
@@ -990,13 +1174,74 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
         </div>
       </div>
 
+      {/* Detection Help Notice - Show when scanning but no detections after 10 seconds */}
+      {scanning && scanStatus === 'scanning' && scanCount === 0 && (
+        <div className="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+          <div className="flex items-start space-x-3">
+            <div className="text-2xl">💡</div>
+            <div>
+              <h3 className="font-medium text-orange-800 mb-2">QR Code Not Detecting?</h3>
+              <div className="text-sm text-orange-700 space-y-2">
+                <p>If you can see a QR code in the camera but it's not being detected:</p>
+                <div className="flex flex-col space-y-2">
+                  {useExternalAPI ? (
+                    <button
+                      onClick={captureAndScanWithAPI}
+                      disabled={apiScanLoading}
+                      className="bg-purple-500 hover:bg-purple-600 disabled:bg-gray-400 text-white rounded-lg px-4 py-2 text-sm font-medium self-start"
+                    >
+                      🌐 {apiScanLoading ? 'Scanning...' : 'Try External API Scan'}
+                    </button>
+                  ) : (
+                    <label className="flex items-center space-x-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={useExternalAPI}
+                        onChange={(e) => setUseExternalAPI(e.target.checked)}
+                        className="rounded"
+                      />
+                      <span>Enable External API scanning for better detection</span>
+                    </label>
+                  )}
+                  <div className="text-xs text-orange-600">
+                    • Try upload image or manual input as alternatives<br/>
+                    • Ensure QR code is well-lit and clearly visible<br/>
+                    • Hold camera steady for better focus
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Error Display */}
       {error && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <div className="text-red-800 whitespace-pre-line">{error}</div>
+          {(() => {
+            try {
+              const errorObj = getCameraErrorMessage({ message: error })
+              return (
+                <div>
+                  <div className="font-medium text-red-800 mb-2">{errorObj.title}</div>
+                  <div className="text-red-700 mb-3">{errorObj.message}</div>
+                  <div className="text-sm text-red-600">
+                    <div className="font-medium mb-1">Solutions:</div>
+                    <ul className="list-disc list-inside space-y-1">
+                      {errorObj.solutions.map((solution, index) => (
+                        <li key={index}>{solution}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )
+            } catch {
+              return <div className="text-red-800 whitespace-pre-line">{error}</div>
+            }
+          })()}
           <button
             onClick={() => setError(null)}
-            className="mt-2 text-red-600 hover:text-red-800 text-sm underline"
+            className="mt-3 text-red-600 hover:text-red-800 text-sm underline"
           >
             Dismiss
           </button>

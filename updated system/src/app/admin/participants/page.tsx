@@ -13,6 +13,8 @@ export default function ParticipantsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterCommittee, setFilterCommittee] = useState('')
   const [filterGender, setFilterGender] = useState('')
+  const [sortField, setSortField] = useState<'name' | 'id' | 'position' | 'gender' | 'phoneNumber'>('name')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null)
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null) // participantId being deleted
   const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false)
@@ -58,8 +60,59 @@ export default function ParticipantsPage() {
       filtered = filtered.filter(p => p.gender === filterGender)
     }
 
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let aValue: string | number = ''
+      let bValue: string | number = ''
+
+      switch (sortField) {
+        case 'name':
+          aValue = a.name.toLowerCase()
+          bValue = b.name.toLowerCase()
+          break
+        case 'id':
+          // Extract numbers from ID for proper numeric sorting
+          const aNum = parseInt(a.id.match(/\d+/)?.[0] || '0')
+          const bNum = parseInt(b.id.match(/\d+/)?.[0] || '0')
+          const aPrefix = a.id.replace(/\d+/, '')
+          const bPrefix = b.id.replace(/\d+/, '')
+          
+          // First sort by prefix, then by number
+          if (aPrefix !== bPrefix) {
+            aValue = aPrefix
+            bValue = bPrefix
+          } else {
+            aValue = aNum
+            bValue = bNum
+          }
+          break
+        case 'position':
+          aValue = a.position.toLowerCase()
+          bValue = b.position.toLowerCase()
+          break
+        case 'gender':
+          aValue = a.gender.toLowerCase()
+          bValue = b.gender.toLowerCase()
+          break
+        case 'phoneNumber':
+          aValue = a.phoneNumber
+          bValue = b.phoneNumber
+          break
+      }
+
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortDirection === 'asc' 
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue)
+      } else {
+        return sortDirection === 'asc' 
+          ? (aValue as number) - (bValue as number)
+          : (bValue as number) - (aValue as number)
+      }
+    })
+
     setFilteredParticipants(filtered)
-  }, [participants, searchTerm, filterCommittee, filterGender])
+  }, [participants, searchTerm, filterCommittee, filterGender, sortField, sortDirection])
 
   const fetchParticipants = async () => {
     try {
@@ -82,6 +135,19 @@ export default function ParticipantsPage() {
     setSearchTerm('')
     setFilterCommittee('')
     setFilterGender('')
+    setSortField('name')
+    setSortDirection('asc')
+  }
+
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      // If clicking the same field, toggle direction
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      // If clicking a new field, set it and default to ascending
+      setSortField(field)
+      setSortDirection('asc')
+    }
   }
 
   const deleteParticipant = async (participantId: string) => {
@@ -248,8 +314,8 @@ export default function ParticipantsPage() {
 
       {/* Filters */}
       <div className="card mb-8">
-        <h2 className="text-xl font-semibold mb-4">Filters & Search</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <h2 className="text-xl font-semibold mb-4">Filters, Search & Sorting</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Search
@@ -291,12 +357,41 @@ export default function ParticipantsPage() {
               <option value="Female">Female</option>
             </select>
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Sort By
+            </label>
+            <select
+              value={sortField}
+              onChange={(e) => setSortField(e.target.value as typeof sortField)}
+              className="form-select w-full"
+            >
+              <option value="name">Name</option>
+              <option value="id">ID</option>
+              <option value="position">Committee</option>
+              <option value="gender">Gender</option>
+              <option value="phoneNumber">Phone</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Order
+            </label>
+            <select
+              value={sortDirection}
+              onChange={(e) => setSortDirection(e.target.value as 'asc' | 'desc')}
+              className="form-select w-full"
+            >
+              <option value="asc">↑ Ascending</option>
+              <option value="desc">↓ Descending</option>
+            </select>
+          </div>
           <div className="flex items-end">
             <button
               onClick={clearFilters}
               className="btn-secondary w-full"
             >
-              Clear Filters
+              Clear All
             </button>
           </div>
         </div>

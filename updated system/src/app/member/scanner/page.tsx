@@ -5,6 +5,7 @@ import QRScanner from '@/components/QRScanner'
 import ParticipantHistory from '@/components/ParticipantHistory'
 import DaySelector, { EventDay, eventDays } from '@/components/DaySelector'
 import { Participant, TrackingData } from '@/types/participant'
+import { getAllBusRoutes } from '@/lib/busRoutes'
 
 export default function MemberScannerPage() {
   const [currentParticipant, setCurrentParticipant] = useState<Participant | null>(null)
@@ -16,13 +17,7 @@ export default function MemberScannerPage() {
   const [showHistory, setShowHistory] = useState(false)
 
   // Bus routes configuration (read-only for members)
-  const busRoutes = [
-    { id: 'route-1', name: 'Route 1', stops: ['Stop 1A', 'Stop 1B', 'Stop 1C'] },
-    { id: 'route-2', name: 'Route 2', stops: ['Stop 2A', 'Stop 2B', 'Stop 2C'] },
-    { id: 'route-3', name: 'Route 3', stops: ['Stop 3A', 'Stop 3B', 'Stop 3C'] },
-    { id: 'route-4', name: 'Route 4', stops: ['Stop 4A', 'Stop 4B', 'Stop 4C'] },
-    { id: 'route-5', name: 'Route 5', stops: ['Stop 5A', 'Stop 5B', 'Stop 5C'] },
-  ]
+  const busRoutes = getAllBusRoutes()
 
   // Games configuration (read-only for members)
   const availableGames = [
@@ -295,13 +290,24 @@ export default function MemberScannerPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className={`max-w-6xl mx-auto ${isMobileDevice ? 'p-2' : 'p-4'}`}>
+      {/* Hide scrollbar on mobile */}
+      <style jsx global>{`
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
+      
+      <div className={`w-full ${isMobileDevice ? 'px-3 py-2' : 'max-w-6xl mx-auto p-4'}`}>
         {/* Header */}
-        <div className={`mb-8 ${isMobileDevice ? 'text-center' : ''}`}>
-          <h1 className={`font-bold text-gray-900 mb-2 ${isMobileDevice ? 'text-2xl' : 'text-3xl'}`}>
+        <div className={`${isMobileDevice ? 'mb-4 text-center' : 'mb-8'}`}>
+          <h1 className={`font-bold text-gray-900 ${isMobileDevice ? 'text-xl mb-1' : 'text-3xl mb-2'}`}>
             📱 JNIMUN'25 Scanner
           </h1>
-          <p className={`text-gray-600 ${isMobileDevice ? 'text-sm' : ''}`}>
+          <p className={`text-gray-600 ${isMobileDevice ? 'text-xs' : ''}`}>
             {isMobileDevice 
               ? 'Tap to scan QR codes and track participants' 
               : 'Scan participant QR codes to track attendance, food, games, and transportation'
@@ -310,25 +316,25 @@ export default function MemberScannerPage() {
         </div>
 
         {/* Day Selector */}
-        <div className="mb-6">
+        <div className={`${isMobileDevice ? 'mb-4' : 'mb-6'}`}>
           <DaySelector selectedDay={selectedDay} onDayChange={handleDayChange} />
         </div>
 
         {/* Status Messages */}
         {error && (
-          <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+          <div className={`${isMobileDevice ? 'mb-3 p-3 text-sm' : 'mb-4 p-4'} bg-red-100 border border-red-400 text-red-700 rounded-lg`}>
             {error}
           </div>
         )}
         {success && (
-          <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
+          <div className={`${isMobileDevice ? 'mb-3 p-3 text-sm' : 'mb-4 p-4'} bg-green-100 border border-green-400 text-green-700 rounded-lg`}>
             {success}
           </div>
         )}
 
         {/* Current Participant Info */}
         {currentParticipant && (
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className={`${isMobileDevice ? 'mb-4 p-3' : 'mb-6 p-4'} bg-blue-50 border border-blue-200 rounded-lg`}>
             <div className="flex justify-between items-start mb-2">
               <h2 className="text-lg font-semibold text-blue-900">Current Participant</h2>
               <button
@@ -366,30 +372,29 @@ export default function MemberScannerPage() {
 
         {/* Tab Navigation - Only show if not off day */}
         {currentDay.type !== 'off' && (
-          <div className={`border-b border-gray-200 mb-6 ${isMobileDevice ? 'overflow-x-auto' : ''}`}>
-            <nav className={`-mb-px flex ${isMobileDevice ? 'space-x-2' : 'space-x-8'}`}>
+          <div className={`border-b border-gray-200 mb-6 ${isMobileDevice ? 'overflow-x-auto scrollbar-hide -mx-3' : ''}`}>
+            <nav className={`-mb-px flex ${isMobileDevice ? 'space-x-1 min-w-max px-3' : 'space-x-8'}`}>
               {[
-                { id: 'scan', label: isMobileDevice ? 'Scanner' : 'QR Scanner', icon: '📱' },
-                { id: 'attendance', label: 'Attendance', icon: '✅' },
-                ...(currentDay.hasFood ? [{ id: 'food', label: isMobileDevice ? 'Food' : 'Food Tracking', icon: '🍽️' }] : []),
-                { id: 'games', label: isMobileDevice ? 'Games' : 'Games & Activities', icon: '🎮' },
-                ...((currentDay.hasBus === true || currentDay.hasBus === 'to-only') ? [{ id: 'bus', label: isMobileDevice ? 'Bus' : 'Bus Tracking', icon: '🚌' }] : [])
+                { id: 'scan', label: isMobileDevice ? 'Scan' : 'QR Scanner', icon: '📱' },
+                { id: 'attendance', label: isMobileDevice ? 'Attend' : 'Attendance', icon: '✅' },
+                ...(currentDay.hasFood ? [{ id: 'food', label: 'Food', icon: '🍽️' }] : []),
+                { id: 'games', label: 'Games', icon: '🎮' },
+                ...((currentDay.hasBus === true || currentDay.hasBus === 'to-only') ? [{ id: 'bus', label: 'Bus', icon: '🚌' }] : [])
               ].map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`border-b-2 font-medium ${
-                    isMobileDevice ? 'py-3 px-3 text-xs whitespace-nowrap' : 'py-2 px-1 text-sm'
+                  className={`border-b-2 font-medium transition-colors ${
+                    isMobileDevice ? 'py-2 px-2 text-xs whitespace-nowrap min-w-[60px]' : 'py-2 px-1 text-sm'
                   } ${
                     activeTab === tab.id
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  <div className={isMobileDevice ? 'flex flex-col items-center' : ''}>
-                    <span className={isMobileDevice ? 'text-lg' : ''}>{tab.icon}</span>
-                    {isMobileDevice && <span className="mt-1">{tab.label}</span>}
-                    {!isMobileDevice && <span className="ml-1">{tab.label}</span>}
+                  <div className={`flex ${isMobileDevice ? 'flex-col items-center justify-center' : 'items-center'}`}>
+                    <span className={isMobileDevice ? 'text-base mb-1' : 'text-sm'}>{tab.icon}</span>
+                    <span className={isMobileDevice ? 'text-xs leading-tight' : 'ml-1 text-sm'}>{tab.label}</span>
                   </div>
                 </button>
               ))}
@@ -399,10 +404,10 @@ export default function MemberScannerPage() {
 
         {/* Tab Content */}
         {currentDay.type !== 'off' && (
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className={`bg-white rounded-lg shadow ${isMobileDevice ? 'p-3' : 'p-6'}`}>
             {activeTab === 'scan' && (
               <div>
-                <h2 className="text-xl font-semibold mb-4">QR Code Scanner</h2>
+                <h2 className={`font-semibold mb-4 ${isMobileDevice ? 'text-lg' : 'text-xl'}`}>QR Code Scanner</h2>
                 <QRScanner onScan={handleQRScan} isActive={activeTab === 'scan'} />
               </div>
             )}
@@ -429,7 +434,12 @@ export default function MemberScannerPage() {
                       </div>
                     </button>
                   </div>
-                ) : null}
+                ) : (
+                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-center">
+                    <div className="text-gray-600">No attendance data available for this participant on this day.</div>
+                    <div className="text-sm text-gray-500 mt-2">Attendance tracking will be initialized when first marked.</div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -457,7 +467,12 @@ export default function MemberScannerPage() {
                       </button>
                     ))}
                   </div>
-                ) : null}
+                ) : (
+                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-center">
+                    <div className="text-gray-600">No food tracking data available for this participant on this day.</div>
+                    <div className="text-sm text-gray-500 mt-2">Food tracking will be initialized when first marked.</div>
+                  </div>
+                )}
               </div>
             )}
 

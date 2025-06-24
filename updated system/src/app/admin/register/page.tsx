@@ -5,13 +5,18 @@ import { generateParticipantId } from '@/lib/idGenerator'
 import { generateQRCodeUrl } from '@/lib/qrHelper'
 import { QRCodeDisplay } from '@/components/QRCodeGenerator'
 import { Participant, CommitteeType } from '@/types/participant'
+import ReservedIdDemo from '@/components/ReservedIdDemo'
+import { getAllBusRoutes, getStopsForRoute } from '@/lib/busRoutes'
+import { BusRouteSummary } from '@/components/BusRouteInfo'
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
     name: '',
     phoneNumber: '',
     position: '' as CommitteeType | '',
-    gender: 'Male' as 'Male' | 'Female'
+    gender: 'Male' as 'Male' | 'Female',
+    busRoute: '' as string,
+    busStop: '' as string
   })
   
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -32,6 +37,9 @@ export default function RegisterPage() {
     'UN Women Delegates',
     'UNODC Delegates'
   ]
+
+  const busRoutes = getAllBusRoutes()
+  const availableStops = formData.busRoute ? getStopsForRoute(formData.busRoute) : []
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -77,7 +85,9 @@ export default function RegisterPage() {
         name: '',
         phoneNumber: '',
         position: '',
-        gender: 'Male'
+        gender: 'Male',
+        busRoute: '',
+        busStop: ''
       })
 
     } catch (err) {
@@ -263,6 +273,54 @@ export default function RegisterPage() {
               </div>
             </div>
 
+            {/* Bus Route */}
+            <div>
+              <label htmlFor="busRoute" className="block text-sm font-medium text-gray-700 mb-2">
+                Bus Route <span className="text-gray-500">(Optional)</span>
+              </label>
+              <select
+                id="busRoute"
+                name="busRoute"
+                value={formData.busRoute}
+                onChange={(e) => {
+                  handleInputChange(e)
+                  // Reset bus stop when route changes
+                  setFormData(prev => ({ ...prev, busStop: '' }))
+                }}
+                className="form-select w-full"
+              >
+                <option value="">No bus transportation</option>
+                {busRoutes.map((route) => (
+                  <option key={route.id} value={route.id}>
+                    {route.name} ({route.startTime})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Bus Stop */}
+            {formData.busRoute && (
+              <div>
+                <label htmlFor="busStop" className="block text-sm font-medium text-gray-700 mb-2">
+                  Bus Stop <span className="text-gray-500">(Optional)</span>
+                </label>
+                <select
+                  id="busStop"
+                  name="busStop"
+                  value={formData.busStop}
+                  onChange={handleInputChange}
+                  className="form-select w-full"
+                >
+                  <option value="">Select a bus stop...</option>
+                  {availableStops.map((stop) => (
+                    <option key={stop} value={stop}>
+                      {stop}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {/* Error Display */}
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-md p-4">
@@ -291,6 +349,16 @@ export default function RegisterPage() {
           </form>
         </div>
 
+        {/* Bus Route Information */}
+        <div className="mt-8">
+          <BusRouteSummary />
+        </div>
+
+        {/* Reserved ID Demo */}
+        <div className="mt-8">
+          <ReservedIdDemo />
+        </div>
+
         {/* Info Panel */}
         <div className="mt-8 bg-blue-50 rounded-lg p-6">
           <h3 className="text-lg font-semibold text-blue-900 mb-3">What happens when you register?</h3>
@@ -298,6 +366,10 @@ export default function RegisterPage() {
             <li className="flex items-center">
               <span className="text-blue-500 mr-2">✓</span>
               Auto-generated unique ID with committee prefix
+            </li>
+            <li className="flex items-center">
+              <span className="text-blue-500 mr-2">✓</span>
+              Reserved IDs for specific team members (EX-01, EX-02, EX-03)
             </li>
             <li className="flex items-center">
               <span className="text-blue-500 mr-2">✓</span>
@@ -310,6 +382,10 @@ export default function RegisterPage() {
             <li className="flex items-center">
               <span className="text-blue-500 mr-2">✓</span>
               Ready for attendance and activity tracking
+            </li>
+            <li className="flex items-center">
+              <span className="text-blue-500 mr-2">✓</span>
+              Deleted IDs are never reused (maintains ID stability)
             </li>
           </ul>
         </div>
