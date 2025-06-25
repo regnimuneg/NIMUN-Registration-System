@@ -29,10 +29,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Ensure the Participants sheet exists
-    console.log('Creating participants sheet...')
+    // Ensure the Participants and Attendance sheets exist
+    console.log('Creating participants and attendance sheets...')
     await createParticipantsSheet()
-    console.log('Participants sheet created/verified')
+    console.log('Participants and Attendance sheets created/verified')
     
     // Get existing participants to avoid duplicates
     console.log('Getting existing participants...')

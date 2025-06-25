@@ -25,12 +25,11 @@ export function generateQRCodeUrl(
     level = 'H'
   } = options;
   
-  // Create compact QR data for better scanning
-  // Use shorter format to reduce QR complexity
+  // Create QR data matching the specified format
   const qrData = JSON.stringify({
     id: participantId,
     type: 'JNIMUN',
-    t: Math.floor(Date.now() / 1000) // Unix timestamp for compactness
+    t: Math.floor(Date.now() / 1000) // Unix timestamp
   });
   
   // For now, return the data that will be used to generate QR
@@ -144,12 +143,20 @@ export async function generateWhiteBackgroundQR(
 export function parseQRData(qrString: string): { id: string; type: string; timestamp: string } | null {
   try {
     const data = JSON.parse(qrString);
-    // Support both old and new formats
-    if ((data.type === 'JNIMUN_PARTICIPANT' || data.type === 'JNIMUN') && data.id) {
+    // Handle the new format: {"id":"DC-01","type":"JNIMUN","t":1750735448}
+    if (data.type === 'JNIMUN' && data.id && data.t) {
       return {
         id: data.id,
         type: data.type,
-        timestamp: data.timestamp || (data.t ? new Date(data.t * 1000).toISOString() : new Date().toISOString())
+        timestamp: new Date(data.t * 1000).toISOString()
+      };
+    }
+    // Fallback for old format
+    if (data.type === 'JNIMUN_PARTICIPANT' && data.id) {
+      return {
+        id: data.id,
+        type: data.type,
+        timestamp: data.timestamp || new Date().toISOString()
       };
     }
     return null;

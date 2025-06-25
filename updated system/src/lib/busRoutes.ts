@@ -38,7 +38,7 @@ export const BUS_ROUTES: BusRoute[] = [
       'Beverly Hills School Gate',
       'Hadayek Elmohandseen (seoudi)',
       'Hyper 1',
-      'الحي الثالث الشيخ زايد - 3rd District'
+      '3rd District Zayed (الحي الثالث)'
     ]
   },
   {
@@ -48,7 +48,7 @@ export const BUS_ROUTES: BusRoute[] = [
     stops: [
       'Giza Metro - مترو الجيزة',
       'كشري العريس، ٩٨ شارع الملك فيصل، ناصيه، المريوطيه',
-      'خوفو )االولي البوابه)',
+      'خوفو )االولي البوابه) (Khoufou)',
       'Kafr Nassar',
       'Khafraa Gate',
       'Al Haram, Giza Governorate',

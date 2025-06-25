@@ -6,6 +6,7 @@ import ParticipantHistory from '@/components/ParticipantHistory'
 import DaySelector, { EventDay, eventDays } from '@/components/DaySelector'
 import ClearTrackingData from '@/components/ClearTrackingData'
 import { Participant, TrackingData, DayTrackingData } from '@/types/participant'
+import { getAllBusRoutes } from '@/lib/busRoutes'
 
 export default function DashboardPage() {
   const [currentParticipant, setCurrentParticipant] = useState<Participant | null>(null)
@@ -30,14 +31,8 @@ export default function DashboardPage() {
     }
   }, [])
 
-  // Bus routes configuration (placeholder for now)
-  const busRoutes = [
-    { id: 'route-1', name: 'Route 1', stops: ['Stop 1A', 'Stop 1B', 'Stop 1C'] },
-    { id: 'route-2', name: 'Route 2', stops: ['Stop 2A', 'Stop 2B', 'Stop 2C'] },
-    { id: 'route-3', name: 'Route 3', stops: ['Stop 3A', 'Stop 3B', 'Stop 3C'] },
-    { id: 'route-4', name: 'Route 4', stops: ['Stop 4A', 'Stop 4B', 'Stop 4C'] },
-    { id: 'route-5', name: 'Route 5', stops: ['Stop 5A', 'Stop 5B', 'Stop 5C'] },
-  ]
+  // Bus routes configuration
+  const busRoutes = getAllBusRoutes()
 
   // Games configuration
   const availableGames = [
@@ -67,47 +62,19 @@ export default function DashboardPage() {
   const handleQRScan = async (participantId: string) => {
     try {
       setError('')
-      setSuccess('')
-      
-      // Fetch participant data
-      const participantResponse = await fetch(`/api/participants/${participantId}`)
-      if (!participantResponse.ok) {
+      setSuccess('🔄 Loading participant data...')
+
+      // Fetch participant data and tracking data in a single optimized call
+      const response = await fetch(`/api/participants/${participantId}?include=tracking`)
+      if (!response.ok) {
         throw new Error('Participant not found')
       }
-      const participant = await participantResponse.json()
       
-      // Fetch tracking data
-      const trackingResponse = await fetch(`/api/participants/${participantId}/tracking`)
-      let tracking: TrackingData
+      const data = await response.json()
       
-      if (trackingResponse.ok) {
-        tracking = await trackingResponse.json()
-      } else {
-        // Initialize empty tracking data
-        tracking = {
-          dayTracking: {
-            sessions: {
-              day1: { attended: false, lunch: false },
-              day2: { attended: false, lunch: false },
-              day3: { attended: false, lunch: false },
-              day4: { attended: false, lunch: false }
-            },
-            performanceDay: { attended: false, breakfast: false, lunch: false },
-            openingCeremony: { attended: false, catering: false },
-            conference: {
-              day1: { attended: false, breakfast: false, lunch: false },
-              day2: { attended: false, breakfast: false, lunch: false },
-              day3: { attended: false, breakfast: false, lunch: false }
-            }
-          },
-          games: [],
-          bus: []
-        }
-      }
-
-      setCurrentParticipant(participant)
-      setTrackingData(tracking)
-      setSuccess(`✅ Loaded: ${participant.name} (${participantId})`)
+      setCurrentParticipant(data.participant)
+      setTrackingData(data.tracking)
+      setSuccess(`✅ Loaded: ${data.participant.name} (${participantId})`)
     } catch (err) {
       setError(`❌ Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
       setCurrentParticipant(null)
@@ -221,10 +188,10 @@ export default function DashboardPage() {
 
       if (!response.ok) throw new Error('Failed to update game activity')
 
-      // Refresh tracking data
-      const trackingResponse = await fetch(`/api/participants/${currentParticipant.id}/tracking`)
-      const updatedTracking = await trackingResponse.json()
-      setTrackingData(updatedTracking)
+      // Refresh tracking data with optimized call
+      const trackingResponse = await fetch(`/api/participants/${currentParticipant.id}?include=tracking`)
+      const updatedData = await trackingResponse.json()
+      setTrackingData(updatedData.tracking)
 
       setSuccess(`✅ ${action === 'join' ? 'Joined' : 'Left'} ${activity}`)
     } catch (err) {
@@ -250,10 +217,10 @@ export default function DashboardPage() {
 
       if (!response.ok) throw new Error('Failed to update bus tracking')
 
-      // Refresh tracking data
-      const trackingResponse = await fetch(`/api/participants/${currentParticipant.id}/tracking`)
-      const updatedTracking = await trackingResponse.json()
-      setTrackingData(updatedTracking)
+      // Refresh tracking data with optimized call
+      const trackingResponse = await fetch(`/api/participants/${currentParticipant.id}?include=tracking`)
+      const updatedData = await trackingResponse.json()
+      setTrackingData(updatedData.tracking)
 
       setSuccess(`✅ ${type === 'arriving' ? 'Arrival' : 'Departure'} recorded on ${route} at ${stop}`)
     } catch (err) {
@@ -596,20 +563,62 @@ export default function DashboardPage() {
                   
                   {/* Bus Tracking Controls */}
                     <div className="space-y-6">
-                      {busRoutes.map(route => (
-                        <div key={route.id} className="border border-gray-200 rounded-lg p-4">
-                          <h3 className="text-lg font-medium mb-3">{route.name}</h3>
+                      {!currentParticipant.busRoute ? (
+                        // Show message for participants without bus assignments
+                        <div className="border border-gray-300 rounded-lg p-6 text-center bg-gray-50">
+                          <div className="text-4xl mb-3">🚌</div>
+                          <h3 className="text-lg font-medium text-gray-700 mb-2">No Bus Transportation</h3>
+                          <p className="text-gray-600">
+                            This participant is not assigned to any bus route and will need to arrange their own transportation.
+                          </p>
+                        </div>
+                      ) : (
+                        // Show only the assigned route for participants with bus assignments
+                        (() => {
+                          const assignedRoute = busRoutes.find(route => route.id === currentParticipant.busRoute)
+                          if (!assignedRoute) {
+                            return (
+                              <div className="border border-red-300 rounded-lg p-6 text-center bg-red-50">
+                                <div className="text-4xl mb-3">⚠️</div>
+                                <h3 className="text-lg font-medium text-red-700 mb-2">Invalid Bus Route</h3>
+                                <p className="text-red-600">
+                                  Assigned route "{currentParticipant.busRoute}" not found. Please contact admin.
+                                </p>
+                              </div>
+                            )
+                          }
+                          
+                          return (
+                            <div className="border border-blue-200 rounded-lg p-4 bg-blue-50">
+                              <div className="flex items-center justify-between mb-3">
+                                <h3 className="text-lg font-medium text-blue-900">🚌 {assignedRoute.name}</h3>
+                                <span className="text-sm bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                                  Assigned Route
+                                </span>
+                              </div>
+                              {currentParticipant.busStop && (
+                                <div className="mb-3 text-sm text-blue-800">
+                                  📍 <strong>Assigned Stop:</strong> {currentParticipant.busStop}
+                                </div>
+                              )}
                           <div className={`grid gap-4 ${currentDay.hasBus === 'to-only' ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
                     <div>
                               <h4 className="font-medium text-green-700 mb-2">Arriving</h4>
                       <div className="space-y-2">
-                                {route.stops.map(stop => (
+                                    {assignedRoute.stops.map(stop => (
                           <button
                             key={`arriving-${stop}`}
-                                    onClick={() => handleBusTracking('arriving', route.name, stop)}
-                                    className="w-full p-2 text-left border border-green-300 bg-green-50 text-green-700 rounded hover:bg-green-100 transition-colors text-sm"
+                                        onClick={() => handleBusTracking('arriving', assignedRoute.name, stop)}
+                                        className={`w-full p-2 text-left border rounded hover:bg-green-100 transition-colors text-sm ${
+                                          currentParticipant.busStop === stop
+                                            ? 'border-green-500 bg-green-100 text-green-800 font-medium'
+                                            : 'border-green-300 bg-green-50 text-green-700'
+                                        }`}
                           >
                             🚌 Arriving at {stop}
+                                        {currentParticipant.busStop === stop && (
+                                          <span className="ml-2 text-xs">(Assigned Stop)</span>
+                                        )}
                           </button>
                         ))}
                       </div>
@@ -619,13 +628,20 @@ export default function DashboardPage() {
                     <div>
                                 <h4 className="font-medium text-blue-700 mb-2">Departing</h4>
                       <div className="space-y-2">
-                                  {route.stops.map(stop => (
+                                      {assignedRoute.stops.map(stop => (
                           <button
                             key={`departing-${stop}`}
-                                      onClick={() => handleBusTracking('departing', route.name, stop)}
-                                      className="w-full p-2 text-left border border-blue-300 bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition-colors text-sm"
+                                          onClick={() => handleBusTracking('departing', assignedRoute.name, stop)}
+                                          className={`w-full p-2 text-left border rounded hover:bg-blue-100 transition-colors text-sm ${
+                                            currentParticipant.busStop === stop
+                                              ? 'border-blue-500 bg-blue-100 text-blue-800 font-medium'
+                                              : 'border-blue-300 bg-blue-50 text-blue-700'
+                                          }`}
                           >
                             🚌 Departing from {stop}
+                                          {currentParticipant.busStop === stop && (
+                                            <span className="ml-2 text-xs">(Assigned Stop)</span>
+                                          )}
                           </button>
                         ))}
                       </div>
@@ -641,7 +657,9 @@ export default function DashboardPage() {
                             </div>
                           )}
                     </div>
-                      ))}
+                          )
+                        })()
+                      )}
                   </div>
                 </div>
               ) : null}

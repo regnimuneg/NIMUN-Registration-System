@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speed Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .container { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        input, button { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 4px; }
+        button { background: #007bff; color: white; cursor: pointer; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 4px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .speed { font-size: 24px; font-weight: bold; color: #007bff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚡ Speed Test</h1>
+        <input type="text" id="participantId" placeholder="Participant ID (e.g. MUN-001)" />
+        <button onclick="testLoad()">Test Load Speed</button>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        async function testLoad() {
+            const participantId = document.getElementById('participantId').value.trim();
+            const resultsDiv = document.getElementById('results');
+            
+            if (!participantId) {
+                resultsDiv.innerHTML = '<div class="result error">Please enter a participant ID</div>';
+                return;
+            }
+            
+            resultsDiv.innerHTML = '<div class="result">🔄 Loading...</div>';
+            
+            const startTime = performance.now();
+            
+            try {
+                const response = await fetch(`/api/participants/${participantId}?include=tracking`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                const endTime = performance.now();
+                const loadTime = endTime - startTime;
+                
+                let rating = loadTime < 500 ? '🚀 Excellent' : 
+                           loadTime < 1000 ? '⚡ Very Good' : 
+                           loadTime < 2000 ? '👍 Good' : '🐌 Slow';
+                
+                resultsDiv.innerHTML = `
+                    <div class="result success">
+                        <div>⚡ Load Time: <span class="speed">${loadTime.toFixed(0)}ms</span></div>
+                        <div>📊 Rating: ${rating}</div>
+                        <div>✅ Loaded: ${data.participant.name}</div>
+                    </div>
+                `;
+                
+            } catch (error) {
+                const endTime = performance.now();
+                const loadTime = endTime - startTime;
+                
+                resultsDiv.innerHTML = `
+                    <div class="result error">
+                        <div>⚡ Failed after: <span class="speed">${loadTime.toFixed(0)}ms</span></div>
+                        <div>❌ Error: ${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+        
+        document.getElementById('participantId').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') testLoad();
+        });
+    </script>
+</body>
+</html> 

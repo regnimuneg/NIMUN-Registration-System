@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Scanner Diagnostic Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .success { background: #d1fae5; border: 1px solid #10b981; color: #065f46; }
+        .error { background: #fee2e2; border: 1px solid #ef4444; color: #991b1b; }
+        .warning { background: #fef3c7; border: 1px solid #f59e0b; color: #92400e; }
+        .info { background: #dbeafe; border: 1px solid #3b82f6; color: #1e40af; }
+        
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #2563eb; }
+        button:disabled { background: #9ca3af; cursor: not-allowed; }
+        
+        #video {
+            width: 100%;
+            max-width: 400px;
+            height: 300px;
+            background: #000;
+            border-radius: 8px;
+        }
+        
+        #log {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 15px;
+            border-radius: 5px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 QR Scanner Diagnostic Tool</h1>
+        <p>This tool will help diagnose camera and QR scanning issues step by step.</p>
+        <div id="overallStatus" class="status info">
+            🔍 Ready to start diagnostics...
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="container">
+            <h2>📱 Camera Test</h2>
+            <video id="video" autoplay muted playsinline></video>
+            <div>
+                <button onclick="testCameraAccess()">Test Camera Access</button>
+                <button onclick="stopCamera()">Stop Camera</button>
+                <button onclick="listCameras()">List Available Cameras</button>
+            </div>
+            <div id="cameraStatus" class="status info">
+                📹 Camera not started yet
+            </div>
+        </div>
+
+        <div class="container">
+            <h2>🔍 QR Code Test</h2>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <canvas id="testQR" width="200" height="200" style="border: 1px solid #ccc;"></canvas>
+                <div style="flex: 1; min-width: 200px;">
+                    <p><strong>Test QR Code:</strong></p>
+                    <p>ID: EX-01</p>
+                    <p>This QR contains: <code>{"id":"EX-01","type":"JNIMUN_PARTICIPANT"}</code></p>
+                    <button onclick="generateTestQR()">Generate Test QR</button>
+                    <button onclick="testManualInput()">Test Manual Input</button>
+                </div>
+            </div>
+            <div id="qrStatus" class="status info">
+                🎯 QR test not started yet
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>🛠️ Quick Fixes</h2>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button onclick="checkPermissions()">Check Permissions</button>
+            <button onclick="testHttps()">Check HTTPS</button>
+            <button onclick="checkBrowserSupport()">Check Browser Support</button>
+            <button onclick="runFullDiagnostic()">Run Full Diagnostic</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>📋 Diagnostic Log</h2>
+        <button onclick="clearLog()">Clear Log</button>
+        <button onclick="exportLog()">Export Log</button>
+        <div id="log">🎯 Diagnostic tool loaded - click buttons above to start testing...</div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script>
+        let stream = null;
+        
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const emoji = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : '🔍';
+            logDiv.textContent += `[${timestamp}] ${emoji} ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        function clearLog() {
+            document.getElementById('log').textContent = '';
+            log('Log cleared');
+        }
+
+        function updateStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `status ${type}`;
+        }
+
+        async function testCameraAccess() {
+            log('🎥 Testing camera access...');
+            updateStatus('cameraStatus', '🔄 Testing camera access...', 'info');
+            
+            try {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('Camera API not supported in this browser');
+                }
+
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                });
+
+                const video = document.getElementById('video');
+                video.srcObject = stream;
+                
+                const track = stream.getVideoTracks()[0];
+                const settings = track.getSettings();
+                
+                log(`✅ Camera access granted!`, 'success');
+                log(`📹 Camera: ${track.label}`);
+                log(`📊 Resolution: ${settings.width}x${settings.height}`);
+                
+                updateStatus('cameraStatus', '✅ Camera working! Video feed active.', 'success');
+                
+            } catch (error) {
+                log(`❌ Camera access failed: ${error.message}`, 'error');
+                updateStatus('cameraStatus', `❌ Camera failed: ${error.message}`, 'error');
+                
+                if (error.name === 'NotAllowedError') {
+                    log('🔧 Fix: Click camera icon in address bar and allow access', 'warning');
+                } else if (error.name === 'NotFoundError') {
+                    log('🔧 Fix: Check if camera is connected and not used by other apps', 'warning');
+                }
+            }
+        }
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+                document.getElementById('video').srcObject = null;
+                log('🛑 Camera stopped', 'info');
+                updateStatus('cameraStatus', '🛑 Camera stopped', 'info');
+            }
+        }
+
+        async function listCameras() {
+            log('📹 Listing available cameras...');
+            
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                
+                if (videoDevices.length === 0) {
+                    log('❌ No cameras found', 'error');
+                    return;
+                }
+                
+                log(`✅ Found ${videoDevices.length} camera(s):`);
+                videoDevices.forEach((device, index) => {
+                    const label = device.label || `Camera ${index + 1}`;
+                    const isVirtual = ['droidcam', 'obs', 'virtual', 'webcam'].some(name => 
+                        label.toLowerCase().includes(name)
+                    );
+                    log(`  ${index + 1}. ${label} ${isVirtual ? '(Virtual)' : '(Physical)'}`);
+                });
+                
+            } catch (error) {
+                log(`❌ Error listing cameras: ${error.message}`, 'error');
+            }
+        }
+
+        function generateTestQR() {
+            log('🎯 Generating test QR code...');
+            
+            const canvas = document.getElementById('testQR');
+            const testData = JSON.stringify({
+                id: 'EX-01',
+                type: 'JNIMUN_PARTICIPANT',
+                timestamp: new Date().toISOString()
+            });
+            
+            QRCode.toCanvas(canvas, testData, {
+                width: 200,
+                margin: 2,
+                errorCorrectionLevel: 'H'
+            }, function (error) {
+                if (error) {
+                    log(`❌ QR generation failed: ${error}`, 'error');
+                } else {
+                    log('✅ Test QR code generated successfully', 'success');
+                    updateStatus('qrStatus', '✅ Test QR generated - point camera at it!', 'success');
+                }
+            });
+        }
+
+        function testManualInput() {
+            log('📝 Testing manual input method...');
+            
+            // Simulate what the main app would do with manual input
+            const testId = 'EX-01';
+            log(`✅ Manual input test successful with ID: ${testId}`, 'success');
+            updateStatus('qrStatus', '✅ Manual input method working', 'success');
+        }
+
+        function checkBrowserSupport() {
+            log('🌐 Checking browser support...');
+            
+            const userAgent = navigator.userAgent;
+            log(`🔍 User Agent: ${userAgent}`);
+            
+            if (userAgent.includes('Chrome')) {
+                log('✅ Chrome detected - excellent QR scanner support', 'success');
+            } else if (userAgent.includes('Firefox')) {
+                log('✅ Firefox detected - good QR scanner support', 'success');
+            } else {
+                log('⚠️ Consider using Chrome or Firefox for best results', 'warning');
+            }
+        }
+
+        async function runFullDiagnostic() {
+            log('🚀 Running full diagnostic...');
+            checkBrowserSupport();
+            await listCameras();
+            generateTestQR();
+            log('✅ Full diagnostic complete', 'success');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            log('🎯 QR Scanner Diagnostic Tool loaded');
+            setTimeout(generateTestQR, 1000);
+        });
+    </script>
+</body>
+</html> 

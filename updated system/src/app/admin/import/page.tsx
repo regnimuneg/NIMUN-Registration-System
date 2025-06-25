@@ -71,10 +71,10 @@ export default function ImportPage() {
   }
 
   const downloadTemplate = () => {
-    const template = `Full Name,Gender,Phone Number,Committee
-John Smith,Male,01234567890,Executive
-Jane Doe,Female,01987654321,Operations
-Ahmed Hassan,Male,01555123456,Public Relations`
+    const template = `Full Name,Gender,Phone Number,Committee,Line,Stop
+John Smith,Male,01234567890,Executive,6th of October,Engineers Syndicate Club
+Jane Doe,Female,01987654321,Operations,5th Settlement,Waterway Mall
+Ahmed Hassan,Male,01555123456,Public Relations,,`
     
     const blob = new Blob([template], { type: 'text/csv' })
     const url = window.URL.createObjectURL(blob)
@@ -103,10 +103,12 @@ Ahmed Hassan,Male,01555123456,Public Relations`
           <div>
             <h3 className="font-medium mb-2">Required CSV Format:</h3>
             <ul className="list-disc list-inside space-y-1 text-gray-600">
-              <li>Column headers: Full Name, Gender, Phone Number, Committee</li>
+              <li>Column headers: Full Name, Gender, Phone Number, Committee, Line, Stop</li>
               <li>Gender must be either "Male" or "Female"</li>
               <li>Phone numbers should be unique</li>
               <li>Committee names will be mapped to standard committee types</li>
+              <li><strong>Line</strong> (optional): Bus route name (6th of October, 5th Settlement, Sheikh Zayed, Feisal, Maadi)</li>
+              <li><strong>Stop</strong> (optional): Specific bus stop within the route</li>
             </ul>
           </div>
           <div>
@@ -124,6 +126,31 @@ Ahmed Hassan,Male,01555123456,Public Relations`
               <span>• Press Delegates (PS-XX)</span>
               <span>• UN Women Delegates (UW-XX)</span>
               <span>• UNODC Delegates (OD-XX)</span>
+            </div>
+          </div>
+          <div>
+            <h3 className="font-medium mb-2">Supported Bus Routes:</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600">
+              <div>
+                <strong>• 6th of October</strong>
+                <div className="ml-4 text-xs">Engineers Syndicate Club, 26th of July Corridor, Al-Hosary Mosque, Cityscape Mall, etc.</div>
+              </div>
+              <div>
+                <strong>• 5th Settlement</strong>
+                <div className="ml-4 text-xs">Triumph Luxury Hotel, Waterway Mall, Police Officers Club</div>
+              </div>
+              <div>
+                <strong>• Sheikh Zayed</strong>
+                <div className="ml-4 text-xs">Zayed 6, Beverly Hills School Gate, Hadayek Elmohandseen, etc.</div>
+              </div>
+              <div>
+                <strong>• Feisal</strong>
+                <div className="ml-4 text-xs">Giza Metro, كشري العريس, خوفو, Kafr Nassar, etc.</div>
+              </div>
+              <div>
+                <strong>• Maadi</strong>
+                <div className="ml-4 text-xs">Nahda Square, Grand Mall Square, Bavaria Square, etc.</div>
+              </div>
             </div>
           </div>
           <button 
@@ -186,6 +213,12 @@ Ahmed Hassan,Male,01555123456,Public Relations`
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Committee
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Bus Line
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Bus Stop
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -202,6 +235,12 @@ Ahmed Hassan,Male,01555123456,Public Relations`
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {row.committee}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {row.line || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {row.stop || '-'}
                     </td>
                   </tr>
                 ))}
@@ -251,6 +290,12 @@ Ahmed Hassan,Male,01555123456,Public Relations`
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Phone
                       </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Bus Route
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Bus Stop
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -267,6 +312,12 @@ Ahmed Hassan,Male,01555123456,Public Relations`
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {participant.phoneNumber}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {participant.busRoute || '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {participant.busStop || '-'}
                         </td>
                       </tr>
                     ))}

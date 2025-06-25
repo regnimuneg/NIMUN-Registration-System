@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Ensure the Participants sheet exists
+    // Ensure the Participants and Attendance sheets exist
     await createParticipantsSheet()
     
     // Get existing participants to initialize ID counters properly

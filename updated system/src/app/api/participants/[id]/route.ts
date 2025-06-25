@@ -1,25 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAllParticipants, deleteParticipant } from '@/lib/googleSheets'
+import { getParticipantById, deleteParticipant, getParticipantTrackingData } from '@/lib/googleSheets'
 import { markIdAsDeleted } from '@/lib/idGenerator'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const participantId = params.id
+    const { searchParams } = new URL(request.url)
+    const includeTracking = searchParams.get('include') === 'tracking'
     
-    if (!participantId) {
-      return NextResponse.json(
-        { error: 'Participant ID is required' },
-        { status: 400 }
-      )
-    }
-
-    // Get all participants and find the one we need
-    const participants = await getAllParticipants()
-    const participant = participants.find(p => p.id === participantId)
-
+    // CRITICAL FIX: Await params first!
+    const { id: participantId } = await params
+    
+    const participant = await getParticipantById(participantId)
+    
     if (!participant) {
       return NextResponse.json(
         { error: 'Participant not found' },
@@ -27,12 +22,49 @@ export async function GET(
       )
     }
 
+    // If tracking data is requested, fetch it and combine with participant data
+    if (includeTracking) {
+      try {
+        const trackingData = await getParticipantTrackingData(participantId)
+        return NextResponse.json({
+          participant,
+          tracking: trackingData
+        })
+      } catch (trackingError) {
+        console.warn('Error fetching tracking data:', trackingError)
+        // Return participant data with empty tracking if tracking fails
+        return NextResponse.json({
+          participant,
+          tracking: {
+            dayTracking: {
+              sessions: {
+                day1: { attended: false, lunch: false },
+                day2: { attended: false, lunch: false },
+                day3: { attended: false, lunch: false },
+                day4: { attended: false, lunch: false }
+              },
+              performanceDay: { attended: false, breakfast: false, lunch: false },
+              openingCeremony: { attended: false, catering: false },
+              conference: {
+                day1: { attended: false, breakfast: false, lunch: false },
+                day2: { attended: false, breakfast: false, lunch: false },
+                day3: { attended: false, breakfast: false, lunch: false }
+              }
+            },
+            games: [],
+            bus: [],
+            food: { breakfast: false, lunch: false, dinner: false, snack1: false, snack2: false }
+          }
+        })
+      }
+    }
+
+    // Return just participant data
     return NextResponse.json(participant)
-    
   } catch (error) {
-    console.error('Error fetching participant:', error)
+    console.error('Error in participant API:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch participant' },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }
@@ -40,10 +72,10 @@ export async function GET(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const participantId = params.id
+    const { id: participantId } = await params
     
     if (!participantId) {
       return NextResponse.json(

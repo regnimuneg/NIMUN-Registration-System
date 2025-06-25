@@ -5,7 +5,7 @@ import QRScanner from '@/components/QRScanner'
 import ParticipantHistory from '@/components/ParticipantHistory'
 import DaySelector, { EventDay, eventDays } from '@/components/DaySelector'
 import { Participant, TrackingData } from '@/types/participant'
-import { getAllBusRoutes } from '@/lib/busRoutes'
+import { getAllBusRoutes, getBusRouteById } from '@/lib/busRoutes'
 
 export default function MemberScannerPage() {
   const [currentParticipant, setCurrentParticipant] = useState<Participant | null>(null)
@@ -47,47 +47,19 @@ export default function MemberScannerPage() {
   const handleQRScan = async (participantId: string) => {
     try {
       setError('')
-      setSuccess('')
+      setSuccess('🔄 Loading participant data...')
 
-      // Fetch participant data
-      const participantResponse = await fetch(`/api/participants/${participantId}`)
-      if (!participantResponse.ok) {
+      // Fetch participant data and tracking data in a single optimized call
+      const response = await fetch(`/api/participants/${participantId}?include=tracking`)
+      if (!response.ok) {
         throw new Error('Participant not found')
       }
-      const participant = await participantResponse.json()
-
-      // Fetch tracking data
-      const trackingResponse = await fetch(`/api/participants/${participantId}/tracking`)
-      let tracking: TrackingData
       
-      if (trackingResponse.ok) {
-        tracking = await trackingResponse.json()
-      } else {
-        // Initialize empty tracking data
-        tracking = {
-          dayTracking: {
-            sessions: {
-              day1: { attended: false, lunch: false },
-              day2: { attended: false, lunch: false },
-              day3: { attended: false, lunch: false },
-              day4: { attended: false, lunch: false }
-            },
-            performanceDay: { attended: false, breakfast: false, lunch: false },
-            openingCeremony: { attended: false, catering: false },
-            conference: {
-              day1: { attended: false, breakfast: false, lunch: false },
-              day2: { attended: false, breakfast: false, lunch: false },
-              day3: { attended: false, breakfast: false, lunch: false }
-            }
-          },
-          games: [],
-          bus: []
-        }
-      }
-
-      setCurrentParticipant(participant)
-      setTrackingData(tracking)
-      setSuccess(`✅ Loaded: ${participant.name} (${participantId})`)
+      const data = await response.json()
+      
+      setCurrentParticipant(data.participant)
+      setTrackingData(data.tracking)
+      setSuccess(`✅ Loaded: ${data.participant.name} (${participantId})`)
     } catch (err) {
       setError(`❌ Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
       setCurrentParticipant(null)
@@ -97,9 +69,8 @@ export default function MemberScannerPage() {
 
   const handleDayChange = (day: EventDay) => {
     setSelectedDay(day.id)
-    if (day.type !== 'off') {
-      setActiveTab(day.hasFood ? 'food' : 'attendance')
-    }
+    // Always set to scan tab when changing days, but don't restrict other tabs
+    setActiveTab('scan')
   }
 
   const handleAttendanceUpdate = async (dayKey: string, field: string) => {
@@ -201,10 +172,10 @@ export default function MemberScannerPage() {
 
       if (!response.ok) throw new Error('Failed to update game activity')
 
-      // Refresh tracking data
-      const trackingResponse = await fetch(`/api/participants/${currentParticipant.id}/tracking`)
-      const updatedTracking = await trackingResponse.json()
-      setTrackingData(updatedTracking)
+      // Refresh tracking data with optimized call
+      const trackingResponse = await fetch(`/api/participants/${currentParticipant.id}?include=tracking`)
+      const updatedData = await trackingResponse.json()
+      setTrackingData(updatedData.tracking)
 
       setSuccess(`✅ ${action === 'join' ? 'Joined' : 'Left'} ${activity}`)
     } catch (err) {
@@ -231,430 +202,406 @@ export default function MemberScannerPage() {
       if (!response.ok) throw new Error('Failed to update bus tracking')
 
       // Refresh tracking data
-      const trackingResponse = await fetch(`/api/participants/${currentParticipant.id}/tracking`)
-      const updatedTracking = await trackingResponse.json()
-      setTrackingData(updatedTracking)
+      const trackingResponse = await fetch(`/api/participants/${currentParticipant.id}?include=tracking`)
+      const updatedData = await trackingResponse.json()
+      setTrackingData(updatedData.tracking)
 
-      setSuccess(`✅ ${type === 'arriving' ? 'Arrival' : 'Departure'} recorded on ${route} at ${stop}`)
+      setSuccess(`✅ Bus tracking updated: ${type} at ${stop}`)
     } catch (err) {
       setError(`❌ Error updating bus tracking: ${err instanceof Error ? err.message : 'Unknown error'}`)
     }
   }
 
-  // Helper function to get current day's tracking data
+  // Helper functions
   const getCurrentDayData = () => {
-    if (!trackingData || !trackingData.dayTracking) return null
+    if (!trackingData) return null
     
-    switch (selectedDay) {
-      case 'sessions-day1': return trackingData.dayTracking.sessions?.day1 || null
-      case 'sessions-day2': return trackingData.dayTracking.sessions?.day2 || null
-      case 'sessions-day3': return trackingData.dayTracking.sessions?.day3 || null
-      case 'sessions-day4': return trackingData.dayTracking.sessions?.day4 || null
-      case 'performance-day': return trackingData.dayTracking.performanceDay || null
-      case 'opening-ceremony': return trackingData.dayTracking.openingCeremony || null
-      case 'conference-day1': return trackingData.dayTracking.conference?.day1 || null
-      case 'conference-day2': return trackingData.dayTracking.conference?.day2 || null
-      case 'conference-day3': return trackingData.dayTracking.conference?.day3 || null
-      default: return null
+    // Map selectedDay to tracking structure
+    // Sessions days map to sessions tracking
+    if (selectedDay.startsWith('sessions-')) {
+      const dayNum = selectedDay.split('-')[1] // 'day1', 'day2', etc.
+      return (trackingData.dayTracking?.sessions as any)?.[dayNum] || null
     }
+    
+    // Conference days map to conference tracking
+    if (selectedDay.startsWith('conference-')) {
+      const dayNum = selectedDay.split('-')[1] // 'day1', 'day2', etc.
+      return (trackingData.dayTracking?.conference as any)?.[dayNum] || null
+    }
+    
+    // Performance day
+    if (selectedDay === 'performance-day') {
+      return trackingData.dayTracking?.performanceDay || null
+    }
+    
+    // Opening ceremony
+    if (selectedDay === 'opening-ceremony') {
+      return trackingData.dayTracking?.openingCeremony || null
+    }
+    
+    // Fallback: try to find any matching day structure
+    return null
   }
 
   const getCurrentDayKey = () => {
-    switch (selectedDay) {
-      case 'sessions-day1': return 'sessions.day1'
-      case 'sessions-day2': return 'sessions.day2'
-      case 'sessions-day3': return 'sessions.day3'
-      case 'sessions-day4': return 'sessions.day4'
-      case 'performance-day': return 'performanceDay'
-      case 'opening-ceremony': return 'openingCeremony'
-      case 'conference-day1': return 'conference.day1'
-      case 'conference-day2': return 'conference.day2'
-      case 'conference-day3': return 'conference.day3'
-      default: return ''
+    // Return key format for API calls
+    // Sessions days
+    if (selectedDay.startsWith('sessions-')) {
+      const dayNum = selectedDay.split('-')[1] // 'day1', 'day2', etc.
+      return `sessions.${dayNum}`
     }
+    
+    // Conference days  
+    if (selectedDay.startsWith('conference-')) {
+      const dayNum = selectedDay.split('-')[1] // 'day1', 'day2', etc.
+      return `conference.${dayNum}`
+    }
+    
+    // Performance day
+    if (selectedDay === 'performance-day') {
+      return 'performanceDay'
+    }
+    
+    // Opening ceremony
+    if (selectedDay === 'opening-ceremony') {
+      return 'openingCeremony'
+    }
+    
+    // Default fallback
+    return 'sessions.day1'
   }
 
-  const currentDayData = getCurrentDayData()
-  const currentDayKey = getCurrentDayKey()
+  // Check if it's today to show attendance options only for the current day
+  // Helper function to check if a day should allow attendance
+  const canTakeAttendance = (dayId: string) => {
+    // For testing/development - allow all days
+    return true
+    
+    // Production code (commented out for testing):
+    // const today = new Date()
+    // const dayNumber = today.getDate()
+    // 
+    // // Day 1 (Sessions): 21st
+    // // Day 2 (MUN): 22nd
+    // if (dayId === 'day1' && dayNumber === 21) return true
+    // if (dayId === 'day2' && dayNumber === 22) return true
+    // 
+    // return false
+  }
 
-  const [isMobileDevice, setIsMobileDevice] = useState(false)
-
-  // Client-side mobile detection to avoid SSR mismatch
+  // Mobile detection - client-side only to avoid SSR mismatch
+  const [isMobile, setIsMobile] = useState(false)
   useEffect(() => {
     const checkMobile = () => {
-      const userAgent = typeof window !== 'undefined' ? navigator.userAgent : ''
-      setIsMobileDevice(/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent))
+      setIsMobile(window.innerWidth <= 768)
     }
     checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Hide scrollbar on mobile */}
-      <style jsx global>{`
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-      `}</style>
-      
-      <div className={`w-full ${isMobileDevice ? 'px-3 py-2' : 'max-w-6xl mx-auto p-4'}`}>
-        {/* Header */}
-        <div className={`${isMobileDevice ? 'mb-4 text-center' : 'mb-8'}`}>
-          <h1 className={`font-bold text-gray-900 ${isMobileDevice ? 'text-xl mb-1' : 'text-3xl mb-2'}`}>
-            📱 JNIMUN'25 Scanner
-          </h1>
-          <p className={`text-gray-600 ${isMobileDevice ? 'text-xs' : ''}`}>
-            {isMobileDevice 
-              ? 'Tap to scan QR codes and track participants' 
-              : 'Scan participant QR codes to track attendance, food, games, and transportation'
-            }
-          </p>
-        </div>
+  const currentDayData = getCurrentDayData()
 
-        {/* Day Selector */}
-        <div className={`${isMobileDevice ? 'mb-4' : 'mb-6'}`}>
-          <DaySelector selectedDay={selectedDay} onDayChange={handleDayChange} />
+  return (
+    <div className="min-h-screen bg-[var(--background)] px-2 py-1">
+      <div className="w-full max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-3">
+          <h1 className="text-xl md:text-2xl font-heading text-gray-900 mb-1">QR Scanner</h1>
+          <p className="text-sm text-[var(--text-secondary)] font-body">Scan participant QR codes for tracking</p>
         </div>
 
         {/* Status Messages */}
         {error && (
-          <div className={`${isMobileDevice ? 'mb-3 p-3 text-sm' : 'mb-4 p-4'} bg-red-100 border border-red-400 text-red-700 rounded-lg`}>
+          <div className="status-error mb-2 mx-1 text-sm animate-fade-in">
             {error}
           </div>
         )}
         {success && (
-          <div className={`${isMobileDevice ? 'mb-3 p-3 text-sm' : 'mb-4 p-4'} bg-green-100 border border-green-400 text-green-700 rounded-lg`}>
+          <div className="status-success mb-2 mx-1 text-sm animate-fade-in">
             {success}
           </div>
         )}
 
-        {/* Current Participant Info */}
+        {/* Day Selection */}
+        <div className="mb-3">
+          <DaySelector selectedDay={selectedDay} onDayChange={handleDayChange} />
+        </div>
+
+        {/* Current Participant Display */}
         {currentParticipant && (
-          <div className={`${isMobileDevice ? 'mb-4 p-3' : 'mb-6 p-4'} bg-blue-50 border border-blue-200 rounded-lg`}>
-            <div className="flex justify-between items-start mb-2">
-              <h2 className="text-lg font-semibold text-blue-900">Current Participant</h2>
+          <div className="card mb-3 mx-1">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <h3 className="font-heading text-sm text-gray-900 truncate">{currentParticipant.name}</h3>
+                <div className="flex flex-col sm:flex-row gap-1 text-xs text-[var(--text-secondary)] font-body">
+                  <span className="truncate">ID: {currentParticipant.id}</span>
+                  <span className="truncate">Position: {currentParticipant.position}</span>
+                </div>
+              </div>
               <button
-                onClick={() => setShowHistory(true)}
-                className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                onClick={() => setShowHistory(!showHistory)}
+                className="btn-secondary btn-xs shrink-0 font-body"
               >
-                📋 View History
+                History
               </button>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div>
-                <span className="font-medium">ID:</span> {currentParticipant.id}
-              </div>
-              <div>
-                <span className="font-medium">Name:</span> {currentParticipant.name}
-              </div>
-              <div>
-                <span className="font-medium">Position:</span> {currentParticipant.position}
-              </div>
-              <div>
-                <span className="font-medium">Phone:</span> {currentParticipant.phoneNumber}
-              </div>
+          </div>
+        )}
+
+        {/* History Modal/Section */}
+        {showHistory && currentParticipant && (
+          <div className="card mb-3 mx-1">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="font-heading text-base text-gray-900">Participant History</h3>
+              <button
+                onClick={() => setShowHistory(false)}
+                className="btn-secondary btn-xs"
+              >
+                Close
+              </button>
             </div>
+            <ParticipantHistory participantId={currentParticipant.id} />
           </div>
         )}
 
-        {/* Off Day Message */}
-        {currentDay.type === 'off' && (
-          <div className="bg-gray-100 border border-gray-300 rounded-lg p-8 text-center">
-            <div className="text-6xl mb-4">😴</div>
-            <h2 className="text-2xl font-semibold text-gray-700 mb-2">Off Day</h2>
-            <p className="text-gray-600">No activities scheduled for this day. Participants can rest and prepare for the upcoming events.</p>
-          </div>
-        )}
-
-        {/* Tab Navigation - Only show if not off day */}
-        {currentDay.type !== 'off' && (
-          <div className={`border-b border-gray-200 mb-6 ${isMobileDevice ? 'overflow-x-auto scrollbar-hide -mx-3' : ''}`}>
-            <nav className={`-mb-px flex ${isMobileDevice ? 'space-x-1 min-w-max px-3' : 'space-x-8'}`}>
-              {[
-                { id: 'scan', label: isMobileDevice ? 'Scan' : 'QR Scanner', icon: '📱' },
-                { id: 'attendance', label: isMobileDevice ? 'Attend' : 'Attendance', icon: '✅' },
-                ...(currentDay.hasFood ? [{ id: 'food', label: 'Food', icon: '🍽️' }] : []),
-                { id: 'games', label: 'Games', icon: '🎮' },
-                ...((currentDay.hasBus === true || currentDay.hasBus === 'to-only') ? [{ id: 'bus', label: 'Bus', icon: '🚌' }] : [])
-              ].map(tab => (
+        {/* Tab Navigation */}
+        <div className="flex gap-1 mb-3 -mx-2 px-2 overflow-x-auto">
+          {(['scan', 'attendance', 'food', 'games', 'bus'] as const).map((tab) => (
                 <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`border-b-2 font-medium transition-colors ${
-                    isMobileDevice ? 'py-2 px-2 text-xs whitespace-nowrap min-w-[60px]' : 'py-2 px-1 text-sm'
-                  } ${
-                    activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <div className={`flex ${isMobileDevice ? 'flex-col items-center justify-center' : 'items-center'}`}>
-                    <span className={isMobileDevice ? 'text-base mb-1' : 'text-sm'}>{tab.icon}</span>
-                    <span className={isMobileDevice ? 'text-xs leading-tight' : 'ml-1 text-sm'}>{tab.label}</span>
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`tab ${activeTab === tab ? 'tab-active' : 'tab-inactive'}`}
+            >
+              <div className="flex flex-col items-center">
+                <span className="text-sm mb-0.5">
+                  {tab === 'scan' && '📱'}
+                  {tab === 'attendance' && '✅'}
+                  {tab === 'food' && '🍽️'}
+                  {tab === 'games' && '🎮'}
+                  {tab === 'bus' && '🚌'}
+                </span>
+                <span className="capitalize">
+                  {tab === 'attendance' ? 'Attendance' : tab}
+                </span>
                   </div>
                 </button>
               ))}
-            </nav>
           </div>
-        )}
 
         {/* Tab Content */}
-        {currentDay.type !== 'off' && (
-          <div className={`bg-white rounded-lg shadow ${isMobileDevice ? 'p-3' : 'p-6'}`}>
+        <div className="p-2 mx-1">
+          {/* QR Scanner Tab */}
             {activeTab === 'scan' && (
-              <div>
-                <h2 className={`font-semibold mb-4 ${isMobileDevice ? 'text-lg' : 'text-xl'}`}>QR Code Scanner</h2>
+            <div className="space-y-3">
+              <h2 className="text-base font-heading text-gray-900 mb-2">
+                {currentDay.name.replace(' Day 1', '').replace(' Day 2', '')}
+              </h2>
                 <QRScanner onScan={handleQRScan} isActive={activeTab === 'scan'} />
               </div>
             )}
 
+          {/* Attendance Tab */}
             {activeTab === 'attendance' && (
-              <div>
-                <h2 className="text-xl font-semibold mb-4">Attendance Tracking - {currentDay.name}</h2>
+            <div className="space-y-3">
+              <h2 className="text-base font-heading text-gray-900 mb-2">Attendance</h2>
                 {!currentParticipant ? (
-                  <p className="text-gray-600">Please scan a participant QR code first.</p>
-                ) : currentDayData ? (
-                  <div className="space-y-4">
+                <p className="text-[var(--text-secondary)] text-sm font-body">Scan a participant to track attendance</p>
+              ) : !canTakeAttendance(selectedDay) ? (
+                <div className="status-info text-sm">
+                  Attendance tracking is only available on event days
+                </div>
+              ) : currentDayData ? (
+                <div className="space-y-2">
+                  {/* Simple attendance tracking */}
+                  <div className="flex items-center justify-between p-2 bg-gray-50 rounded-xl">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm text-gray-900 truncate font-body">
+                        {currentDay.name} Attendance
+                      </p>
+                      <p className="text-xs text-[var(--text-secondary)] font-body">
+                        Mark participant as present for this session
+                      </p>
+                    </div>
                     <button
-                      onClick={() => handleAttendanceUpdate(currentDayKey, 'attended')}
-                      className={`w-full p-6 rounded-lg border-2 transition-colors ${
-                        currentDayData.attended
-                          ? 'border-green-500 bg-green-50 text-green-700'
-                          : 'border-gray-300 bg-gray-50 text-gray-700 hover:border-gray-400'
-                      }`}
+                      onClick={() => handleAttendanceUpdate(getCurrentDayKey(), 'attended')}
+                      className={`btn-xs ${currentDayData.attended ? 'btn-success' : 'btn-primary'}`}
                     >
-                      <div className="text-center">
-                        <div className="text-4xl mb-2">{currentDayData.attended ? '✅' : '⏸️'}</div>
-                        <div className="text-xl font-medium">Mark Attendance</div>
-                        <div className="text-sm opacity-75">{currentDay.name}</div>
-                      </div>
+                      {currentDayData.attended ? '✓ Present' : 'Mark Present'}
                     </button>
                   </div>
-                ) : (
-                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-center">
-                    <div className="text-gray-600">No attendance data available for this participant on this day.</div>
-                    <div className="text-sm text-gray-500 mt-2">Attendance tracking will be initialized when first marked.</div>
-                  </div>
+                </div>
+              ) : (
+                <p className="text-[var(--text-secondary)] text-sm font-body">No session data available for this day</p>
                 )}
               </div>
             )}
 
-            {activeTab === 'food' && currentDay.hasFood && (
-              <div>
-                <h2 className="text-xl font-semibold mb-4">Food Tracking - {currentDay.name}</h2>
+          {/* Food Tab */}
+          {activeTab === 'food' && (
+            <div className="space-y-3">
+              <h2 className="text-base font-heading text-gray-900 mb-2">Food Tracking</h2>
                 {!currentParticipant ? (
-                  <p className="text-gray-600">Please scan a participant QR code first.</p>
-                ) : currentDayData ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {currentDay.foodTypes.map(foodType => (
-                      <button
-                        key={foodType}
-                        onClick={() => handleFoodUpdate(currentDayKey, foodType)}
-                        className={`p-4 rounded-lg border-2 transition-colors ${
-                          (currentDayData as any)[foodType]
-                            ? 'border-green-500 bg-green-50 text-green-700'
-                            : 'border-gray-300 bg-gray-50 text-gray-700 hover:border-gray-400'
-                        }`}
-                      >
-                        <div className="text-center">
-                          <div className="text-2xl mb-2">{(currentDayData as any)[foodType] ? '✅' : '🍽️'}</div>
-                          <div className="font-medium capitalize">{foodType}</div>
+                <p className="text-[var(--text-secondary)] text-sm font-body">Scan a participant to track food distribution</p>
+              ) : currentDay.hasFood && currentDay.foodTypes.length > 0 ? (
+                <div className="space-y-2">
+                  {/* Generate food options based on current day food types */}
+                  {currentDay.foodTypes.map((foodType) => {
+                    const isReceived = currentDayData && (
+                      foodType === 'lunch' ? currentDayData.lunch : 
+                      foodType === 'breakfast' ? (currentDayData as any).breakfast :
+                      foodType === 'catering' ? (currentDayData as any).catering : false
+                    )
+                    
+                    return (
+                      <div key={foodType} className="flex items-center justify-between p-2 bg-gray-50 rounded-xl">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm text-gray-900 truncate font-body">
+                            {foodType.charAt(0).toUpperCase() + foodType.slice(1)}
+                          </p>
+                          <p className="text-xs text-[var(--text-secondary)] font-body">
+                            {currentDay.name} - {foodType}
+                          </p>
                         </div>
+                        <button
+                          onClick={() => handleFoodUpdate(getCurrentDayKey(), foodType)}
+                          className={`btn-xs ${isReceived ? 'btn-success' : 'btn-accent-3'}`}
+                        >
+                          {isReceived ? '✓ Given' : 'Mark Given'}
                       </button>
-                    ))}
+                      </div>
+                    )
+                  })}
                   </div>
-                ) : (
-                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-center">
-                    <div className="text-gray-600">No food tracking data available for this participant on this day.</div>
-                    <div className="text-sm text-gray-500 mt-2">Food tracking will be initialized when first marked.</div>
-                  </div>
+              ) : (
+                <p className="text-[var(--text-secondary)] text-sm font-body">No meal service available for this day</p>
                 )}
               </div>
             )}
 
+          {/* Games Tab */}
             {activeTab === 'games' && (
-              <div>
-                <h2 className="text-xl font-semibold mb-4">Games & Activities - {currentDay.name}</h2>
+            <div className="space-y-3">
+              <h2 className="text-base font-heading text-gray-900 mb-2">Activities</h2>
                 {!currentParticipant ? (
-                  <p className="text-gray-600">Please scan a participant QR code first.</p>
-                ) : trackingData ? (
-                  <div>
-                    {/* Current Activities for this day */}
-                    {trackingData.games.filter(game => game.day === selectedDay).length > 0 && (
-                      <div className="mb-6">
-                        <h3 className="text-lg font-medium mb-3">Current Activities</h3>
+                <p className="text-[var(--text-secondary)] text-sm font-body">Scan a participant to track activities</p>
+              ) : (
                         <div className="space-y-2">
-                          {trackingData.games
-                            .filter(game => game.day === selectedDay)
-                            .map((game, index) => (
-                            <div key={index} className="p-3 bg-gray-50 rounded-lg flex justify-between items-center">
-                              <div>
-                                <span className="font-medium">{game.activity}</span>
-                                <span className="ml-2 text-sm text-gray-600">
-                                  Joined: {new Date(game.joinTime).toLocaleTimeString()}
-                                  {game.leaveTime && ` • Left: ${new Date(game.leaveTime).toLocaleTimeString()}`}
-                                </span>
+                  {availableGames.map((game) => {
+                    // Check if participant is currently in this game
+                    // @ts-ignore - Fix game tracking types later
+                    const gameHistory = trackingData?.games || []
+                    // @ts-ignore - Fix game tracking types later  
+                    const latestEntry = gameHistory
+                      .filter((entry: any) => entry.activity === game && entry.day === selectedDay)
+                      .sort((a: any, b: any) => new Date(b.joinTime || b.timestamp).getTime() - new Date(a.joinTime || a.timestamp).getTime())[0]
+                    
+                    // @ts-ignore - Fix game tracking types later
+                    const isCurrentlyJoined = latestEntry?.action === 'join'
+                    
+                    return (
+                      <div key={game} className="flex items-center justify-between p-2 bg-gray-50 rounded-xl">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm text-gray-900 truncate font-body">{game}</p>
+                          {latestEntry && (
+                            <p className="text-xs text-[var(--text-secondary)] font-body">
+                              {/* @ts-ignore - Fix game tracking types later */}
+                              Last: {latestEntry.action} at {new Date(latestEntry.timestamp || latestEntry.joinTime).toLocaleTimeString()}
+                            </p>
+                          )}
                               </div>
-                              <div className="flex gap-2">
-                                {!game.leaveTime && (
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => handleGameActivity(game, 'join')}
+                            disabled={isCurrentlyJoined}
+                            className={`btn-xs ${isCurrentlyJoined ? 'btn-secondary opacity-50' : 'btn-success'}`}
+                          >
+                            Join
+                          </button>
                                   <button
-                                    onClick={() => handleGameActivity(game.activity, 'leave')}
-                                    className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+                            onClick={() => handleGameActivity(game, 'leave')}
+                            disabled={!isCurrentlyJoined}
+                            className={`btn-xs ${!isCurrentlyJoined ? 'btn-secondary opacity-50' : 'btn-danger'}`}
                                   >
                                     Leave
                                   </button>
-                                )}
-                              </div>
-                            </div>
-                          ))}
                         </div>
                       </div>
-                    )}
-                    
-                    {/* Available Games */}
-                    <div>
-                      <h3 className="text-lg font-medium mb-3">Available Activities</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {availableGames.map(game => {
-                          const currentGame = trackingData.games.find(g => 
-                            g.activity === game && 
-                            g.day === selectedDay && 
-                            !g.leaveTime
-                          )
-                          return (
-                            <button
-                              key={game}
-                              onClick={() => handleGameActivity(game, currentGame ? 'leave' : 'join')}
-                              className={`p-4 rounded-lg border-2 transition-colors ${
-                                currentGame
-                                  ? 'border-red-500 bg-red-50 text-red-700'
-                                  : 'border-blue-300 bg-blue-50 text-blue-700 hover:border-blue-400'
-                              }`}
-                            >
-                              <div className="text-center">
-                                <div className="text-2xl mb-2">{currentGame ? '🔴' : '🎮'}</div>
-                                <div className="font-medium">{game}</div>
-                                <div className="text-xs mt-1">
-                                  {currentGame ? 'Click to Leave' : 'Click to Join'}
-                                </div>
-                              </div>
-                            </button>
                           )
                         })}
                       </div>
-                    </div>
-                  </div>
-                ) : null}
+              )}
               </div>
             )}
 
-            {activeTab === 'bus' && (currentDay.hasBus === true || currentDay.hasBus === 'to-only') && (
-              <div>
-                <h2 className="text-xl font-semibold mb-4">
-                  Bus Tracking - {currentDay.name}
-                  {currentDay.hasBus === 'to-only' && (
-                    <span className="ml-2 text-sm text-orange-600 font-normal">
-                      (To University Only - No Return Buses)
-                    </span>
-                  )}
-                </h2>
+          {/* Bus Tab */}
+          {activeTab === 'bus' && (
+            <div className="space-y-3">
+              <h2 className="text-base font-heading text-gray-900 mb-2">Transportation</h2>
                 {!currentParticipant ? (
-                  <p className="text-gray-600">Please scan a participant QR code first.</p>
-                ) : trackingData ? (
-                  <div>
-                    {/* Bus History for this day */}
-                    {trackingData.bus.filter(entry => entry.day === selectedDay).length > 0 && (
-                      <div className="mb-6">
-                        <h3 className="text-lg font-medium mb-3">Today's Bus History</h3>
-                        <div className="space-y-2">
-                          {trackingData.bus
-                            .filter(entry => entry.day === selectedDay)
-                            .slice().reverse().map((entry, index) => (
-                            <div key={index} className="p-3 bg-gray-50 rounded-lg flex justify-between items-center">
-                              <div>
-                                <span className={`font-medium ${entry.type === 'arriving' ? 'text-green-600' : 'text-blue-600'}`}>
-                                  {entry.type === 'arriving' ? '🚌 Arrived' : '🚌 Departed'}
-                                </span>
-                                <span className="ml-2">on {entry.route} at {entry.stop}</span>
+                <p className="text-[var(--text-secondary)] text-sm font-body">Scan a participant to track bus travel</p>
+              ) : !currentParticipant.busRoute ? (
+                <div className="status-info text-sm">
+                  This participant is not assigned to any bus route.
                               </div>
-                              <span className="text-sm text-gray-600">
-                                {new Date(entry.timestamp).toLocaleTimeString()}
-                              </span>
+              ) : (
+                <div className="space-y-3">
+                  {/* Show only the participant's assigned route */}
+                  {(() => {
+                    const assignedRoute = getBusRouteById(currentParticipant.busRoute)
+                    if (!assignedRoute) {
+                      return (
+                        <div className="status-error text-sm">
+                          <strong>Error:</strong> Route {currentParticipant.busRoute} not found in system
                             </div>
-                          ))}
+                      )
+                    }
+                    
+                    return (
+                      <div>
+                        <div className="status-success text-sm mb-3">
+                          <strong>Assigned Route:</strong> {assignedRoute.name}
                         </div>
+                        
+                        {/* Day-specific bus warnings */}
+                        {selectedDay === 'day1' && (
+                          <div className="status-warning text-sm mb-3">
+                            <strong>Note:</strong> Buses run to University only on Sessions day
                       </div>
                     )}
                     
-                    {/* Bus Tracking Controls */}
-                    <div className="space-y-6">
-                      {busRoutes.map(route => (
-                        <div key={route.id} className="border border-gray-200 rounded-lg p-4">
-                          <h3 className="text-lg font-medium mb-3">{route.name}</h3>
-                          <div className={`grid gap-4 ${currentDay.hasBus === 'to-only' ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
-                            <div>
-                              <h4 className="font-medium text-green-700 mb-2">Arriving</h4>
+                        <div className="card-accent-1">
+                          <h3 className="font-heading text-sm text-gray-900 mb-2">{assignedRoute.name}</h3>
                               <div className="space-y-2">
-                                {route.stops.map(stop => (
+                            {assignedRoute.stops.map((stop: any) => (
+                              <div key={stop.name || stop} className="flex items-center justify-between text-xs">
+                                <span className="flex-1 min-w-0 truncate font-body">{stop.name || stop}</span>
+                                <div className="flex gap-1 ml-2">
                                   <button
-                                    key={`arriving-${stop}`}
-                                    onClick={() => handleBusTracking('arriving', route.name, stop)}
-                                    className="w-full p-2 text-left border border-green-300 bg-green-50 text-green-700 rounded hover:bg-green-100 transition-colors text-sm"
+                                    onClick={() => handleBusTracking('arriving', currentParticipant.busRoute!, stop.name || stop)}
+                                    className="btn-xs btn-primary"
                                   >
-                                    🚌 Arriving at {stop}
+                                    Arriving
                                   </button>
-                                ))}
-                              </div>
-                            </div>
-                            
-                            {currentDay.hasBus === true && (
-                              <div>
-                                <h4 className="font-medium text-blue-700 mb-2">Departing</h4>
-                                <div className="space-y-2">
-                                  {route.stops.map(stop => (
                                     <button
-                                      key={`departing-${stop}`}
-                                      onClick={() => handleBusTracking('departing', route.name, stop)}
-                                      className="w-full p-2 text-left border border-blue-300 bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition-colors text-sm"
+                                    onClick={() => handleBusTracking('departing', currentParticipant.busRoute!, stop.name || stop)}
+                                    className="btn-xs btn-secondary"
                                     >
-                                      🚌 Departing from {stop}
+                                    Departing
                                     </button>
-                                  ))}
                                 </div>
                               </div>
-                            )}
+                            ))}
                           </div>
-                          
-                          {currentDay.hasBus === 'to-only' && (
-                            <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                              <div className="text-sm text-orange-800">
-                                <strong>Note:</strong> No return buses available on closing day. Participants must arrange their own transportation back.
-                              </div>
-                            </div>
-                          )}
                         </div>
-                      ))}
                     </div>
-                  </div>
-                ) : null}
+                    )
+                  })()}
               </div>
             )}
           </div>
         )}
-
-        {/* History Modal */}
-        {showHistory && currentParticipant && (
-          <ParticipantHistory
-            participantId={currentParticipant.id}
-            participantName={currentParticipant.name}
-            isModal={true}
-            onClose={() => setShowHistory(false)}
-          />
-        )}
+        </div>
       </div>
     </div>
   )

@@ -49,6 +49,9 @@ export async function createParticipantsSheet(): Promise<void> {
   const sheetNames = await getSheetNames();
   const participantsSheetExists = sheetNames.includes('Participants');
 
+  // Also ensure the Attendance sheet exists
+  await createAttendanceTrackingSheet();
+
   // If the sheet doesn't exist, create it
   if (!participantsSheetExists) {
     try {
@@ -66,7 +69,7 @@ export async function createParticipantsSheet(): Promise<void> {
       });
       console.log('Created Participants sheet');
 
-      // Define headers for the participants sheet
+      // Define headers for the participants sheet (basic info only)
       const headers = [
         'ID',
         'Name', 
@@ -74,17 +77,8 @@ export async function createParticipantsSheet(): Promise<void> {
         'Position',
         'Gender',
         'QR Data',
-        // Attendance columns
-        'Session 1',
-        'Session 2', 
-        'Session 3',
-        'Session 4',
-        'Conference 1',
-        'Conference 2',
-        'Conference 3',
-        'Performance Day',
-        'Opening Day',
-        // Dynamic food and bus columns can be added later
+        'Bus Route',
+        'Bus Stop'
       ];
 
       // Only add headers when creating a new sheet
@@ -102,8 +96,12 @@ export async function createParticipantsSheet(): Promise<void> {
       console.error('Error creating Participants sheet:', error);
       throw error;
     }
+  } else {
+    console.log('Participants sheet already exists');
   }
-  // If sheet already exists, do nothing - don't clear existing data!
+  
+  // Always ensure attendance sheet exists
+  console.log('Ensuring Attendance sheet exists...');
 }
 
 export async function addParticipant(participant: Participant): Promise<void> {
@@ -121,8 +119,8 @@ export async function addParticipant(participant: Participant): Promise<void> {
     participant.position,
     participant.gender,
     participant.qrUrl || '',
-    // Initialize attendance as empty
-    '', '', '', '', '', '', '', '', '',
+    participant.busRoute || '',
+    participant.busStop || ''
   ];
 
   try {
@@ -140,7 +138,85 @@ export async function addParticipant(participant: Participant): Promise<void> {
   }
 }
 
+// Individual participant cache for super-fast lookups
+const individualParticipantCache = new Map<string, { data: Participant, timestamp: number }>()
+const INDIVIDUAL_CACHE_DURATION = 60 * 1000 // 1 minute for individual participants
+
+// ULTRA-FAST: Get single participant by ID with aggressive caching
+export async function getParticipantById(participantId: string): Promise<Participant | null> {
+  // First check individual participant cache
+  const individualCached = individualParticipantCache.get(participantId)
+  if (individualCached && Date.now() - individualCached.timestamp < INDIVIDUAL_CACHE_DURATION) {
+    return individualCached.data
+  }
+
+  // Second, check if we have it in the participant list cache
+  const cachedList = getCachedParticipantList()
+  if (cachedList) {
+    const participant = cachedList.find((p: Participant) => p.id === participantId)
+    if (participant) {
+      // Cache this individual participant for even faster future lookups
+      individualParticipantCache.set(participantId, { data: participant, timestamp: Date.now() })
+      return participant
+    }
+  }
+
+  // If not cached, we need to search the sheet
+  const sheets = await getGoogleSheetsInstance();
+  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+
+  if (!spreadsheetId) {
+    throw new Error('GOOGLE_SHEETS_SPREADSHEET_ID not set');
+  }
+
+  try {
+    // ULTRA-FAST APPROACH: Search directly in the sheet without loading everything
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: 'Participants!A:H', // Only get columns we need
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length <= 1) {
+      return null;
+    }
+
+    // Search for the specific participant (skip header row)
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (row[0] === participantId) {
+        const participant: Participant = {
+          id: row[0] || '',
+          name: row[1] || '',
+          phoneNumber: row[2] || '',
+          position: row[3] || '',
+          gender: (row[4] as 'Male' | 'Female') || 'Male',
+          qrUrl: row[5] || '',
+          busRoute: row[6] || undefined,
+          busStop: row[7] || undefined,
+        };
+        
+        // Cache this individual participant for even faster future lookups
+        individualParticipantCache.set(participantId, { data: participant, timestamp: Date.now() })
+        
+        return participant;
+      }
+    }
+    
+    return null; // Participant not found
+  } catch (error) {
+    console.error('Error getting participant by ID:', error);
+    throw error;
+  }
+}
+
 export async function getAllParticipants(): Promise<Participant[]> {
+  // Check cache first for faster loading
+  const cached = getCachedParticipantList()
+  if (cached) {
+    return cached
+  }
+
   const sheets = await getGoogleSheetsInstance();
   const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
 
@@ -160,31 +236,80 @@ export async function getAllParticipants(): Promise<Participant[]> {
     }
 
     // Skip header row
-    return rows.slice(1).map((row): Participant => ({
+    const participants = rows.slice(1).map((row): Participant => ({
       id: row[0] || '',
       name: row[1] || '',
       phoneNumber: row[2] || '',
       position: row[3] || '',
       gender: (row[4] as 'Male' | 'Female') || 'Male',
       qrUrl: row[5] || '',
-      attendance: {
-        session1: row[6] === 'TRUE',
-        session2: row[7] === 'TRUE',
-        session3: row[8] === 'TRUE',
-        session4: row[9] === 'TRUE',
-        conference1: row[10] === 'TRUE',
-        conference2: row[11] === 'TRUE',
-        conference3: row[12] === 'TRUE',
-        performanceDay: row[13] === 'TRUE',
-        openingDay: row[14] === 'TRUE',
-      },
+      busRoute: row[6] || undefined,
+      busStop: row[7] || undefined,
+      // Attendance data will be fetched separately from the ActivityTracking sheet
     }));
+
+    // Cache the result for faster subsequent calls
+    setCachedParticipantList(participants)
+    
+    return participants
   } catch (error) {
     console.error('Error getting participants:', error);
     throw error;
   }
 }
 
+// Create dedicated Attendance tracking sheet
+async function createAttendanceTrackingSheet(): Promise<void> {
+  const sheets = await getGoogleSheetsInstance();
+  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+
+  if (!spreadsheetId) {
+    throw new Error('GOOGLE_SHEETS_SPREADSHEET_ID not set');
+  }
+
+  const sheetNames = await getSheetNames();
+  
+  if (!sheetNames.includes('Attendance')) {
+    try {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [{
+            addSheet: {
+              properties: {
+                title: 'Attendance',
+              },
+            },
+          }],
+        },
+      });
+
+      const headers = [
+        'Participant ID',
+        'Day Key',
+        'Field',
+        'Value',
+        'Timestamp'
+      ];
+
+      await sheets.spreadsheets.values.update({
+      spreadsheetId,
+        range: 'Attendance!A1',
+      valueInputOption: 'RAW',
+      requestBody: {
+          values: [headers],
+      },
+    });
+
+      console.log('Attendance tracking sheet created');
+  } catch (error) {
+      console.error('Error creating Attendance sheet:', error);
+    throw error;
+    }
+  }
+}
+
+// Updated attendance tracking to use dedicated sheet
 export async function updateParticipantAttendance(
   participantId: string,
   dayKey: string,
@@ -199,31 +324,55 @@ export async function updateParticipantAttendance(
     throw new Error('GOOGLE_SHEETS_SPREADSHEET_ID not set');
   }
 
-  // Create activity tracking sheet if it doesn't exist
-  await createActivityTrackingSheet();
+  // Create attendance tracking sheet if it doesn't exist
+  await createAttendanceTrackingSheet();
 
   try {
-    // Add new activity record with timestamp
+    // Ensure ActivityTracking sheet exists
+    await createActivityTrackingSheet();
+    
+    const attendanceRow = [
+      participantId,
+      dayKey,
+      field,
+      value ? 'TRUE' : 'FALSE',
+      timestamp
+    ];
+    
     const activityType = field === 'attended' ? 'Attendance' : 'Food';
     const activityName = field === 'attended' ? `${dayKey} Attendance` : `${dayKey} ${field}`;
+    const activityRow = [
+      participantId,
+      activityType,
+      activityName,
+      value ? 'TRUE' : 'FALSE',
+      timestamp
+    ];
     
-    await sheets.spreadsheets.values.append({
+    // Write to both sheets in parallel for speed
+    const writePromises = [
+      sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: 'ActivityTracking!A:E',
+        range: 'Attendance!A:E',
       valueInputOption: 'RAW',
       requestBody: {
-        values: [[
-          participantId,
-          activityType,
-          activityName,
-          value ? 'TRUE' : 'FALSE',
-          timestamp
-        ]],
-      },
-    });
-
-    // Also update the legacy attendance system for backward compatibility
-    await updateLegacyAttendance(participantId, dayKey, field, value);
+          values: [attendanceRow],
+        },
+      }),
+      sheets.spreadsheets.values.append({
+        spreadsheetId,
+        range: 'ActivityTracking!A:E',
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [activityRow],
+        },
+      })
+    ];
+    
+    await Promise.all(writePromises);
+    
+    // Invalidate cache for this participant to ensure fresh data on next load
+    invalidateParticipantCache(participantId)
     
   } catch (error) {
     console.error('Error updating attendance:', error);
@@ -231,80 +380,7 @@ export async function updateParticipantAttendance(
   }
 }
 
-// Legacy attendance update for backward compatibility
-async function updateLegacyAttendance(
-  participantId: string,
-  dayKey: string,
-  field: string,
-  value: boolean
-): Promise<void> {
-  if (field !== 'attended') return; // Only update attendance in legacy system
-
-  const sheets = await getGoogleSheetsInstance();
-  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
-
-  if (!spreadsheetId) {
-    throw new Error('GOOGLE_SHEETS_SPREADSHEET_ID not set');
-  }
-
-  // Map day keys to legacy attendance fields
-  const legacyFieldMap: Record<string, string> = {
-    'sessions.day1': 'session1',
-    'sessions.day2': 'session2',
-    'sessions.day3': 'session3',
-    'sessions.day4': 'session4',
-    'performanceDay': 'performanceDay',
-    'openingCeremony': 'openingDay',
-    'conference.day1': 'conference1',
-    'conference.day2': 'conference2',
-    'conference.day3': 'conference3',
-  };
-
-  const legacyField = legacyFieldMap[dayKey];
-  if (!legacyField) return;
-
-  // Map attendance fields to column indices
-  const attendanceColumns: Record<string, number> = {
-    session1: 7,      // Column G
-    session2: 8,      // Column H
-    session3: 9,      // Column I
-    session4: 10,     // Column J
-    conference1: 11,  // Column K
-    conference2: 12,  // Column L
-    conference3: 13,  // Column M
-    performanceDay: 14, // Column N
-    openingDay: 15,   // Column O
-  };
-
-  const columnIndex = attendanceColumns[legacyField];
-  if (columnIndex === undefined) return;
-
-  try {
-    // Find the participant row
-    const participants = await getAllParticipants();
-    const participantIndex = participants.findIndex(p => p.id === participantId);
-    
-    if (participantIndex === -1) {
-      throw new Error(`Participant with ID ${participantId} not found`);
-    }
-
-    // Convert to spreadsheet row (add 2: 1 for header, 1 for 0-based index)
-    const rowNumber = participantIndex + 2;
-    const columnLetter = String.fromCharCode(65 + columnIndex - 1); // Convert to A, B, C, etc.
-    
-    await sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range: `Participants!${columnLetter}${rowNumber}`,
-      valueInputOption: 'RAW',
-      requestBody: {
-        values: [[value ? 'TRUE' : 'FALSE']],
-      },
-    });
-  } catch (error) {
-    console.error('Error updating legacy attendance:', error);
-    // Don't throw error for legacy update failures
-  }
-}
+// Legacy attendance system removed - all attendance is now tracked in ActivityTracking sheet
 
 export async function bulkAddParticipants(participants: Participant[]): Promise<void> {
   const sheets = await getGoogleSheetsInstance();
@@ -321,8 +397,8 @@ export async function bulkAddParticipants(participants: Participant[]): Promise<
     participant.position,
     participant.gender,
     participant.qrUrl || '',
-    // Initialize attendance as empty
-    '', '', '', '', '', '', '', '', '',
+    participant.busRoute || '',
+    participant.busStop || ''
   ]);
 
   try {
@@ -359,26 +435,32 @@ export async function updateFoodTracking(
   await createActivityTrackingSheet();
 
   try {
-    // Add new activity record with timestamp
     const activityName = `${dayKey} ${meal}`;
-    
-    await sheets.spreadsheets.values.append({
-      spreadsheetId,
-      range: 'ActivityTracking!A:E',
-      valueInputOption: 'RAW',
-      requestBody: {
-        values: [[
+    const activityRow = [
           participantId,
           'Food',
           activityName,
           value ? 'TRUE' : 'FALSE',
           timestamp
-        ]],
-      },
-    });
-
-    // Also update the legacy food tracking system for backward compatibility
-    await updateLegacyFoodTracking(participantId, meal, value);
+    ];
+    
+    // Write to ActivityTracking and update legacy system in parallel for speed
+    const writePromises = [
+      sheets.spreadsheets.values.append({
+        spreadsheetId,
+        range: 'ActivityTracking!A:E',
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [activityRow],
+        },
+      }),
+      updateLegacyFoodTracking(participantId, meal, value)
+    ];
+    
+    await Promise.all(writePromises);
+    
+    // Invalidate cache for this participant to ensure fresh data on next load
+    invalidateParticipantCache(participantId)
     
   } catch (error) {
     console.error('Error updating food tracking:', error);
@@ -480,19 +562,47 @@ export async function updateGameActivity(
     throw new Error('GOOGLE_SHEETS_SPREADSHEET_ID not set');
   }
 
-  await createGamesTrackingSheet();
+  // Create both sheets and write to both in parallel for speed
+  const createPromises = [
+    createGamesTrackingSheet(),
+    createActivityTrackingSheet()
+  ];
+  await Promise.all(createPromises);
   
   try {
-    const newRow = [participantId, activity, action, timestamp];
+    const gameRow = [participantId, activity, action, timestamp];
+    const activityRow = [
+      participantId,
+      'Games',
+      `${action} ${activity}`,
+      action === 'join' ? 'TRUE' : 'FALSE',
+      timestamp
+    ];
     
-    await sheets.spreadsheets.values.append({
+    // Write to both sheets in parallel for speed
+    const writePromises = [
+      sheets.spreadsheets.values.append({
       spreadsheetId,
       range: 'Games!A:Z',
       valueInputOption: 'RAW',
       requestBody: {
-        values: [newRow],
-      },
-    });
+          values: [gameRow],
+        },
+      }),
+      sheets.spreadsheets.values.append({
+        spreadsheetId,
+        range: 'ActivityTracking!A:E',
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [activityRow],
+        },
+      })
+    ];
+    
+    await Promise.all(writePromises);
+    
+    // Invalidate cache for this participant to ensure fresh data on next load
+    invalidateParticipantCache(participantId)
   } catch (error) {
     console.error('Error updating game activity:', error);
     throw error;
@@ -513,19 +623,47 @@ export async function updateBusTracking(
     throw new Error('GOOGLE_SHEETS_SPREADSHEET_ID not set');
   }
 
-  await createBusTrackingSheet();
+  // Create both sheets and write to both in parallel for speed
+  const createPromises = [
+    createBusTrackingSheet(),
+    createActivityTrackingSheet()
+  ];
+  await Promise.all(createPromises);
   
   try {
-    const newRow = [participantId, type, stop, timestamp];
+    const busRow = [participantId, type, stop, timestamp];
+    const activityRow = [
+      participantId,
+      'Bus',
+      `${type} at ${stop}`,
+      'TRUE',
+      timestamp
+    ];
     
-    await sheets.spreadsheets.values.append({
+    // Write to both sheets in parallel for speed
+    const writePromises = [
+      sheets.spreadsheets.values.append({
       spreadsheetId,
       range: 'Bus!A:Z',
       valueInputOption: 'RAW',
       requestBody: {
-        values: [newRow],
-      },
-    });
+          values: [busRow],
+        },
+      }),
+      sheets.spreadsheets.values.append({
+        spreadsheetId,
+        range: 'ActivityTracking!A:E',
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [activityRow],
+        },
+      })
+    ];
+    
+    await Promise.all(writePromises);
+    
+    // Invalidate cache for this participant to ensure fresh data on next load
+    invalidateParticipantCache(participantId)
   } catch (error) {
     console.error('Error updating bus tracking:', error);
     throw error;
@@ -692,7 +830,8 @@ async function createActivityTrackingSheet(): Promise<void> {
 }
 
 // Get participant tracking data
-export async function getParticipantTrackingData(participantId: string) {
+// Get attendance data from dedicated Attendance sheet
+export async function getParticipantAttendanceData(participantId: string) {
   const sheets = await getGoogleSheetsInstance();
   const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
 
@@ -701,74 +840,241 @@ export async function getParticipantTrackingData(participantId: string) {
   }
 
   try {
-    // Get food data
-    let foodData = { breakfast: false, lunch: false, dinner: false, snack1: false, snack2: false };
-    try {
-      const foodResponse = await sheets.spreadsheets.values.get({
+    // Get attendance data
+    const attendanceResponse = await sheets.spreadsheets.values.get({
         spreadsheetId,
-        range: 'Food!A:Z',
-      });
-      
-      const foodRows = foodResponse.data.values || [];
-      const foodRow = foodRows.find(row => row[0] === participantId);
-      if (foodRow) {
-        foodData = {
-          breakfast: foodRow[1] === 'TRUE',
-          lunch: foodRow[2] === 'TRUE',
-          dinner: foodRow[3] === 'TRUE',
-          snack1: foodRow[4] === 'TRUE',
-          snack2: foodRow[5] === 'TRUE',
-        };
+      range: 'Attendance!A:E',
+    });
+
+    const attendanceRows = attendanceResponse.data.values || [];
+    const attendanceData: any = {};
+
+    // Process attendance data
+    for (let i = 1; i < attendanceRows.length; i++) {
+      const row = attendanceRows[i];
+      if (row[0] === participantId) {
+        const dayKey = row[1];
+        const field = row[2];
+        const value = row[3] === 'TRUE';
+        
+        if (!attendanceData[dayKey]) {
+          attendanceData[dayKey] = {};
+        }
+        attendanceData[dayKey][field] = value;
       }
-    } catch (error) {
-      console.warn('Food sheet not found or error reading:', error);
-    }
-
-    // Get games data
-    let gamesData: any[] = [];
-    try {
-      const gamesResponse = await sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: 'Games!A:Z',
-      });
-      
-      const gamesRows = gamesResponse.data.values || [];
-      gamesData = gamesRows
-        .filter(row => row[0] === participantId)
-        .map(row => ({
-          activity: row[1],
-          action: row[2],
-          timestamp: row[3]
-        }));
-    } catch (error) {
-      console.warn('Games sheet not found or error reading:', error);
-    }
-
-    // Get bus data
-    let busData: any[] = [];
-    try {
-      const busResponse = await sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: 'Bus!A:Z',
-      });
-      
-      const busRows = busResponse.data.values || [];
-      busData = busRows
-        .filter(row => row[0] === participantId)
-        .map(row => ({
-          type: row[1],
-          stop: row[2],
-          timestamp: row[3]
-        }));
-    } catch (error) {
-      console.warn('Bus sheet not found or error reading:', error);
     }
 
     return {
+      dayTracking: attendanceData
+    };
+    } catch (error) {
+    console.error('Error getting participant attendance data:', error);
+    return { dayTracking: {} };
+  }
+}
+
+// Enhanced caching system for better performance
+const participantCache = new Map<string, { data: any, timestamp: number }>()
+const participantListCache = { data: null as any, timestamp: 0 }
+const activitySheetCache = { data: null as any, timestamp: 0 }
+const CACHE_DURATION = 30 * 1000 // 30 seconds cache (faster refresh for active scanning)
+const LIST_CACHE_DURATION = 60 * 1000 // 1 minute for participant list
+const ACTIVITY_CACHE_DURATION = 20 * 1000 // 20 seconds for activity sheet (very aggressive)
+
+function getCachedParticipant(participantId: string) {
+  const cached = participantCache.get(participantId)
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    return cached.data
+  }
+  return null
+}
+
+function setCachedParticipant(participantId: string, data: any) {
+  participantCache.set(participantId, { data, timestamp: Date.now() })
+  
+  // Clean up old cache entries (keep cache size manageable)
+  if (participantCache.size > 200) { // Increased cache size for better hit rate
+    const entries = Array.from(participantCache.entries())
+    // Remove oldest 50 entries
+    entries.sort((a, b) => a[1].timestamp - b[1].timestamp)
+    for (let i = 0; i < 50; i++) {
+      participantCache.delete(entries[i][0])
+    }
+  }
+}
+
+function getCachedParticipantList() {
+  if (participantListCache.data && Date.now() - participantListCache.timestamp < LIST_CACHE_DURATION) {
+    return participantListCache.data
+  }
+  return null
+}
+
+function setCachedParticipantList(data: any) {
+  participantListCache.data = data
+  participantListCache.timestamp = Date.now()
+}
+
+function getCachedActivitySheet() {
+  if (activitySheetCache.data && Date.now() - activitySheetCache.timestamp < ACTIVITY_CACHE_DURATION) {
+    return activitySheetCache.data
+  }
+  return null
+}
+
+function setCachedActivitySheet(data: any) {
+  activitySheetCache.data = data
+  activitySheetCache.timestamp = Date.now()
+}
+
+function invalidateParticipantCache(participantId?: string) {
+  if (participantId) {
+    // Invalidate specific participant cache
+    participantCache.delete(participantId)
+    individualParticipantCache.delete(participantId)
+    // Also invalidate activity sheet cache since data changed
+    activitySheetCache.data = null
+    activitySheetCache.timestamp = 0
+  } else {
+    // Invalidate all caches
+    participantCache.clear()
+    individualParticipantCache.clear()
+    participantListCache.data = null
+    participantListCache.timestamp = 0
+    activitySheetCache.data = null
+    activitySheetCache.timestamp = 0
+  }
+}
+
+// OPTIMIZED VERSION: Batch all sheet reads into parallel calls
+// ULTRA-FAST VERSION: Use ONLY ActivityTracking sheet
+export async function getParticipantTrackingData(participantId: string) {
+  // Check cache first - this should prevent most API calls
+  const cached = getCachedParticipant(participantId)
+  if (cached) {
+    return cached
+  }
+
+  const sheets = await getGoogleSheetsInstance();
+  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+
+  if (!spreadsheetId) {
+    throw new Error('GOOGLE_SHEETS_SPREADSHEET_ID not set');
+  }
+
+  try {
+    // Check if we have cached activity sheet data
+    let activityRows = getCachedActivitySheet();
+    
+    if (!activityRows) {
+      // Only read ActivityTracking if not cached - everything should be there now
+      const activityResponse = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: 'ActivityTracking!A:E',
+      }).catch(() => ({ data: { values: [] } }));
+
+      activityRows = activityResponse.data.values || [];
+      setCachedActivitySheet(activityRows);
+    }
+         const participantRows = activityRows.filter((row: any) => row[0] === participantId);
+
+    // Initialize data structures
+    const dayTracking = {
+      sessions: {
+        day1: { attended: false, lunch: false },
+        day2: { attended: false, lunch: false },
+        day3: { attended: false, lunch: false },
+        day4: { attended: false, lunch: false }
+      },
+      performanceDay: { attended: false, breakfast: false, lunch: false },
+      openingCeremony: { attended: false, catering: false },
+      conference: {
+        day1: { attended: false, breakfast: false, lunch: false },
+        day2: { attended: false, breakfast: false, lunch: false },
+        day3: { attended: false, breakfast: false, lunch: false }
+      }
+    };
+
+    const foodData = {
+      breakfast: false,
+      lunch: false, 
+      dinner: false,
+      snack1: false,
+      snack2: false
+    };
+
+    const gamesData: any[] = [];
+    const busData: any[] = [];
+
+         // Process ALL data from ActivityTracking in one pass
+     participantRows.forEach((row: any) => {
+      const type = (row[1] || '').toLowerCase();
+      const activity = row[2] || '';
+      const value = row[3] === 'TRUE';
+      const timestamp = row[4] || '';
+
+      switch (type) {
+        case 'attendance':
+          // Parse attendance activities
+          if (activity.includes('Attendance')) {
+            const dayKey = activity.replace(' Attendance', '');
+            const dayPath = dayKey.split('.');
+            let current: any = dayTracking;
+            
+            for (let i = 0; i < dayPath.length - 1; i++) {
+              if (current[dayPath[i]]) {
+                current = current[dayPath[i]];
+              }
+            }
+            
+            const finalDay = dayPath[dayPath.length - 1];
+            if (current[finalDay]) {
+              current[finalDay].attended = value;
+            }
+          }
+          break;
+
+        case 'food':
+          // Parse food activities
+          const foodType = activity.toLowerCase();
+          if (foodType.includes('breakfast')) foodData.breakfast = value;
+          else if (foodType.includes('lunch')) foodData.lunch = value;
+          else if (foodType.includes('dinner')) foodData.dinner = value;
+          else if (foodType.includes('snack1')) foodData.snack1 = value;
+          else if (foodType.includes('snack2')) foodData.snack2 = value;
+          break;
+
+        case 'games':
+          // Parse games activities
+          gamesData.push({
+            activity: activity.replace(/^(join|leave) /, ''),
+            action: activity.includes('join') ? 'join' : 'leave',
+            timestamp
+          });
+          break;
+
+        case 'bus':
+          // Parse bus activities
+          busData.push({
+            type: activity.includes('arriving') ? 'arriving' : 'departing',
+            stop: activity.replace(/arriving at |departing at /, ''),
+            timestamp
+          });
+          break;
+      }
+    });
+
+    const result = {
+      dayTracking,
       food: foodData,
       games: gamesData,
       bus: busData
     };
+
+    // Cache the result for 30 seconds
+    setCachedParticipant(participantId, result);
+
+    return result;
   } catch (error) {
     console.error('Error getting participant tracking data:', error);
     throw error;
@@ -855,7 +1161,7 @@ export async function deleteAllParticipants(): Promise<void> {
   }
 }
 
-// Get comprehensive participant history
+// Get comprehensive participant history - OPTIMIZED VERSION
 export async function getParticipantHistory(participantId: string) {
   const sheets = await getGoogleSheetsInstance();
   const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
@@ -867,111 +1173,79 @@ export async function getParticipantHistory(participantId: string) {
   try {
     const history: any[] = [];
 
-    // Get attendance history from main participant data
-    try {
-      const participant = await getAllParticipants();
-      const participantData = participant.find(p => p.id === participantId);
-      if (participantData?.attendance) {
-        Object.entries(participantData.attendance).forEach(([event, attended]) => {
-          if (attended) {
-            history.push({
-              type: 'attendance',
-              action: 'attended',
-              details: event.replace(/([A-Z])/g, ' $1').trim(),
-              timestamp: new Date().toISOString(), // Note: attendance doesn't have timestamps in current system
-              icon: '✅'
-            });
-          }
-        });
+    // Use cached activity sheet data if available
+    let activityRows = getCachedActivitySheet();
+    
+    if (!activityRows) {
+      // Read ActivityTracking - it now contains ALL activities with timestamps
+      const activityResponse = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: 'ActivityTracking!A:E',
+      }).catch(() => ({ data: { values: [] } }));
+
+      activityRows = activityResponse.data.values || [];
+      setCachedActivitySheet(activityRows);
+    }
+    const participantActivityRows = activityRows
+      .filter((row: any) => row[0] === participantId)
+      .map((row: any) => ({
+        type: (row[1] || '').toLowerCase(),
+        activity: row[2] || '',
+        value: row[3] === 'TRUE',
+        timestamp: row[4] || new Date().toISOString()
+      }));
+
+    // Process all activities from ActivityTracking with proper formatting
+    participantActivityRows.forEach((activity: any) => {
+      let icon = '📝';
+      let action = 'activity';
+      let details = activity.activity;
+
+      switch (activity.type) {
+        case 'attendance':
+          icon = '✅';
+          action = 'attended';
+          details = activity.activity.replace(' Attendance', '');
+          // Format day keys nicely
+          details = details
+            .replace(/sessions\.day(\d)/, 'Session Day $1')
+            .replace(/conference\.day(\d)/, 'Conference Day $1')
+            .replace(/performanceDay/, 'Performance Day')
+            .replace(/openingCeremony/, 'Opening Ceremony')
+            .replace(/([A-Z])/g, ' $1')
+            .trim();
+          break;
+        case 'food':
+          icon = activity.activity.toLowerCase().includes('breakfast') ? '🥞' : 
+                activity.activity.toLowerCase().includes('snack') ? '🥨' : '🍽️';
+          action = 'consumed';
+          details = activity.activity
+            .replace(/([A-Z])/g, ' $1')
+            .replace(/(\d)/, ' $1')
+            .toLowerCase()
+            .trim();
+          details = details.charAt(0).toUpperCase() + details.slice(1);
+          break;
+        case 'games':
+          icon = activity.activity.toLowerCase().includes('join') ? '🎮' : '🏁';
+          action = activity.activity.includes('join') ? 'joined' : 'left';
+          details = activity.activity.replace(/^(join|leave) /, '');
+          break;
+        case 'bus':
+          icon = activity.activity.toLowerCase().includes('arriving') ? '🚌📍' : '🚌💨';
+          action = activity.activity.includes('arriving') ? 'arrived' : 'departed';
+          details = activity.activity.replace(/arriving at |departing at /, '');
+          break;
       }
-    } catch (error) {
-      console.warn('Error reading attendance data:', error);
-    }
 
-    // Get food history
-    try {
-      const foodResponse = await sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: 'Food!A:Z',
-      });
-      
-      const foodRows = foodResponse.data.values || [];
-      const foodRow = foodRows.find(row => row[0] === participantId);
-      if (foodRow) {
-        const meals = ['breakfast', 'lunch', 'dinner', 'snack1', 'snack2'];
-        meals.forEach((meal, index) => {
-          if (foodRow[index + 1] === 'TRUE') {
-            history.push({
-              type: 'food',
-              action: 'consumed',
-              details: meal.charAt(0).toUpperCase() + meal.slice(1).replace(/(\d)/, ' $1'),
-              timestamp: new Date().toISOString(), // Note: food doesn't have timestamps in current system
-              icon: '🍽️'
-            });
-          }
-        });
-      }
-    } catch (error) {
-      console.warn('Food sheet not found or error reading:', error);
-    }
-
-    // Get games history
-    try {
-      const gamesResponse = await sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: 'Games!A:Z',
-      });
-      
-      const gamesRows = gamesResponse.data.values || [];
-      const participantGames = gamesRows
-        .filter(row => row[0] === participantId)
-        .map(row => ({
-          activity: row[1],
-          action: row[2],
-          timestamp: row[3]
-        }));
-
-      participantGames.forEach(game => {
         history.push({
-          type: 'games',
-          action: game.action,
-          details: game.activity,
-          timestamp: game.timestamp,
-          icon: game.action === 'join' ? '🎮' : '🏁'
+        type: activity.type,
+        action,
+        details,
+        timestamp: activity.timestamp,
+        icon
         });
       });
-    } catch (error) {
-      console.warn('Games sheet not found or error reading:', error);
-    }
-
-    // Get bus history
-    try {
-      const busResponse = await sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: 'Bus!A:Z',
-      });
-      
-      const busRows = busResponse.data.values || [];
-      const participantBus = busRows
-        .filter(row => row[0] === participantId)
-        .map(row => ({
-          type: row[1],
-          stop: row[2],
-          timestamp: row[3]
-        }));
-
-      participantBus.forEach(bus => {
-        history.push({
-          type: 'bus',
-          action: bus.type,
-          details: `${bus.stop}`,
-          timestamp: bus.timestamp,
-          icon: bus.type === 'arriving' ? '🚌📍' : '🚌💨'
-        });
-      });
-    } catch (error) {
-      console.warn('Bus sheet not found or error reading:', error);
-    }
 
     // Sort history by timestamp (most recent first)
     history.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
