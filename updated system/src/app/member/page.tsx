@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Smartphone, CheckCircle, Utensils, Gamepad2, Bus, ClipboardList, Camera, Keyboard, Info } from 'lucide-react'
 
 export default function MemberPage() {
   return (
@@ -19,7 +20,9 @@ export default function MemberPage() {
           className="block p-8 bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
         >
           <div className="text-center">
-            <div className="text-6xl mb-4">📱</div>
+            <div className="mb-4">
+              <Smartphone className="w-16 h-16 mx-auto text-white" />
+            </div>
             <h3 className="text-2xl font-bold mb-3">
               QR Scanner
             </h3>
@@ -36,23 +39,23 @@ export default function MemberPage() {
           </h3>
           <div className="space-y-3">
             <div className="flex items-center space-x-3">
-              <span className="text-green-500 text-xl">✅</span>
+              <CheckCircle className="w-5 h-5 text-green-500" />
               <span className="text-gray-700">Attendance Tracking</span>
             </div>
             <div className="flex items-center space-x-3">
-              <span className="text-green-500 text-xl">🍽️</span>
+              <Utensils className="w-5 h-5 text-green-500" />
               <span className="text-gray-700">Food Distribution</span>
             </div>
             <div className="flex items-center space-x-3">
-              <span className="text-green-500 text-xl">🎮</span>
+              <Gamepad2 className="w-5 h-5 text-green-500" />
               <span className="text-gray-700">Games & Activities</span>
             </div>
             <div className="flex items-center space-x-3">
-              <span className="text-green-500 text-xl">🚌</span>
+              <Bus className="w-5 h-5 text-green-500" />
               <span className="text-gray-700">Bus Transportation</span>
             </div>
             <div className="flex items-center space-x-3">
-              <span className="text-green-500 text-xl">📋</span>
+              <ClipboardList className="w-5 h-5 text-green-500" />
               <span className="text-gray-700">Participant History</span>
             </div>
           </div>
@@ -66,7 +69,10 @@ export default function MemberPage() {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-blue-800">
           <div>
-            <h3 className="font-medium mb-2">📱 Camera Scanning</h3>
+            <h3 className="font-medium mb-2 flex items-center">
+              <Camera className="w-4 h-4 mr-2" />
+              Camera Scanning
+            </h3>
             <ol className="text-sm space-y-1">
               <li>1. Click "QR Scanner" above</li>
               <li>2. Allow camera access when prompted</li>
@@ -75,7 +81,10 @@ export default function MemberPage() {
             </ol>
           </div>
           <div>
-            <h3 className="font-medium mb-2">⌨️ Manual Input</h3>
+            <h3 className="font-medium mb-2 flex items-center">
+              <Keyboard className="w-4 h-4 mr-2" />
+              Manual Input
+            </h3>
             <ol className="text-sm space-y-1">
               <li>1. Use "Manual Input" option</li>
               <li>2. Type participant ID (e.g., EX-01)</li>
@@ -115,8 +124,9 @@ export default function MemberPage() {
 
       {/* Help Section */}
       <div className="mt-8 bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-        <h2 className="text-xl font-semibold text-yellow-900 mb-3">
-          ℹ️ Need Help?
+        <h2 className="text-xl font-semibold text-yellow-900 mb-3 flex items-center">
+          <Info className="w-5 h-5 mr-2" />
+          Need Help?
         </h2>
         <p className="text-yellow-800 mb-4">
           If you encounter any issues with scanning or tracking, contact the admin team or technical support.

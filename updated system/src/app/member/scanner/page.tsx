@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Smartphone, CheckCircle, Utensils, Gamepad2, Bus, Check, X, AlertCircle, Loader } from 'lucide-react'
 import QRScanner from '@/components/QRScanner'
 import ParticipantHistory from '@/components/ParticipantHistory'
 import DaySelector, { EventDay, eventDays } from '@/components/DaySelector'
@@ -47,7 +48,7 @@ export default function MemberScannerPage() {
   const handleQRScan = async (participantId: string) => {
     try {
       setError('')
-      setSuccess('🔄 Loading participant data...')
+      setSuccess('Loading participant data...')
 
       // Fetch participant data and tracking data in a single optimized call
       const response = await fetch(`/api/participants/${participantId}?include=tracking`)
@@ -59,9 +60,9 @@ export default function MemberScannerPage() {
       
       setCurrentParticipant(data.participant)
       setTrackingData(data.tracking)
-      setSuccess(`✅ Loaded: ${data.participant.name} (${participantId})`)
+      setSuccess(`Loaded: ${data.participant.name} (${participantId})`)
     } catch (err) {
-      setError(`❌ Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      setError(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
       setCurrentParticipant(null)
       setTrackingData(null)
     }
@@ -108,9 +109,9 @@ export default function MemberScannerPage() {
         return newTracking
       })
 
-      setSuccess(`✅ Attendance updated`)
+      setSuccess(`Attendance updated`)
     } catch (err) {
-      setError(`❌ Error updating attendance: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      setError(`Error updating attendance: ${err instanceof Error ? err.message : 'Unknown error'}`)
     }
   }
 
@@ -149,9 +150,9 @@ export default function MemberScannerPage() {
         return newTracking
       })
 
-      setSuccess(`✅ ${mealType.charAt(0).toUpperCase() + mealType.slice(1)} updated`)
+      setSuccess(`${mealType.charAt(0).toUpperCase() + mealType.slice(1)} updated`)
     } catch (err) {
-      setError(`❌ Error updating food: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      setError(`Error updating food: ${err instanceof Error ? err.message : 'Unknown error'}`)
     }
   }
 
@@ -177,9 +178,9 @@ export default function MemberScannerPage() {
       const updatedData = await trackingResponse.json()
       setTrackingData(updatedData.tracking)
 
-      setSuccess(`✅ ${action === 'join' ? 'Joined' : 'Left'} ${activity}`)
+      setSuccess(`${action === 'join' ? 'Joined' : 'Left'} ${activity}`)
     } catch (err) {
-      setError(`❌ Error updating game activity: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      setError(`Error updating game activity: ${err instanceof Error ? err.message : 'Unknown error'}`)
     }
   }
 
@@ -206,7 +207,7 @@ export default function MemberScannerPage() {
       const updatedData = await trackingResponse.json()
       setTrackingData(updatedData.tracking)
 
-      setSuccess(`✅ Bus tracking updated: ${type} at ${stop}`)
+      setSuccess(`Bus tracking updated: ${type} at ${stop}`)
     } catch (err) {
       setError(`❌ Error updating bus tracking: ${err instanceof Error ? err.message : 'Unknown error'}`)
     }
@@ -374,12 +375,12 @@ export default function MemberScannerPage() {
               className={`tab ${activeTab === tab ? 'tab-active' : 'tab-inactive'}`}
             >
               <div className="flex flex-col items-center">
-                <span className="text-sm mb-0.5">
-                  {tab === 'scan' && '📱'}
-                  {tab === 'attendance' && '✅'}
-                  {tab === 'food' && '🍽️'}
-                  {tab === 'games' && '🎮'}
-                  {tab === 'bus' && '🚌'}
+                <span className="mb-0.5">
+                  {tab === 'scan' && <Smartphone className="w-5 h-5" />}
+                  {tab === 'attendance' && <CheckCircle className="w-5 h-5" />}
+                  {tab === 'food' && <Utensils className="w-5 h-5" />}
+                  {tab === 'games' && <Gamepad2 className="w-5 h-5" />}
+                  {tab === 'bus' && <Bus className="w-5 h-5" />}
                 </span>
                 <span className="capitalize">
                   {tab === 'attendance' ? 'Attendance' : tab}
@@ -427,7 +428,7 @@ export default function MemberScannerPage() {
                       onClick={() => handleAttendanceUpdate(getCurrentDayKey(), 'attended')}
                       className={`btn-xs ${currentDayData.attended ? 'btn-success' : 'btn-primary'}`}
                     >
-                      {currentDayData.attended ? '✓ Present' : 'Mark Present'}
+                      {currentDayData.attended ? <><Check className="w-4 h-4 mr-1 inline" />Present</> : 'Mark Present'}
                     </button>
                   </div>
                 </div>
@@ -467,7 +468,7 @@ export default function MemberScannerPage() {
                           onClick={() => handleFoodUpdate(getCurrentDayKey(), foodType)}
                           className={`btn-xs ${isReceived ? 'btn-success' : 'btn-accent-3'}`}
                         >
-                          {isReceived ? '✓ Given' : 'Mark Given'}
+                          {isReceived ? <><Check className="w-4 h-4 mr-1 inline" />Given</> : 'Mark Given'}
                       </button>
                       </div>
                     )

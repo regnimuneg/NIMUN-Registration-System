@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Smartphone, CheckCircle, Utensils, Gamepad2, Bus, Check, X, AlertCircle, Loader } from 'lucide-react'
 import QRScanner from '@/components/QRScanner'
 import ParticipantHistory from '@/components/ParticipantHistory'
 import DaySelector, { EventDay, eventDays } from '@/components/DaySelector'
@@ -62,7 +63,7 @@ export default function DashboardPage() {
   const handleQRScan = async (participantId: string) => {
     try {
       setError('')
-      setSuccess('🔄 Loading participant data...')
+      setSuccess('Loading participant data...')
 
       // Fetch participant data and tracking data in a single optimized call
       const response = await fetch(`/api/participants/${participantId}?include=tracking`)
@@ -74,9 +75,9 @@ export default function DashboardPage() {
       
       setCurrentParticipant(data.participant)
       setTrackingData(data.tracking)
-      setSuccess(`✅ Loaded: ${data.participant.name} (${participantId})`)
+      setSuccess(`Loaded: ${data.participant.name} (${participantId})`)
     } catch (err) {
-      setError(`❌ Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      setError(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
       setCurrentParticipant(null)
       setTrackingData(null)
     }
@@ -124,9 +125,9 @@ export default function DashboardPage() {
         return newTracking
       })
 
-      setSuccess(`✅ Attendance updated`)
+      setSuccess(`Attendance updated`)
     } catch (err) {
-      setError(`❌ Error updating attendance: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      setError(`Error updating attendance: ${err instanceof Error ? err.message : 'Unknown error'}`)
     }
   }
 
@@ -165,9 +166,9 @@ export default function DashboardPage() {
         return newTracking
       })
 
-      setSuccess(`✅ ${mealType.charAt(0).toUpperCase() + mealType.slice(1)} updated`)
+      setSuccess(`${mealType.charAt(0).toUpperCase() + mealType.slice(1)} updated`)
     } catch (err) {
-      setError(`❌ Error updating food: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      setError(`Error updating food: ${err instanceof Error ? err.message : 'Unknown error'}`)
     }
   }
 
@@ -193,9 +194,9 @@ export default function DashboardPage() {
       const updatedData = await trackingResponse.json()
       setTrackingData(updatedData.tracking)
 
-      setSuccess(`✅ ${action === 'join' ? 'Joined' : 'Left'} ${activity}`)
+      setSuccess(`${action === 'join' ? 'Joined' : 'Left'} ${activity}`)
     } catch (err) {
-      setError(`❌ Error updating game activity: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      setError(`Error updating game activity: ${err instanceof Error ? err.message : 'Unknown error'}`)
     }
   }
 
@@ -361,11 +362,11 @@ export default function DashboardPage() {
           <div className="border-b border-gray-200 mb-6">
           <nav className="-mb-px flex space-x-8">
             {[
-              { id: 'scan', label: 'QR Scanner', icon: '📱' },
-              { id: 'attendance', label: 'Attendance', icon: '✅' },
-                ...(currentDay.hasFood ? [{ id: 'food', label: 'Food Tracking', icon: '🍽️' }] : []),
-              { id: 'games', label: 'Games & Activities', icon: '🎮' },
-                ...((currentDay.hasBus === true || currentDay.hasBus === 'to-only') ? [{ id: 'bus', label: 'Bus Tracking', icon: '🚌' }] : [])
+                      { id: 'scan', label: 'QR Scanner', icon: <Smartphone className="w-4 h-4" /> },
+        { id: 'attendance', label: 'Attendance', icon: <CheckCircle className="w-4 h-4" /> },
+        ...(currentDay.hasFood ? [{ id: 'food', label: 'Food Tracking', icon: <Utensils className="w-4 h-4" /> }] : []),
+        { id: 'games', label: 'Games & Activities', icon: <Gamepad2 className="w-4 h-4" /> },
+        ...((currentDay.hasBus === true || currentDay.hasBus === 'to-only') ? [{ id: 'bus', label: 'Bus Tracking', icon: <Bus className="w-4 h-4" /> }] : [])
             ].map(tab => (
               <button
                 key={tab.id}
@@ -409,7 +410,12 @@ export default function DashboardPage() {
                       }`}
                     >
                       <div className="text-center">
-                        <div className="text-4xl mb-2">{currentDayData.attended ? '✅' : '⏸️'}</div>
+                        <div className="mb-2">
+                          {currentDayData.attended ? 
+                            <CheckCircle className="w-10 h-10 text-green-500 mx-auto" /> : 
+                            <div className="w-10 h-10 bg-gray-300 rounded-full mx-auto"></div>
+                          }
+                        </div>
                         <div className="text-xl font-medium">Mark Attendance</div>
                         <div className="text-sm opacity-75">{currentDay.name}</div>
                       </div>
@@ -437,7 +443,12 @@ export default function DashboardPage() {
                       }`}
                     >
                       <div className="text-center">
-                          <div className="text-2xl mb-2">{(currentDayData as any)[foodType] ? '✅' : '🍽️'}</div>
+                          <div className="mb-2">
+                            {(currentDayData as any)[foodType] ? 
+                              <CheckCircle className="w-8 h-8 text-green-500 mx-auto" /> : 
+                              <Utensils className="w-8 h-8 text-gray-500 mx-auto" />
+                            }
+                          </div>
                           <div className="font-medium capitalize">{foodType}</div>
                       </div>
                     </button>
@@ -507,7 +518,12 @@ export default function DashboardPage() {
                             }`}
                           >
                             <div className="text-center">
-                              <div className="text-2xl mb-2">{currentGame ? '🔴' : '🎮'}</div>
+                              <div className="mb-2">
+                                {currentGame ? 
+                                  <div className="w-8 h-8 bg-red-500 rounded-full mx-auto"></div> : 
+                                  <Gamepad2 className="w-8 h-8 text-blue-500 mx-auto" />
+                                }
+                              </div>
                               <div className="font-medium">{game}</div>
                               <div className="text-xs mt-1">
                                 {currentGame ? 'Click to Leave' : 'Click to Join'}
@@ -547,8 +563,9 @@ export default function DashboardPage() {
                             .slice().reverse().map((entry, index) => (
                           <div key={index} className="p-3 bg-gray-50 rounded-lg flex justify-between items-center">
                             <div>
-                              <span className={`font-medium ${entry.type === 'arriving' ? 'text-green-600' : 'text-blue-600'}`}>
-                                {entry.type === 'arriving' ? '🚌 Arrived' : '🚌 Departed'}
+                              <span className={`font-medium ${entry.type === 'arriving' ? 'text-green-600' : 'text-blue-600'} flex items-center`}>
+                                <Bus className="w-4 h-4 mr-2" />
+                                {entry.type === 'arriving' ? 'Arrived' : 'Departed'}
                               </span>
                                 <span className="ml-2">on {entry.route} at {entry.stop}</span>
                             </div>

@@ -1,5 +1,6 @@
 'use client'
 
+import { Bus, Info } from 'lucide-react'
 import { BusRoute, getAllBusRoutes, getBusRouteById } from '@/lib/busRoutes'
 
 interface BusRouteInfoProps {
@@ -11,8 +12,11 @@ interface BusRouteInfoProps {
 export default function BusRouteInfo({ routeId, stop, className = '' }: BusRouteInfoProps) {
   if (!routeId) {
     return (
-      <div className={`text-gray-500 text-sm ${className}`}>
-        🚌 No bus transportation assigned
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+        <div className="flex items-center text-yellow-800">
+          <Bus className="w-5 h-5 mr-2" />
+          No bus transportation assigned
+        </div>
       </div>
     )
   }
@@ -20,8 +24,11 @@ export default function BusRouteInfo({ routeId, stop, className = '' }: BusRoute
   const route = getBusRouteById(routeId)
   if (!route) {
     return (
-      <div className={`text-red-500 text-sm ${className}`}>
-        🚌 Invalid bus route: {routeId}
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+        <div className="flex items-center text-red-800">
+          <Bus className="w-5 h-5 mr-2" />
+          Invalid bus route: {routeId}
+        </div>
       </div>
     )
   }

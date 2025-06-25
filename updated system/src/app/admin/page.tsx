@@ -1,35 +1,36 @@
 import Link from 'next/link'
+import { Smartphone, BarChart3, Plus, Upload, Zap } from 'lucide-react'
 
 export default function AdminPage() {
   const features = [
     {
-      title: 'QR Tracking Dashboard',
-      description: 'Scan participant QR codes to track attendance, food consumption, game activities, and bus transportation in real-time',
+      title: 'QR Code Scanner',
+      description: 'Scan participant QR codes for real-time tracking',
       href: '/admin/dashboard',
-      icon: '📱',
-      color: 'bg-purple-500'
+      icon: <Smartphone className="w-12 h-12 text-white" />,
+      color: 'bg-blue-500',
     },
     {
-      title: 'Register Participant',
-      description: 'Register a single participant and generate their unique ID and QR code for tracking',
+      title: 'Registration System',
+      description: 'Register new participants with QR code generation',
       href: '/admin/register',
-      icon: '👤',
-      color: 'bg-blue-500'
+      icon: <Plus className="w-12 h-12 text-white" />,
+      color: 'bg-green-500',
     },
     {
-      title: 'Bulk Import',
-      description: 'Import multiple participants from CSV file with automatic ID generation and QR code creation',
+      title: 'Import from CSV',
+      description: 'Bulk import participants from Excel/CSV files',
       href: '/admin/import',
-      icon: '📊',
-      color: 'bg-green-500'
+      icon: <Upload className="w-12 h-12 text-white" />,
+      color: 'bg-orange-500',
     },
     {
-      title: 'View All Participants',
-      description: 'Browse and manage all registered participants with search and filter capabilities',
+      title: 'Analytics Dashboard',
+      description: 'View detailed analytics and reports',
       href: '/admin/participants',
-      icon: '👥',
-      color: 'bg-orange-500'
-    }
+      icon: <BarChart3 className="w-12 h-12 text-white" />,
+      color: 'bg-purple-500',
+    },
   ]
 
   return (
@@ -48,20 +49,14 @@ export default function AdminPage() {
           <Link
             key={feature.href}
             href={feature.href}
-            className="block p-6 bg-white rounded-lg shadow hover:shadow-lg transition-shadow border border-gray-200 hover:border-gray-300"
+            className="block bg-white rounded-lg shadow hover:shadow-lg transition-shadow border border-gray-200 hover:border-gray-300 overflow-hidden"
           >
-            <div className="flex items-start space-x-4">
-              <div className={`${feature.color} rounded-lg p-3 text-white text-2xl`}>
+            <div className={`${feature.color} p-6 text-center`}>
+              <div className="mb-4 flex justify-center">
                 {feature.icon}
               </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  {feature.title}
-                </h3>
-                <p className="text-gray-600 text-sm">
-                  {feature.description}
-                </p>
-              </div>
+              <h3 className="text-xl font-semibold mb-2 text-white">{feature.title}</h3>
+              <p className="text-white/90 text-sm">{feature.description}</p>
             </div>
           </Link>
         ))}
@@ -101,21 +96,24 @@ export default function AdminPage() {
           <div className="space-y-3">
             <Link
               href="/admin/dashboard"
-              className="block w-full text-left px-4 py-2 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition-colors"
+              className="block w-full text-left px-4 py-2 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition-colors flex items-center"
             >
-              🚀 Start QR Scanning Session
+              <Zap className="w-4 h-4 mr-2" />
+              Start QR Scanning Session
             </Link>
             <Link
               href="/admin/register"
-              className="block w-full text-left px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
+              className="block w-full text-left px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors flex items-center"
             >
-              ➕ Quick Registration
+              <Plus className="w-4 h-4 mr-2" />
+              Quick Registration
             </Link>
             <Link
               href="/admin/import"
-              className="block w-full text-left px-4 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors"
+              className="block w-full text-left px-4 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors flex items-center"
             >
-              📥 Import Participants
+              <Upload className="w-4 h-4 mr-2" />
+              Import Participants
             </Link>
           </div>
         </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Utensils, Gamepad2, Bus, CheckCircle } from 'lucide-react'
 
 interface ClearTrackingDataProps {
   adminRole: 'super-admin' | 'admin'
@@ -30,12 +31,12 @@ export default function ClearTrackingData({ adminRole, onClearComplete }: ClearT
   }
 
   const dataTypes = [
-    { value: 'attendance', label: 'Attendance Data', description: 'Clear all attendance records', icon: '📋' },
-    { value: 'food', label: 'Food Tracking', description: 'Clear all food consumption records', icon: '🍽️' },
-    { value: 'games', label: 'Games & Activities', description: 'Clear all game participation records', icon: '🎮' },
-    { value: 'bus', label: 'Bus Transportation', description: 'Clear all bus tracking records', icon: '🚌' },
-    { value: 'activity-tracking', label: 'Activity Timeline', description: 'Clear timestamped activity logs', icon: '⏰' },
-    { value: 'all', label: 'ALL TRACKING DATA', description: 'Clear everything (DANGER!)', icon: '🚨' },
+    { value: 'attendance', label: 'Attendance Data', description: 'Clear all attendance records', icon: <CheckCircle className="w-4 h-4" /> },
+    { value: 'food', label: 'Food Tracking', description: 'Clear all food consumption records', icon: <Utensils className="w-4 h-4" /> },
+    { value: 'games', label: 'Games & Activities', description: 'Clear all game participation records', icon: <Gamepad2 className="w-4 h-4" /> },
+    { value: 'bus', label: 'Bus Transportation', description: 'Clear all bus tracking records', icon: <Bus className="w-4 h-4" /> },
+    { value: 'activity-tracking', label: 'Activity Timeline', description: 'Clear timestamped activity logs', icon: <div className="w-4 h-4 bg-gray-400 rounded-full"></div> },
+    { value: 'all', label: 'ALL TRACKING DATA', description: 'Clear everything (DANGER!)', icon: <div className="w-4 h-4 bg-red-500 rounded-full"></div> },
   ]
 
   const handleClear = async () => {
@@ -159,7 +160,7 @@ export default function ClearTrackingData({ adminRole, onClearComplete }: ClearT
                       />
                       <div className="flex-1">
                         <div className="flex items-center space-x-2">
-                          <span className="text-lg">{type.icon}</span>
+                          {type.icon}
                           <span className={`font-medium ${type.value === 'all' ? 'text-red-600' : 'text-gray-900'}`}>
                             {type.label}
                           </span>

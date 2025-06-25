@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Settings, Smartphone, CheckCircle, QrCode, Utensils, Gamepad2, Bus, Shield, Check } from 'lucide-react'
 
 export default function HomePage() {
   return (
@@ -17,7 +18,7 @@ export default function HomePage() {
 
             <div className="relative">
               <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-[var(--primary)]/10 to-[var(--accent-1)]/10 rounded-full text-sm font-medium text-[var(--primary)] mb-8 border border-[var(--primary)]/20">
-                <span className="mr-2">🎉</span>
+                <CheckCircle className="w-4 h-4 mr-2" />
                 Welcome to JNIMUN'25 Registration System
               </div>
               
@@ -40,14 +41,14 @@ export default function HomePage() {
                   href="/admin"
                   className="btn-primary group inline-flex items-center justify-center"
                 >
-                  <span className="mr-3 text-xl">🔧</span>
+                  <Settings className="w-5 h-5 mr-3" />
                   Admin Dashboard
                 </Link>
                 <Link
                   href="/member/scanner"
                   className="btn-accent-1 group inline-flex items-center justify-center"
                 >
-                  <span className="mr-3 text-xl">📱</span>
+                  <Smartphone className="w-5 h-5 mr-3" />
                   Quick Scanner
                 </Link>
               </div>
@@ -71,7 +72,7 @@ export default function HomePage() {
               <div className="relative card-brand">
                 <div className="text-center">
                   <div className="w-20 h-20 bg-gradient-to-br from-[var(--primary)] to-[var(--accent-1)] rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-                    <span className="text-3xl">🔧</span>
+                    <Settings className="w-10 h-10 text-white" />
                   </div>
                   <h3 className="text-2xl md:text-3xl font-heading text-gray-900 mb-4">Admin Access</h3>
                   <p className="text-[var(--text-secondary)] mb-8 text-base md:text-lg font-body">
@@ -80,19 +81,19 @@ export default function HomePage() {
                   
                   <div className="space-y-3 mb-8 text-left">
                     <div className="flex items-center text-gray-700 font-body">
-                      <span className="text-green-500 mr-3 text-lg">✓</span>
+                      <Check className="text-green-500 mr-3 w-5 h-5" />
                       Participant Registration & Management
                     </div>
                     <div className="flex items-center text-gray-700 font-body">
-                      <span className="text-green-500 mr-3 text-lg">✓</span>
+                      <Check className="text-green-500 mr-3 w-5 h-5" />
                       Bulk CSV Import & Export
                     </div>
                     <div className="flex items-center text-gray-700 font-body">
-                      <span className="text-green-500 mr-3 text-lg">✓</span>
+                      <Check className="text-green-500 mr-3 w-5 h-5" />
                       Advanced Analytics & Reports
                     </div>
                     <div className="flex items-center text-gray-700 font-body">
-                      <span className="text-green-500 mr-3 text-lg">✓</span>
+                      <Check className="text-green-500 mr-3 w-5 h-5" />
                       System Administration
                     </div>
                   </div>
@@ -114,7 +115,7 @@ export default function HomePage() {
               <div className="relative card-accent-2">
                 <div className="text-center">
                   <div className="w-20 h-20 bg-gradient-to-br from-[var(--accent-2)] to-[var(--accent-3)] rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-                    <span className="text-3xl">📱</span>
+                    <Smartphone className="w-10 h-10 text-white" />
                   </div>
                   <h3 className="text-2xl md:text-3xl font-heading text-gray-900 mb-4">Member Access</h3>
                   <p className="text-[var(--text-secondary)] mb-8 text-base md:text-lg font-body">
@@ -123,19 +124,19 @@ export default function HomePage() {
                   
                   <div className="space-y-3 mb-8 text-left">
                     <div className="flex items-center text-gray-700 font-body">
-                      <span className="text-green-500 mr-3 text-lg">✓</span>
+                      <Check className="text-green-500 mr-3 w-5 h-5" />
                       QR Code Scanning & Tracking
                     </div>
                     <div className="flex items-center text-gray-700 font-body">
-                      <span className="text-green-500 mr-3 text-lg">✓</span>
+                      <Check className="text-green-500 mr-3 w-5 h-5" />
                       Attendance & Food Tracking
                     </div>
                     <div className="flex items-center text-gray-700 font-body">
-                      <span className="text-green-500 mr-3 text-lg">✓</span>
+                      <Check className="text-green-500 mr-3 w-5 h-5" />
                       Games & Transportation
                     </div>
                     <div className="flex items-center text-gray-700 font-body">
-                      <span className="text-green-500 mr-3 text-lg">✓</span>
+                      <Check className="text-green-500 mr-3 w-5 h-5" />
                       Participant History View
                     </div>
                   </div>
@@ -166,7 +167,7 @@ export default function HomePage() {
             {/* QR Scanning */}
             <div className="card group hover:shadow-xl transition-all duration-300">
               <div className="w-16 h-16 bg-gradient-to-br from-[var(--primary)] to-[var(--accent-1)] rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 shadow-md">
-                <span className="text-2xl">📱</span>
+                <QrCode className="w-8 h-8 text-white" />
               </div>
               <h3 className="text-xl md:text-2xl font-heading text-gray-900 mb-4">QR Code Scanning</h3>
               <p className="text-[var(--text-secondary)] mb-4 font-body">
@@ -182,7 +183,7 @@ export default function HomePage() {
             {/* Attendance Tracking */}
             <div className="card group hover:shadow-xl transition-all duration-300">
               <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 shadow-md">
-                <span className="text-2xl">✅</span>
+                <CheckCircle className="w-8 h-8 text-white" />
               </div>
               <h3 className="text-xl md:text-2xl font-heading text-gray-900 mb-4">Smart Attendance</h3>
               <p className="text-[var(--text-secondary)] mb-4 font-body">
@@ -198,7 +199,7 @@ export default function HomePage() {
             {/* Food Distribution */}
             <div className="card group hover:shadow-xl transition-all duration-300">
               <div className="w-16 h-16 bg-gradient-to-br from-[var(--accent-3)] to-orange-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 shadow-md">
-                <span className="text-2xl">🍽️</span>
+                <Utensils className="w-8 h-8 text-white" />
               </div>
               <h3 className="text-xl md:text-2xl font-heading text-gray-900 mb-4">Food Management</h3>
               <p className="text-[var(--text-secondary)] mb-4 font-body">
@@ -214,7 +215,7 @@ export default function HomePage() {
             {/* Games & Activities */}
             <div className="card group hover:shadow-xl transition-all duration-300">
               <div className="w-16 h-16 bg-gradient-to-br from-[var(--accent-1)] to-blue-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 shadow-md">
-                <span className="text-2xl">🎮</span>
+                <Gamepad2 className="w-8 h-8 text-white" />
               </div>
               <h3 className="text-xl md:text-2xl font-heading text-gray-900 mb-4">Activity Tracking</h3>
               <p className="text-[var(--text-secondary)] mb-4 font-body">
@@ -230,7 +231,7 @@ export default function HomePage() {
             {/* Transportation */}
             <div className="card group hover:shadow-xl transition-all duration-300">
               <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 shadow-md">
-                <span className="text-2xl">🚌</span>
+                <Bus className="w-8 h-8 text-white" />
               </div>
               <h3 className="text-xl md:text-2xl font-heading text-gray-900 mb-4">Transportation</h3>
               <p className="text-[var(--text-secondary)] mb-4 font-body">
@@ -246,7 +247,7 @@ export default function HomePage() {
             {/* Security & Management */}
             <div className="card group hover:shadow-xl transition-all duration-300">
               <div className="w-16 h-16 bg-gradient-to-br from-[var(--accent-2)] to-red-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 shadow-md">
-                <span className="text-2xl">🔒</span>
+                <Shield className="w-8 h-8 text-white" />
               </div>
               <h3 className="text-xl md:text-2xl font-heading text-gray-900 mb-4">Security & Admin</h3>
               <p className="text-[var(--text-secondary)] mb-4 font-body">

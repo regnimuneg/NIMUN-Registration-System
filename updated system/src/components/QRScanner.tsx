@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { parseQRData } from '@/lib/qrHelper'
 import QrScanner from 'qr-scanner'
+import { Camera, Upload, Edit3, CheckCircle, Smartphone, Folder, Lightbulb, Pause } from 'lucide-react'
 
 interface QRScannerProps {
   onScan: (participantId: string) => void
@@ -924,14 +925,18 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
 
   return (
     <div className={`qr-scanner-container ${isMobileDevice ? '' : 'p-6 shadow-lg'}`}>
-      <h2 className={`font-heading text-gray-900 ${isMobileDevice ? 'text-base text-center mb-2' : 'text-2xl mb-4'}`}>
-        📱 QR Code Scanner
+      <h2 className="text-xl font-semibold mb-4 flex items-center">
+        <Smartphone className="w-5 h-5 mr-2" />
+        QR Code Scanner
       </h2>
       
               {/* Mobile-specific instructions */}
         {isMobileDevice && (
           <div className="mb-2 p-2 bg-[var(--primary)]/5 border border-[var(--primary)]/20 rounded-xl">
-            <h3 className="font-medium text-[var(--primary)] mb-1 text-sm font-heading">📱 Mobile Scanning Tips</h3>
+            <h3 className="font-medium text-[var(--primary)] mb-1 text-sm font-heading flex items-center">
+              <Smartphone className="w-4 h-4 mr-2" />
+              Mobile Scanning Tips
+            </h3>
             <div className="text-xs text-[var(--text-secondary)] space-y-0.5 font-body">
               <p>• Hold phone steady and keep QR code well-lit</p>
               <p>• Ensure QR code fills 60-80% of camera frame</p>
@@ -946,10 +951,13 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
           <div className={`mb-2 ${isMobileDevice ? 'space-y-2' : 'flex items-center justify-between'}`}>
             <div className={`flex items-center ${isMobileDevice ? 'justify-center' : ''} space-x-2`}>
               <span className="text-sm font-medium text-[var(--text-secondary)] font-body">Camera Status:</span>
-              <span className={`text-sm font-medium font-body ${
+              <span className={`inline-flex items-center text-sm font-medium font-body ${
                 scanning ? 'text-green-600' : 'text-gray-500'
               }`}>
-                {scanning ? '🟢 Active' : '⚫ Inactive'}
+                <div className={`w-2 h-2 rounded-full mr-2 ${
+                  scanning ? 'bg-green-500' : 'bg-gray-400'
+                }`}></div>
+                {scanning ? 'Active' : 'Inactive'}
               </span>
               {virtualCameraDetected && (
                 <span className={`text-xs bg-[var(--accent-2)]/10 text-[var(--accent-2)] px-2 py-1 rounded-full font-body ${
@@ -979,8 +987,8 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
               isMobileDevice ? 'justify-center' : ''
             }`}>
               <span>Scanning...</span>
-              {scanStatus === 'scanning' && <span className="text-[var(--accent-1)]">🔍 Scanning...</span>}
-              {scanStatus === 'detected' && <span className="text-green-600">✅ Detected!</span>}
+              {scanStatus === 'scanning' && <span className="text-[var(--accent-1)] flex items-center"><Camera className="w-3 h-3 mr-1" />Scanning...</span>}
+              {scanStatus === 'detected' && <span className="text-green-600 flex items-center"><CheckCircle className="w-3 h-3 mr-1" />Detected!</span>}
               {apiScanLoading && <span className="text-[var(--accent-2)]">🌐 API processing...</span>}
             </div>
           )}
@@ -996,7 +1004,7 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
               isMobileDevice ? 'w-full' : ''
             }`}
           >
-            <span>📷</span>
+            <Camera className="w-4 h-4" />
             <span>Start Camera</span>
           </button>
         ) : (
@@ -1007,7 +1015,7 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
                 isMobileDevice ? 'w-full' : ''
               }`}
             >
-              <span>⏹️</span>
+              <Pause className="w-4 h-4" />
               <span>Stop Camera</span>
             </button>
             
@@ -1034,7 +1042,7 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
               isMobileDevice ? 'btn-sm' : ''
             }`}
           >
-            <span>📁</span>
+            <Folder className="w-4 h-4" />
             <span>{isMobileDevice ? 'Upload' : 'Upload Image'}</span>
           </button>
           
@@ -1044,7 +1052,7 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
               isMobileDevice ? 'btn-sm' : ''
             }`}
           >
-            <span>⌨️</span>
+            <Edit3 className="w-4 h-4" />
             <span>{isMobileDevice ? 'Manual' : 'Manual Input'}</span>
           </button>
         </div>
@@ -1097,8 +1105,9 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
                    }}>
               </div>
             </div>
-            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-70 text-white px-3 py-1 rounded text-sm">
-              📱 Position QR code in the frame
+            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-70 text-white px-3 py-1 rounded text-sm flex items-center">
+              <Smartphone className="w-3 h-3 mr-1" />
+              Position QR code in the frame
             </div>
           </div>
         )}
@@ -1112,7 +1121,9 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
         {!scanning && (
           <div className={`w-full ${isMobileDevice ? 'aspect-square max-w-full' : 'max-w-md h-64'} mx-auto border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50`}>
             <div className="text-center text-gray-500">
-              <div className={`mb-2 ${isMobileDevice ? 'text-6xl' : 'text-4xl'}`}>📷</div>
+              <div className="mb-2">
+                <Camera className={`mx-auto text-gray-400 ${isMobileDevice ? 'w-16 h-16' : 'w-12 h-12'}`} />
+              </div>
               <div className={isMobileDevice ? 'text-lg font-medium' : ''}>Camera not active</div>
               <div className={`${isMobileDevice ? 'text-sm mt-2' : 'text-sm'}`}>
                 {isMobileDevice ? 'Tap "Start Camera" to begin' : 'Click "Start Camera" to begin scanning'}

@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import { Utensils, Bus } from 'lucide-react'
+import { EventDay } from '@/lib/eventDays'
 
 export interface EventDay {
   id: string
@@ -104,10 +106,23 @@ export default function DaySelector({ selectedDay, onDayChange }: DaySelectorPro
                 <div className="text-sm text-gray-600">{day.date}</div>
                 <div className="text-xs text-gray-500 mt-1">
                   {day.hasFood && day.foodTypes.length > 0 && (
-                    <span className="mr-3">🍽️ {day.foodTypes.join(', ')}</span>
+                    <span className="mr-3 flex items-center">
+                      <Utensils className="w-4 h-4 mr-1" />
+                      {day.foodTypes.join(', ')}
+                    </span>
                   )}
-                  {day.hasBus === true && <span>🚌 Bus Available</span>}
-                  {day.hasBus === 'to-only' && <span>🚌 Bus to University Only</span>}
+                  {day.hasBus === true && (
+                    <span className="flex items-center">
+                      <Bus className="w-4 h-4 mr-1" />
+                      Bus Available
+                    </span>
+                  )}
+                  {day.hasBus === 'to-only' && (
+                    <span className="flex items-center">
+                      <Bus className="w-4 h-4 mr-1" />
+                      Bus to University Only
+                    </span>
+                  )}
                   {day.type === 'off' && <span>No Activities</span>}
                 </div>
               </div>

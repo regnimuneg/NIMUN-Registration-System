@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Search, CheckCircle, Users, Download, Trash2, Eye, X, AlertTriangle, Lightbulb } from 'lucide-react'
 import { QRCodeDisplay, downloadAllQRCodes } from '@/components/QRCodeGenerator'
 import ParticipantHistory from '@/components/ParticipantHistory'
 import { Participant } from '@/types/participant'
@@ -440,7 +441,7 @@ export default function ParticipantsPage() {
                     disabled={downloadProgress.isDownloading}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <span>🔍</span>
+                    <Search className="w-4 h-4" />
                     <span>Download Transparent QR Codes</span>
                   </button>
                   <button
@@ -490,7 +491,7 @@ export default function ParticipantsPage() {
           {!downloadProgress.isDownloading && downloadProgress.current > 0 && downloadProgress.current === downloadProgress.total && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
               <div className="flex items-center space-x-3">
-                <div className="text-green-600 text-xl">✅</div>
+                <div className="text-green-600 text-xl"><CheckCircle className="w-6 h-6" /></div>
                 <div>
                   <p className="text-sm font-medium text-green-900">
                     {downloadProgress.status}
@@ -508,7 +509,9 @@ export default function ParticipantsPage() {
       {/* Participants List */}
       {filteredParticipants.length === 0 ? (
         <div className="text-center py-12">
-          <div className="text-gray-400 text-6xl mb-4">👥</div>
+          <div className="text-gray-400 mb-4">
+            <Users className="w-16 h-16 mx-auto" />
+          </div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">No participants found</h3>
           <p className="text-gray-600">
             {participants.length === 0 
