@@ -144,13 +144,17 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
       networkState: videoRef.current.networkState
     })
     
-    // Initialize QR Scanner - optimized for mobile and low quality cameras
+    // Initialize QR Scanner with proper visual highlights
+    console.log('🔍 Initializing QR Scanner with visual highlights...')
+    
     qrScannerRef.current = new QrScanner(
       videoRef.current,
       (result: any) => {
         const now = Date.now()
         const qrData = result?.data || result
-        console.log(`🔍 QR scan result received: "${qrData}" (Mobile: ${isMobileDevice}, Virtual camera: ${virtualCameraDetected})`)
+        console.log(`🔍 RAW QR scan result received:`, result)
+        console.log(`🔍 QR data extracted: "${qrData}" (type: ${typeof qrData})`)
+        console.log(`🔍 Device info: Mobile=${isMobileDevice}, Virtual camera=${virtualCameraDetected}`)
         
         // Prevent scanning the same code multiple times quickly
         // Adjust cooldown based on device type
@@ -176,31 +180,10 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
         }
       },
       {
-        highlightScanRegion: true,
-        highlightCodeOutline: true,
-        maxScansPerSecond: virtualCameraDetected ? 2 : (isMobileDevice ? 4 : 5),
-        preferredCamera: 'environment',
-        calculateScanRegion: (video: any) => {
-          // Mobile-optimized scan region - larger area for easier scanning
-          const smallerDimension = Math.min(video.videoWidth, video.videoHeight)
-          const scanSizeRatio = isMobileDevice ? 0.8 : 0.6 // Larger scan area on mobile
-          const scanSize = Math.round(scanSizeRatio * smallerDimension)
-          
-          console.log('📏 Scan region calculated:', {
-            videoWidth: video.videoWidth,
-            videoHeight: video.videoHeight,
-            scanSize,
-            scanSizeRatio,
-            isMobile: isMobileDevice
-          })
-          
-          return {
-            x: Math.round((video.videoWidth - scanSize) / 2),
-            y: Math.round((video.videoHeight - scanSize) / 2),
-            width: scanSize,
-            height: scanSize,
-          }
-        }
+        highlightScanRegion: true, // Enable the yellow square overlay
+        highlightCodeOutline: true, // Enable QR code outline highlighting
+        maxScansPerSecond: 5, // Reasonable scan rate
+        returnDetailedScanResult: true // Get more detailed results
       }
     )
 
@@ -212,14 +195,46 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
       scanRegionRatio: isMobileDevice ? 0.8 : 0.6
     })
 
-    // Start scanning with error handling
+    // Start scanning with error handling and fallbacks
     qrScannerRef.current.start().then(() => {
       console.log('✅ QR Scanner started successfully')
+      
+      // Check if scanner is properly initialized with highlights
+      setTimeout(() => {
+        if (qrScannerRef.current) {
+          console.log('🔍 Checking scanner visual elements...')
+          // Check if the scanner overlay elements exist in the DOM
+          const scanRegion = document.querySelector('.scan-region-highlight')
+          const codeOutline = document.querySelector('.code-outline-highlight')
+          
+          console.log('📏 Scanner overlay elements:', {
+            scanRegion: !!scanRegion,
+            codeOutline: !!codeOutline,
+            videoElement: !!videoRef.current,
+            videoReady: videoRef.current?.readyState === 4
+          })
+          
+          if (!scanRegion) {
+            console.warn('⚠️ Scan region highlight not found in DOM')
+            console.log('🔄 This might explain why the yellow squares are not visible')
+          } else {
+            console.log('✅ Scan region highlight found - yellow squares should be visible')
+          }
+        }
+      }, 1000)
+      
+      // Add a timeout to detect if scanning is working
+      setTimeout(() => {
+        if (scanStatus === 'scanning' && scanCount === 0) {
+          console.log('⚠️ No QR codes detected after 10 seconds, trying fallback scanner...')
+          startFallbackScanner()
+        }
+      }, 10000)
+      
     }).catch((err) => {
       console.warn('❌ QR Scanner start error:', err)
-      setScanStatus('idle')
-      // Suggest using external API when native scanner fails
-      setError('Native QR scanner failed to start. Please use the "🌐 Scan with API" button below.')
+      console.log('🔄 Trying fallback scanner...')
+      startFallbackScanner()
     })
     
     // Add periodic debugging
@@ -317,6 +332,72 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
     }
   }, [onScan, onError])
 
+  // Fallback scanner without custom scan region
+  const startFallbackScanner = useCallback(() => {
+    if (!videoRef.current) {
+      console.warn('Cannot start fallback scanner: Video element not available')
+      return
+    }
+
+    console.log('🔄 Starting fallback QR scanner with proper highlights...')
+    
+    // Stop existing scanner
+    if (qrScannerRef.current) {
+      qrScannerRef.current.stop()
+      qrScannerRef.current = null
+    }
+
+    // Initialize fallback QR Scanner with visual highlights
+    qrScannerRef.current = new QrScanner(
+      videoRef.current,
+      (result: any) => {
+        const now = Date.now()
+        const qrData = result?.data || result
+        console.log(`🔍 FALLBACK QR detected: "${qrData}"`)
+        
+        if (now - lastScanTimeRef.current > 1000) { // Simple cooldown
+          lastScanTimeRef.current = now
+          setScanStatus('detected')
+          setLastScannedCode(qrData)
+          handleQRDetection(qrData)
+          
+          setTimeout(() => {
+            setScanStatus('scanning')
+          }, 500)
+        }
+      },
+      {
+        highlightScanRegion: true, // Ensure visual highlights in fallback
+        highlightCodeOutline: true,
+        maxScansPerSecond: 3
+      }
+    )
+
+    // Start the fallback scanner
+    qrScannerRef.current.start().then(() => {
+      console.log('✅ Fallback QR Scanner started successfully')
+      
+      // Check for visual elements in fallback scanner too
+      setTimeout(() => {
+        console.log('🔍 Checking fallback scanner visual elements...')
+        const scanRegion = document.querySelector('.scan-region-highlight')
+        console.log('📏 Fallback scanner overlay:', !!scanRegion)
+        
+        if (scanRegion) {
+          console.log('✅ Fallback scanner shows yellow squares!')
+        } else {
+          console.error('❌ Even fallback scanner has no visual overlay - this indicates a deeper issue')
+        }
+      }, 1000)
+      
+    }).catch((err) => {
+      console.error('❌ Fallback scanner also failed:', err)
+      setScanStatus('idle')
+      setError('QR scanner failed to start. The yellow scanning overlay cannot be displayed. Please try manual input or file upload.')
+    })
+    
+  }, [handleQRDetection])
+
   // Stable start camera function
   const startCamera = useCallback(async () => {
     if (!userInitiated) {
@@ -346,6 +427,21 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
 
       if (!videoRef.current) {
         throw new Error('Video element not found')
+      }
+
+      // Check for available cameras first
+      let availableCameras = []
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices()
+        availableCameras = devices.filter(device => device.kind === 'videoinput')
+        console.log('Available cameras:', availableCameras.length, availableCameras)
+        
+        if (availableCameras.length === 0) {
+          throw new Error('No camera devices found on this device')
+        }
+      } catch (enumerateError) {
+        console.warn('Could not enumerate devices:', enumerateError)
+        // Continue anyway - some browsers may restrict enumeration but still allow camera access
       }
 
       // Build camera configuration optimized for mobile devices
@@ -447,6 +543,13 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
             height: { ideal: 720, min: 480 }
           }
         },
+        // Minimal constraints fallback
+        {
+          video: {
+            width: { min: 320 },
+            height: { min: 240 }
+          }
+        },
         // Last resort - any video device
         {
           video: true
@@ -454,23 +557,48 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
       )
 
       let mediaStream: MediaStream | null = null
+      let lastError: any = null
       
-      for (const config of configs) {
+      console.log(`Attempting camera access with ${configs.length} configurations...`)
+      
+      for (let i = 0; i < configs.length; i++) {
+        const config = configs[i]
         try {
-          console.log('Trying camera config:', config)
+          console.log(`Trying camera config ${i + 1}/${configs.length}:`, config)
           mediaStream = await navigator.mediaDevices.getUserMedia(config)
           if (mediaStream) {
-            console.log('Camera access granted with config:', config)
+            console.log(`✅ Camera access granted with config ${i + 1}:`, config)
             break
           }
-        } catch (configError) {
-          console.log('Config failed:', config, configError)
+        } catch (configError: any) {
+          console.log(`❌ Config ${i + 1} failed:`, config, configError)
+          lastError = configError
           continue
         }
       }
 
       if (!mediaStream) {
-        throw new Error('Unable to access camera with any configuration')
+        // Provide detailed error information
+        let detailedError = 'Unable to access camera with any configuration.\n\n'
+        
+        if (lastError) {
+          detailedError += `Last error: ${lastError.name} - ${lastError.message}\n\n`
+        }
+        
+        detailedError += 'Troubleshooting steps:\n'
+        detailedError += '1. Check camera permissions in your browser\n'
+        detailedError += '2. Close other applications using the camera\n'
+        detailedError += '3. Try refreshing the page\n'
+        detailedError += '4. Use HTTPS if not already\n'
+        detailedError += '5. Try a different browser\n\n'
+        
+        if (availableCameras.length > 0) {
+          detailedError += `Available cameras: ${availableCameras.length} found`
+        } else {
+          detailedError += 'No cameras detected on this device'
+        }
+        
+        throw new Error(detailedError)
       }
 
       // Set video stream

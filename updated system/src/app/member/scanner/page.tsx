@@ -447,7 +447,7 @@ export default function MemberScannerPage() {
               ) : currentDay.hasFood && currentDay.foodTypes.length > 0 ? (
                 <div className="space-y-2">
                   {/* Generate food options based on current day food types */}
-                  {currentDay.foodTypes.map((foodType) => {
+                  {currentDay.foodTypes.map((foodType: string) => {
                     const isReceived = currentDayData && (
                       foodType === 'lunch' ? currentDayData.lunch : 
                       foodType === 'breakfast' ? (currentDayData as any).breakfast :

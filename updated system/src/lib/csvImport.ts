@@ -2,6 +2,13 @@ import { Participant, BulkImportData, CommitteeType } from '@/types/participant'
 import { generateParticipantId, initializeCountersFromExisting } from './idGenerator';
 import { generateQRCodeUrl } from './qrHelper';
 import { mapRouteNameToId, getBusRouteById } from './busRoutes';
+import { 
+  getLockedId, 
+  validateLockedParticipant, 
+  isNameLocked, 
+  getLockedName,
+  getAllLockedIds 
+} from './lockedParticipants';
 
 export interface ImportResult {
   success: boolean;
@@ -30,8 +37,8 @@ export function parseCSVData(csvText: string): BulkImportData[] {
   const lineIndex = headers.findIndex(h => h.includes('line') || h.includes('route'));
   const stopIndex = headers.findIndex(h => h.includes('stop'));
   
-  if (nameIndex === -1 || genderIndex === -1 || phoneIndex === -1 || committeeIndex === -1) {
-    throw new Error('Required columns not found. CSV must contain: Full Name, Gender, Phone Number, Committee');
+  if (nameIndex === -1 || genderIndex === -1 || committeeIndex === -1) {
+    throw new Error('Required columns not found. CSV must contain: Full Name, Gender, Committee (Phone Number is optional)');
   }
   
   const data: BulkImportData[] = [];
@@ -40,22 +47,22 @@ export function parseCSVData(csvText: string): BulkImportData[] {
   for (let i = 1; i < lines.length; i++) {
     const values = lines[i].split(',').map(v => v.trim());
     
-    if (values.length < Math.max(nameIndex, genderIndex, phoneIndex, committeeIndex) + 1) {
+    if (values.length < Math.max(nameIndex, genderIndex, committeeIndex) + 1) {
       continue; // Skip incomplete rows
     }
     
     const fullName = values[nameIndex]?.replace(/['"]/g, '') || '';
     const gender = values[genderIndex]?.replace(/['"]/g, '') as 'Male' | 'Female';
-    const phoneNumber = values[phoneIndex]?.replace(/['"]/g, '') || '';
+    const phoneNumber = phoneIndex !== -1 ? (values[phoneIndex]?.replace(/['"]/g, '') || '') : '';
     const committee = values[committeeIndex]?.replace(/['"]/g, '') || '';
     const line = lineIndex !== -1 ? values[lineIndex]?.replace(/['"]/g, '') || '' : '';
     const stop = stopIndex !== -1 ? values[stopIndex]?.replace(/['"]/g, '') || '' : '';
     
-    if (fullName && gender && phoneNumber && committee) {
+    if (fullName && gender && committee) {
       data.push({
         fullName,
         gender,
-        phoneNumber,
+        phoneNumber: phoneNumber || undefined,
         committee,
         line: line || undefined,
         stop: stop || undefined,
@@ -181,7 +188,7 @@ export async function processBulkImport(
     
     try {
       // Validate required fields
-      if (!row.fullName || !row.gender || !row.phoneNumber || !row.committee) {
+      if (!row.fullName || !row.gender || !row.committee) {
         result.errors.push(`Row ${i + 2}: Missing required fields`);
         result.summary.failed++;
         continue;
@@ -202,17 +209,19 @@ export async function processBulkImport(
         continue;
       }
       
-      // Check for duplicate phone numbers in existing data
-      // Allow specific phone numbers to appear multiple times
-      const allowedDuplicatePhones = ['01147280844'];
-      const phoneExists = !allowedDuplicatePhones.includes(row.phoneNumber) && (
-        existingParticipants.some(p => p.phoneNumber === row.phoneNumber) ||
-        result.participants.some(p => p.phoneNumber === row.phoneNumber)
-      );
-      if (phoneExists) {
-        result.errors.push(`Row ${i + 2}: Phone number '${row.phoneNumber}' already exists`);
-        result.summary.failed++;
-        continue;
+      // Check for duplicate phone numbers in existing data (only if phone number is provided)
+      if (row.phoneNumber) {
+        // Allow specific phone numbers to appear multiple times
+        const allowedDuplicatePhones = ['01147280844'];
+        const phoneExists = !allowedDuplicatePhones.includes(row.phoneNumber) && (
+          existingParticipants.some(p => p.phoneNumber === row.phoneNumber) ||
+          result.participants.some(p => p.phoneNumber === row.phoneNumber)
+        );
+        if (phoneExists) {
+          result.errors.push(`Row ${i + 2}: Phone number '${row.phoneNumber}' already exists`);
+          result.summary.failed++;
+          continue;
+        }
       }
       
       // Validate and process bus information
@@ -247,8 +256,37 @@ export async function processBulkImport(
         }
       }
       
-      // Generate ID and QR code (pass name for reserved ID check)
-      const participantId = generateParticipantId(standardCommittee, row.fullName);
+      // Check if this is a locked participant (must use specific ID)
+      let participantId: string;
+      const lockedId = getLockedId(row.fullName);
+      
+      if (lockedId) {
+        // This participant has a locked ID
+        participantId = lockedId;
+        
+        // Check if this locked ID is already used by someone else
+        const existingWithId = existingParticipants.find(p => p.id === lockedId);
+        if (existingWithId && existingWithId.name.toLowerCase().trim() !== row.fullName.toLowerCase().trim()) {
+          result.errors.push(`Row ${i + 2}: ID '${lockedId}' is locked to '${getLockedName(lockedId)}' but trying to assign to '${row.fullName}'`);
+          result.summary.failed++;
+          continue;
+        }
+        
+        // Check if this locked ID is already in our import batch
+        const duplicateInBatch = result.participants.find(p => p.id === lockedId);
+        if (duplicateInBatch) {
+          result.errors.push(`Row ${i + 2}: Duplicate locked ID '${lockedId}' for '${row.fullName}'`);
+          result.summary.failed++;
+          continue;
+        }
+        
+        console.log(`Using locked ID ${lockedId} for ${row.fullName}`);
+      } else {
+        // Generate a regular ID, but skip locked IDs
+        participantId = generateParticipantId(standardCommittee, row.fullName, existingIds);
+      }
+      
+      // Generate QR code
       const qrData = generateQRCodeUrl(participantId);
       
       const participant: Participant = {

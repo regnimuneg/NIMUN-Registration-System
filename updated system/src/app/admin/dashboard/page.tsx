@@ -432,7 +432,7 @@ export default function DashboardPage() {
                 <p className="text-gray-600">Please scan a participant QR code first.</p>
                 ) : currentDayData ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {currentDay.foodTypes.map(foodType => (
+                    {currentDay.foodTypes.map((foodType: string) => (
                     <button
                         key={foodType}
                         onClick={() => handleFoodUpdate(currentDayKey, foodType)}

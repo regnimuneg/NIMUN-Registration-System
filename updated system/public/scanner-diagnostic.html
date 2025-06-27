@@ -155,7 +155,7 @@
         }
 
         async function testCameraAccess() {
-            log('🎥 Testing camera access...');
+            log('🎥 Testing camera access with multiple configurations...');
             updateStatus('cameraStatus', '🔄 Testing camera access...', 'info');
             
             try {
@@ -163,23 +163,94 @@
                     throw new Error('Camera API not supported in this browser');
                 }
 
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: 'environment',
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    }
-                });
+                // Test the same configurations as the main app
+                const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                log(`📱 Device detected as: ${isMobileDevice ? 'Mobile' : 'Desktop'}`);
 
+                const configs = [
+                    // Environment camera with high resolution
+                    {
+                        video: {
+                            facingMode: 'environment',
+                            width: { ideal: 1280, min: 640 },
+                            height: { ideal: 720, min: 480 },
+                            frameRate: { ideal: 30 }
+                        }
+                    },
+                    // User camera fallback
+                    {
+                        video: {
+                            facingMode: 'user',
+                            width: { ideal: 1280, min: 640 },
+                            height: { ideal: 720, min: 480 },
+                            frameRate: { ideal: 30 }
+                        }
+                    },
+                    // Basic fallback
+                    {
+                        video: {
+                            width: { ideal: 1280, min: 640 },
+                            height: { ideal: 720, min: 480 }
+                        }
+                    },
+                    // Minimal constraints
+                    {
+                        video: {
+                            width: { min: 320 },
+                            height: { min: 240 }
+                        }
+                    },
+                    // Last resort
+                    {
+                        video: true
+                    }
+                ];
+
+                let mediaStream = null;
+                let lastError = null;
+
+                for (let i = 0; i < configs.length; i++) {
+                    const config = configs[i];
+                    try {
+                        log(`🔍 Trying config ${i + 1}/${configs.length}:`, 'info');
+                        log(`   ${JSON.stringify(config, null, 2)}`);
+                        
+                        mediaStream = await navigator.mediaDevices.getUserMedia(config);
+                        if (mediaStream) {
+                            log(`✅ Success with config ${i + 1}!`, 'success');
+                            break;
+                        }
+                    } catch (configError) {
+                        log(`❌ Config ${i + 1} failed: ${configError.name} - ${configError.message}`, 'error');
+                        lastError = configError;
+                        continue;
+                    }
+                }
+
+                if (!mediaStream) {
+                    throw new Error(`Unable to access camera with any configuration. Last error: ${lastError?.name} - ${lastError?.message}`);
+                }
+
+                stream = mediaStream;
                 const video = document.getElementById('video');
                 video.srcObject = stream;
                 
                 const track = stream.getVideoTracks()[0];
                 const settings = track.getSettings();
+                const capabilities = track.getCapabilities ? track.getCapabilities() : {};
                 
                 log(`✅ Camera access granted!`, 'success');
                 log(`📹 Camera: ${track.label}`);
                 log(`📊 Resolution: ${settings.width}x${settings.height}`);
+                log(`🎯 Frame rate: ${settings.frameRate}fps`);
+                log(`📱 Facing mode: ${settings.facingMode || 'unknown'}`);
+                
+                if (capabilities.width) {
+                    log(`📏 Supported widths: ${capabilities.width.min}-${capabilities.width.max}`);
+                }
+                if (capabilities.height) {
+                    log(`📏 Supported heights: ${capabilities.height.min}-${capabilities.height.max}`);
+                }
                 
                 updateStatus('cameraStatus', '✅ Camera working! Video feed active.', 'success');
                 
@@ -187,10 +258,20 @@
                 log(`❌ Camera access failed: ${error.message}`, 'error');
                 updateStatus('cameraStatus', `❌ Camera failed: ${error.message}`, 'error');
                 
+                // Provide specific troubleshooting advice
                 if (error.name === 'NotAllowedError') {
-                    log('🔧 Fix: Click camera icon in address bar and allow access', 'warning');
+                    log('🔧 Permission denied - click camera icon in address bar and allow access', 'warning');
+                    log('🔧 Then refresh the page and try again', 'warning');
                 } else if (error.name === 'NotFoundError') {
-                    log('🔧 Fix: Check if camera is connected and not used by other apps', 'warning');
+                    log('🔧 No camera found - check camera connection and close other camera apps', 'warning');
+                } else if (error.name === 'NotReadableError') {
+                    log('🔧 Camera in use - close other applications using the camera', 'warning');
+                } else if (error.name === 'OverconstrainedError') {
+                    log('🔧 Camera constraints not supported - try a different browser', 'warning');
+                } else if (error.name === 'SecurityError') {
+                    log('🔧 Security error - ensure you are using HTTPS', 'warning');
+                } else {
+                    log('🔧 Try: 1) Refresh page 2) Different browser 3) Check camera permissions 4) Close other camera apps', 'warning');
                 }
             }
         }
@@ -264,27 +345,92 @@
             updateStatus('qrStatus', '✅ Manual input method working', 'success');
         }
 
+        async function checkPermissions() {
+            log('🔒 Checking camera permissions...');
+            
+            try {
+                if ('permissions' in navigator) {
+                    const permission = await navigator.permissions.query({ name: 'camera' });
+                    log(`📋 Permission state: ${permission.state}`);
+                    
+                    if (permission.state === 'granted') {
+                        log('✅ Camera permission already granted', 'success');
+                    } else if (permission.state === 'denied') {
+                        log('❌ Camera permission denied - check browser settings', 'error');
+                        log('🔧 Go to browser settings and allow camera access for this site', 'warning');
+                    } else {
+                        log('⚠️ Camera permission prompt will appear when accessing camera', 'warning');
+                    }
+                } else {
+                    log('⚠️ Permission API not supported - camera access will prompt when needed', 'warning');
+                }
+            } catch (error) {
+                log(`❌ Error checking permissions: ${error.message}`, 'error');
+            }
+        }
+
+        function testHttps() {
+            log('🔒 Checking HTTPS status...');
+            
+            const protocol = window.location.protocol;
+            const hostname = window.location.hostname;
+            
+            log(`🔍 Current protocol: ${protocol}`);
+            log(`🔍 Current hostname: ${hostname}`);
+            
+            if (protocol === 'https:') {
+                log('✅ HTTPS is enabled - camera access should work', 'success');
+            } else if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                log('✅ Running on localhost - camera access allowed', 'success');
+            } else {
+                log('❌ Not using HTTPS - camera may be blocked', 'error');
+                log('🔧 Camera access requires HTTPS for non-localhost domains', 'warning');
+                log('🔧 Use HTTPS or run on localhost for testing', 'warning');
+            }
+        }
+
         function checkBrowserSupport() {
             log('🌐 Checking browser support...');
             
             const userAgent = navigator.userAgent;
             log(`🔍 User Agent: ${userAgent}`);
             
+            // Check for key APIs
+            const hasGetUserMedia = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+            const hasEnumerateDevices = !!(navigator.mediaDevices && navigator.mediaDevices.enumerateDevices);
+            
+            log(`📹 getUserMedia support: ${hasGetUserMedia ? '✅' : '❌'}`);
+            log(`📋 enumerateDevices support: ${hasEnumerateDevices ? '✅' : '❌'}`);
+            
             if (userAgent.includes('Chrome')) {
                 log('✅ Chrome detected - excellent QR scanner support', 'success');
             } else if (userAgent.includes('Firefox')) {
                 log('✅ Firefox detected - good QR scanner support', 'success');
+            } else if (userAgent.includes('Safari')) {
+                log('⚠️ Safari detected - may have limited camera features', 'warning');
             } else {
                 log('⚠️ Consider using Chrome or Firefox for best results', 'warning');
+            }
+            
+            if (!hasGetUserMedia) {
+                log('❌ Browser does not support camera access API', 'error');
+                log('🔧 Update your browser or use Chrome/Firefox', 'warning');
             }
         }
 
         async function runFullDiagnostic() {
             log('🚀 Running full diagnostic...');
+            updateStatus('overallStatus', '🔄 Running comprehensive diagnostics...', 'info');
+            
+            // Run all diagnostic checks
             checkBrowserSupport();
+            testHttps();
+            await checkPermissions();
             await listCameras();
             generateTestQR();
-            log('✅ Full diagnostic complete', 'success');
+            
+            log('✅ Full diagnostic complete - check results above', 'success');
+            updateStatus('overallStatus', '✅ Diagnostic complete - check log for results', 'success');
         }
 
         document.addEventListener('DOMContentLoaded', () => {

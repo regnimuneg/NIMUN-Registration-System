@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { Utensils, Bus } from 'lucide-react'
-import { EventDay } from '@/lib/eventDays'
 
 export interface EventDay {
   id: string

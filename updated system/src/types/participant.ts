@@ -1,7 +1,7 @@
 export interface Participant {
   id: string;
   name: string;
-  phoneNumber: string;
+  phoneNumber?: string;
   position: string;
   gender: 'Male' | 'Female';
   qrUrl?: string;
@@ -140,7 +140,7 @@ export interface TrackingData {
 export interface BulkImportData {
   fullName: string;
   gender: 'Male' | 'Female';
-  phoneNumber: string;
+  phoneNumber?: string;
   committee: string;
   line?: string;  // Bus route/line
   stop?: string;  // Bus stop

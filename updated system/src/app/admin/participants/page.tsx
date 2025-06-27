@@ -49,7 +49,7 @@ export default function ParticipantsPage() {
       filtered = filtered.filter(p => 
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.phoneNumber.includes(searchTerm)
+        p.phoneNumber?.includes(searchTerm)
       )
     }
 
@@ -96,8 +96,8 @@ export default function ParticipantsPage() {
           bValue = b.gender.toLowerCase()
           break
         case 'phoneNumber':
-          aValue = a.phoneNumber
-          bValue = b.phoneNumber
+          aValue = a.phoneNumber || ''
+          bValue = b.phoneNumber || ''
           break
       }
 

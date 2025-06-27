@@ -338,9 +338,18 @@ export const downloadAllQRCodes = async (
   }
   
   try {
-    // Dynamic import to avoid build issues
-    const JSZip = (await import('jszip')).default
-    const QRCodeLib = await import('qrcode')
+    // Try dynamic imports with fallback
+    let JSZip: any
+    let QRCodeLib: any
+    
+    try {
+      JSZip = (await import('jszip')).default
+      QRCodeLib = await import('qrcode')
+    } catch (importError) {
+      console.error('Failed to import libraries:', importError)
+      alert('Error: Could not load required libraries for ZIP generation. Please refresh the page and try again.')
+      return
+    }
     
     const zip = new JSZip()
     const qrFolder = zip.folder('qr-codes')
