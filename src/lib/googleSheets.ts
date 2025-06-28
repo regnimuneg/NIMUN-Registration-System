@@ -5,6 +5,11 @@ const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 
 // Initialize Google Sheets API
 async function getGoogleSheetsInstance() {
+  // Debug logging for environment variables
+  console.log("CLIENT_EMAIL", process.env.GOOGLE_SHEETS_CLIENT_EMAIL);
+  console.log("PRIVATE_KEY", process.env.GOOGLE_SHEETS_PRIVATE_KEY ? '✔️ Exists' : '❌ Missing');
+  console.log("SPREADSHEET_ID", process.env.GOOGLE_SHEETS_SPREADSHEET_ID);
+
   const auth = new google.auth.GoogleAuth({
     credentials: {
       client_email: process.env.GOOGLE_SHEETS_CLIENT_EMAIL,
