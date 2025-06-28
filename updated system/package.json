@@ -17,6 +17,7 @@
     "@zxing/library": "^0.21.3",
     "csv-parser": "^3.0.0",
     "googleapis": "^128.0.0",
+    "html5-qrcode": "^2.3.8",
     "jszip": "^3.10.1",
     "lucide-react": "^0.523.0",
     "multer": "^1.4.5-lts.1",
