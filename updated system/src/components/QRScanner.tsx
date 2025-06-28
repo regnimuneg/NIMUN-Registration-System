@@ -555,14 +555,14 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
   return (
     <div className={`qr-scanner-container ${isMobileDevice ? 'px-4 py-2' : 'p-6 shadow-lg'}`}>
       {!isMobileDevice && (
-        <h2 className="text-xl font-semibold mb-4 flex items-center">
-          <Smartphone className="w-5 h-5 mr-2" />
-          QR Code Scanner
-        </h2>
+      <h2 className="text-xl font-semibold mb-4 flex items-center">
+        <Smartphone className="w-5 h-5 mr-2" />
+        QR Code Scanner
+      </h2>
       )}
       
       {/* Mobile-optimized header */}
-      {isMobileDevice && (
+        {isMobileDevice && (
         <div className="mb-3 text-center">
           <h2 className="text-lg font-semibold text-gray-800 mb-1">QR Scanner</h2>
           <div className="text-sm text-gray-600">
@@ -572,9 +572,9 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
                 Last: <span className="font-mono text-xs">{lastScannedCode.substring(0, 8)}...</span>
               </span>
             )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* Mobile-specific quick tips */}
       {isMobileDevice && scanCount === 0 && (
@@ -667,14 +667,14 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
                     </div>
                   )}
                   <div className={`${isMobileDevice ? 'grid grid-cols-2 gap-2' : 'flex justify-center space-x-3'}`}>
-                    <button
-                      onClick={handleStartCamera}
-                      disabled={!cameraSupported}
-                      className={`btn-primary flex items-center justify-center space-x-2 ${
+          <button
+            onClick={handleStartCamera}
+            disabled={!cameraSupported}
+            className={`btn-primary flex items-center justify-center space-x-2 ${
                         isMobileDevice ? 'text-sm py-2' : ''
-                      }`}
-                    >
-                      <Camera className="w-4 h-4" />
+            }`}
+          >
+            <Camera className="w-4 h-4" />
                       <span>Scan Again</span>
                     </button>
                     <button
@@ -699,8 +699,8 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
                 }`}
               >
                 <Camera className="w-5 h-5" />
-                <span>Start Camera</span>
-              </button>
+            <span>Start Camera</span>
+          </button>
             )}
           </>
         ) : (
@@ -793,27 +793,27 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
       <div className={`relative ${isMobileDevice ? 'mb-3' : 'mb-4'}`}>
         {scanning && isActive && (
           <div className={isMobileDevice ? 'rounded-lg overflow-hidden' : ''}>
-            <Html5QrcodePlugin
-              fps={virtualCameraDetected ? 2 : (isMobileDevice ? 4 : 5)}
-              qrbox={isMobileDevice ? undefined : { width: 250, height: 250 }}
-              disableFlip={false}
-              verbose={false}
-              qrCodeSuccessCallback={(decodedText) => {
-                console.log('🔍 QR Code detected:', decodedText)
-                setScanStatus('detected')
-                handleQRDetection(decodedText)
-                
-                // Add a small pause after detection
-                const pauseTime = virtualCameraDetected ? 2000 : (isMobileDevice ? 300 : 500)
-                setTimeout(() => {
-                  setScanStatus('scanning')
-                }, pauseTime)
-              }}
-              qrCodeErrorCallback={(error) => {
-                console.warn('QR Code scanning error:', error)
-                onError?.(String(error))
-              }}
-            />
+          <Html5QrcodePlugin
+            fps={virtualCameraDetected ? 2 : (isMobileDevice ? 4 : 5)}
+            qrbox={isMobileDevice ? undefined : { width: 250, height: 250 }}
+            disableFlip={false}
+            verbose={false}
+            qrCodeSuccessCallback={(decodedText) => {
+              console.log('🔍 QR Code detected:', decodedText)
+              setScanStatus('detected')
+              handleQRDetection(decodedText)
+              
+              // Add a small pause after detection
+              const pauseTime = virtualCameraDetected ? 2000 : (isMobileDevice ? 300 : 500)
+              setTimeout(() => {
+                setScanStatus('scanning')
+              }, pauseTime)
+            }}
+            qrCodeErrorCallback={(error) => {
+              console.warn('QR Code scanning error:', error)
+              onError?.(String(error))
+            }}
+          />
           </div>
         )}
         
@@ -859,7 +859,7 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
         <div className="mb-3 p-2 bg-purple-50 border border-purple-200 rounded-lg text-center">
           <div className="text-xs text-purple-700">
             📹 Virtual camera detected • Optimized settings active
-          </div>
+        </div>
           <button
             onClick={forceRefreshScanner}
             className="mt-1 bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded text-xs"
@@ -880,24 +880,24 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
           <div className="bg-gray-50 rounded-lg p-3">
             <div className="text-gray-600 text-sm mb-1">Last Scanned</div>
             <div className="font-mono text-gray-800 break-all text-sm">
-              {lastScannedCode ? (
+            {lastScannedCode ? (
                 lastScannedCode.length > 20
                   ? `${lastScannedCode.substring(0, 20)}...` 
-                  : lastScannedCode
-              ) : 'None'}
-            </div>
+                : lastScannedCode
+            ) : 'None'}
           </div>
-          
+        </div>
+        
           <div className="bg-gray-50 rounded-lg p-3">
             <div className="text-gray-600 text-sm">Status</div>
             <div className="font-medium text-sm">
-              {scanStatus === 'idle' && '⏸️ Idle'}
-              {scanStatus === 'scanning' && '🔍 Scanning...'}
-              {scanStatus === 'detected' && '✅ Detected!'}
+            {scanStatus === 'idle' && '⏸️ Idle'}
+            {scanStatus === 'scanning' && '🔍 Scanning...'}
+            {scanStatus === 'detected' && '✅ Detected!'}
               {apiScanLoading && '🌐 API Processing'}
-            </div>
           </div>
         </div>
+      </div>
       )}
 
       {/* Detection Help Notice - Show when scanning but no detections after 10 seconds */}
@@ -932,41 +932,41 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
               </div>
             </div>
           ) : (
-            <div className="flex items-start space-x-3">
-              <div className="text-2xl">💡</div>
-              <div>
-                <h3 className="font-medium text-orange-800 mb-2">QR Code Not Detecting?</h3>
-                <div className="text-sm text-orange-700 space-y-2">
-                  <p>If you can see a QR code in the camera but it's not being detected:</p>
-                  <div className="flex flex-col space-y-2">
-                    {useExternalAPI ? (
-                      <button
-                        onClick={captureAndScanWithAPI}
-                        disabled={apiScanLoading}
-                        className="bg-purple-500 hover:bg-purple-600 disabled:bg-gray-400 text-white rounded-lg px-4 py-2 text-sm font-medium self-start"
-                      >
-                        🌐 {apiScanLoading ? 'Scanning...' : 'Try External API Scan'}
-                      </button>
-                    ) : (
-                      <label className="flex items-center space-x-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={useExternalAPI}
-                          onChange={(e) => setUseExternalAPI(e.target.checked)}
-                          className="rounded"
-                        />
-                        <span>Enable External API scanning for better detection</span>
-                      </label>
-                    )}
-                    <div className="text-xs text-orange-600">
-                      • Try upload image or manual input as alternatives<br/>
-                      • Ensure QR code is well-lit and clearly visible<br/>
-                      • Hold camera steady for better focus
-                    </div>
+          <div className="flex items-start space-x-3">
+            <div className="text-2xl">💡</div>
+            <div>
+              <h3 className="font-medium text-orange-800 mb-2">QR Code Not Detecting?</h3>
+              <div className="text-sm text-orange-700 space-y-2">
+                <p>If you can see a QR code in the camera but it's not being detected:</p>
+                <div className="flex flex-col space-y-2">
+                  {useExternalAPI ? (
+                    <button
+                      onClick={captureAndScanWithAPI}
+                      disabled={apiScanLoading}
+                      className="bg-purple-500 hover:bg-purple-600 disabled:bg-gray-400 text-white rounded-lg px-4 py-2 text-sm font-medium self-start"
+                    >
+                      🌐 {apiScanLoading ? 'Scanning...' : 'Try External API Scan'}
+                    </button>
+                  ) : (
+                    <label className="flex items-center space-x-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={useExternalAPI}
+                        onChange={(e) => setUseExternalAPI(e.target.checked)}
+                        className="rounded"
+                      />
+                      <span>Enable External API scanning for better detection</span>
+                    </label>
+                  )}
+                  <div className="text-xs text-orange-600">
+                    • Try upload image or manual input as alternatives<br/>
+                    • Ensure QR code is well-lit and clearly visible<br/>
+                    • Hold camera steady for better focus
                   </div>
                 </div>
               </div>
             </div>
+          </div>
           )}
         </div>
       )}
@@ -987,33 +987,33 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
             </div>
           ) : (
             <>
-              {(() => {
-                try {
-                  const errorObj = getCameraErrorMessage({ message: error })
-                  return (
-                    <div>
-                      <div className="font-medium text-red-800 mb-2">{errorObj.title}</div>
-                      <div className="text-red-700 mb-3">{errorObj.message}</div>
-                      <div className="text-sm text-red-600">
-                        <div className="font-medium mb-1">Solutions:</div>
-                        <ul className="list-disc list-inside space-y-1">
-                          {errorObj.solutions.map((solution, index) => (
-                            <li key={index}>{solution}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  )
-                } catch {
-                  return <div className="text-red-800 whitespace-pre-line">{error}</div>
-                }
-              })()}
-              <button
-                onClick={() => setError(null)}
-                className="mt-3 text-red-600 hover:text-red-800 text-sm underline"
-              >
-                Dismiss
-              </button>
+          {(() => {
+            try {
+              const errorObj = getCameraErrorMessage({ message: error })
+              return (
+                <div>
+                  <div className="font-medium text-red-800 mb-2">{errorObj.title}</div>
+                  <div className="text-red-700 mb-3">{errorObj.message}</div>
+                  <div className="text-sm text-red-600">
+                    <div className="font-medium mb-1">Solutions:</div>
+                    <ul className="list-disc list-inside space-y-1">
+                      {errorObj.solutions.map((solution, index) => (
+                        <li key={index}>{solution}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )
+            } catch {
+              return <div className="text-red-800 whitespace-pre-line">{error}</div>
+            }
+          })()}
+          <button
+            onClick={() => setError(null)}
+            className="mt-3 text-red-600 hover:text-red-800 text-sm underline"
+          >
+            Dismiss
+          </button>
             </>
           )}
         </div>
@@ -1034,13 +1034,13 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
             </div>
           ) : (
             <>
-              <div className="text-green-800">{success}</div>
-              <button
-                onClick={() => setSuccess(null)}
-                className="mt-2 text-green-600 hover:text-green-800 text-sm underline"
-              >
-                Dismiss
-              </button>
+          <div className="text-green-800">{success}</div>
+          <button
+            onClick={() => setSuccess(null)}
+            className="mt-2 text-green-600 hover:text-green-800 text-sm underline"
+          >
+            Dismiss
+          </button>
             </>
           )}
         </div>
@@ -1053,7 +1053,7 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
             <strong>Camera Permission Denied</strong>
             {!isMobileDevice && <br />}
             {isMobileDevice && <div className="text-xs mt-1">
-              Please allow camera access in your browser settings and refresh the page.
+            Please allow camera access in your browser settings and refresh the page.
             </div>}
             {!isMobileDevice && 'Please allow camera access in your browser settings and refresh the page.'}
           </div>
@@ -1066,7 +1066,7 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
             <strong>Camera Not Supported</strong>
             {!isMobileDevice && <br />}
             {isMobileDevice && <div className="text-xs mt-1">
-              Your device doesn't support camera access. Please use the file upload or manual input options.
+            Your device doesn't support camera access. Please use the file upload or manual input options.
             </div>}
             {!isMobileDevice && 'Your device doesn\'t support camera access. Please use the file upload or manual input options.'}
           </div>
@@ -1075,14 +1075,14 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
 
       {/* Alternative Methods - Desktop only */}
       {!isMobileDevice && (
-        <div className="border-t pt-4">
-          <h3 className="font-medium text-gray-700 mb-2">Alternative Methods</h3>
-          <div className="text-sm text-gray-600 space-y-1">
-            <p>• <strong>Upload Image:</strong> Take a photo of the QR code and upload it</p>
-            <p>• <strong>Manual Input:</strong> Type the participant ID directly (e.g., EX-01)</p>
-            {useExternalAPI && <p>• <strong>External API:</strong> Uses cloud-based QR detection for better accuracy</p>}
-          </div>
+      <div className="border-t pt-4">
+        <h3 className="font-medium text-gray-700 mb-2">Alternative Methods</h3>
+        <div className="text-sm text-gray-600 space-y-1">
+          <p>• <strong>Upload Image:</strong> Take a photo of the QR code and upload it</p>
+          <p>• <strong>Manual Input:</strong> Type the participant ID directly (e.g., EX-01)</p>
+          {useExternalAPI && <p>• <strong>External API:</strong> Uses cloud-based QR detection for better accuracy</p>}
         </div>
+      </div>
       )}
 
       {/* Hidden file input */}
