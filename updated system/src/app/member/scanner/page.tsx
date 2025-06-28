@@ -23,7 +23,7 @@ export default function MemberScannerPage() {
   const [busButtonsDisabled, setBusButtonsDisabled] = useState({ arriving: false, departing: false })
   
   // Games state
-  const [allParticipantsInCourts, setAllParticipantsInCourts] = useState<{[courtName: string]: Array<{participantId: string, joinTime: string, duration: string}>}>({})
+  const [allParticipantsInCourts, setAllParticipantsInCourts] = useState<{[courtName: string]: Array<{participantId: string, participantName: string, committee: string, joinTime: string, duration: string}>}>({})
   const [participantCurrentGame, setParticipantCurrentGame] = useState<string | null>(null)
   const [gameActivityLoading, setGameActivityLoading] = useState(false)
 
@@ -101,6 +101,7 @@ export default function MemberScannerPage() {
   const handleQRScan = async (participantId: string) => {
     try {
       setError('')
+      setIsLoading(true)
       setSuccess('Loading participant data...')
       setDataFetched(false)
 
@@ -116,11 +117,13 @@ export default function MemberScannerPage() {
       setTrackingData(data.tracking)
       setDataFetched(true)
       setSuccess(`Loaded: ${data.participant.name} (${participantId})`)
+      setIsLoading(false)
     } catch (err) {
       setError(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
       setCurrentParticipant(null)
       setTrackingData(null)
       setDataFetched(false)
+      setIsLoading(false)
     }
   }
 
@@ -245,45 +248,43 @@ export default function MemberScannerPage() {
   }
 
   const handleGameActivity = async (activity: string, action: 'join' | 'leave') => {
-    if (!currentParticipant || !trackingData || gameActivityLoading) return
-
     try {
-      setGameActivityLoading(true)
-      setError('')
+      setGameActivityLoading(true);
+      setError('');
 
       const response = await fetch('/api/games', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
-          participantId: currentParticipant.id,
+          participantId: currentParticipant?.id,
           activity,
           action,
           day: selectedDay
-        })
-      })
+        }),
+      });
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to update game activity')
+        let errMsg = 'Failed to update game activity';
+        try {
+          const errData = await response.json();
+          if (errData && errData.error) errMsg = errData.error;
+        } catch {}
+        throw new Error(errMsg);
       }
 
-      // Update participant's current game status immediately for faster UI response
-      if (action === 'join') {
-        setParticipantCurrentGame(activity)
-      } else {
-        setParticipantCurrentGame(null)
-      }
-
-      // Refresh court data to show updated player lists
-      await fetchAllParticipantsInCourts()
-
-      setSuccess(`${action === 'join' ? 'Joined' : 'Left'} ${activity}`)
+      // Refresh the game status
+      await checkParticipantGameStatus(currentParticipant!.id);
+      await fetchAllParticipantsInCourts();
+      
+      setSuccess(`Successfully ${action}ed ${activity}`);
     } catch (err) {
-      setError(`Error updating game activity: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      setError(`Error: ${err instanceof Error ? err.message : 'Failed to update game activity'}`);
     } finally {
-      setGameActivityLoading(false)
+      setGameActivityLoading(false);
     }
-  }
+  };
 
   const handleBusTracking = async (type: 'arriving' | 'departing', route: string, stop: string) => {
     if (!currentParticipant || !trackingData || isLoading) return
@@ -414,6 +415,41 @@ export default function MemberScannerPage() {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
+  // Helper to get join time for timer
+  function getCurrentParticipantJoinTime(): string | null {
+    if (!currentParticipant || !participantCurrentGame) return null;
+    const players = allParticipantsInCourts[participantCurrentGame] || [];
+    const player = players.find(p => p.participantId === currentParticipant.id);
+    return player ? player.joinTime : null;
+  }
+
+  // Timer state for current participant
+  const [timer, setTimer] = useState<string>('');
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    function updateTimer() {
+      const joinTime = getCurrentParticipantJoinTime();
+      if (joinTime) {
+        const join = new Date(joinTime);
+        const now = new Date();
+        const diff = now.getTime() - join.getTime();
+        const min = Math.floor(diff / 60000);
+        const hr = Math.floor(min / 60);
+        const rem = min % 60;
+        setTimer(hr > 0 ? `${hr}h ${rem}m` : `${rem}m`);
+      } else {
+        setTimer('');
+      }
+    }
+    if (participantCurrentGame) {
+      updateTimer();
+      interval = setInterval(updateTimer, 1000 * 30);
+    } else {
+      setTimer('');
+    }
+    return () => { if (interval) clearInterval(interval); };
+  }, [participantCurrentGame, allParticipantsInCourts, currentParticipant])
+
   const currentDayData = getCurrentDayData()
 
   return (
@@ -437,8 +473,32 @@ export default function MemberScannerPage() {
           </div>
         )}
 
+        {/* Tab Buttons */}
+        <div className="flex gap-2 mb-2">
+          {(['scan', 'attendance', 'food', 'games', 'bus'] as const).map((tab) => (
+                <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`tab ${activeTab === tab ? 'tab-active' : 'tab-inactive'}`}
+            >
+              <div className="flex flex-col items-center">
+                <span className="mb-0.5">
+                  {tab === 'scan' && <Smartphone className="w-5 h-5" />}
+                  {tab === 'attendance' && <CheckCircle className="w-5 h-5" />}
+                  {tab === 'food' && <Utensils className="w-5 h-5" />}
+                  {tab === 'games' && <Gamepad2 className="w-5 h-5" />}
+                  {tab === 'bus' && <Bus className="w-5 h-5" />}
+                </span>
+                <span className="capitalize">
+                  {tab === 'attendance' ? 'Attendance' : tab}
+                </span>
+                  </div>
+                </button>
+              ))}
+          </div>
+
         {/* Day Selection */}
-        <div className="mb-3">
+        <div className="mb-4">
           <DaySelector selectedDay={selectedDay} onDayChange={handleDayChange} />
         </div>
 
@@ -478,30 +538,6 @@ export default function MemberScannerPage() {
             <ParticipantHistory participantId={currentParticipant.id} />
           </div>
         )}
-
-        {/* Tab Navigation */}
-        <div className="flex gap-1 mb-3 -mx-2 px-2 overflow-x-auto">
-          {(['scan', 'attendance', 'food', 'games', 'bus'] as const).map((tab) => (
-                <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`tab ${activeTab === tab ? 'tab-active' : 'tab-inactive'}`}
-            >
-              <div className="flex flex-col items-center">
-                <span className="mb-0.5">
-                  {tab === 'scan' && <Smartphone className="w-5 h-5" />}
-                  {tab === 'attendance' && <CheckCircle className="w-5 h-5" />}
-                  {tab === 'food' && <Utensils className="w-5 h-5" />}
-                  {tab === 'games' && <Gamepad2 className="w-5 h-5" />}
-                  {tab === 'bus' && <Bus className="w-5 h-5" />}
-                </span>
-                <span className="capitalize">
-                  {tab === 'attendance' ? 'Attendance' : tab}
-                </span>
-                  </div>
-                </button>
-              ))}
-          </div>
 
         {/* Tab Content */}
         <div className="p-2 mx-1">
@@ -629,97 +665,57 @@ export default function MemberScannerPage() {
           {/* Games Tab */}
             {activeTab === 'games' && (
             <div className="space-y-3">
-              <h2 className="text-base font-heading text-gray-900 mb-2">Activities</h2>
-              
-              {/* Show all participants in courts */}
-              {Object.keys(allParticipantsInCourts).length > 0 && (
-                <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                  <h3 className="font-medium text-blue-800 mb-2">🏟️ Current Players in Courts</h3>
-                  <div className="space-y-2">
-                    {Object.entries(allParticipantsInCourts).map(([courtName, players]) => (
-                      <div key={courtName} className="text-sm">
-                        <div className="font-medium text-blue-700">
-                          {courtName} ({players.length}/{availableGames.find(g => g.name === courtName)?.maxPlayers || 0})
-                        </div>
-                        {players.length > 0 ? (
-                          <div className="ml-2 text-xs text-blue-600">
-                            {players.map(player => (
-                              <div key={player.participantId} className="flex justify-between">
-                                <span>{player.participantId}</span>
-                                <span>{player.duration}</span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="ml-2 text-xs text-blue-500">Empty</div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
+              <h2 className="text-base font-heading text-gray-900 mb-2">Games</h2>
               {!currentParticipant ? (
-                <p className="text-[var(--text-secondary)] text-sm font-body">Scan a participant to track activities</p>
+                <p className="text-[var(--text-secondary)] text-sm font-body">Scan a participant to manage games</p>
+              ) : participantCurrentGame ? (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg space-y-2">
+                  <div className="text-sm font-medium text-green-800">
+                    🎮 Current Game: {participantCurrentGame}
+                    {timer && <span className="ml-2 text-xs text-green-700">⏱️ {timer}</span>}
+                  </div>
+                  <button
+                    className="btn-danger btn-sm"
+                    disabled={gameActivityLoading}
+                    onClick={() => handleGameActivity(participantCurrentGame, 'leave')}
+                  >
+                    {gameActivityLoading ? 'Leaving...' : 'Leave Game'}
+                  </button>
+                </div>
               ) : (
-                <div className="space-y-3">
-                  {/* Show participant's current game status */}
-                  {participantCurrentGame && (
-                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <div className="text-sm font-medium text-green-800">
-                        🎮 Currently Playing: {participantCurrentGame}
-                      </div>
-                      <div className="text-xs text-green-600 mt-1">
-                        You must leave current game before joining another
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="space-y-2">
-                    {availableGames.map((game) => {
-                      // Use the new participant current game logic
-                      const isCurrentlyJoined = participantCurrentGame === game.name
-                      const currentPlayers = allParticipantsInCourts[game.name]?.length || 0
-                      const isCourtFull = currentPlayers >= game.maxPlayers
-                      
-                      return (
-                        <div key={game.name} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm text-gray-900 truncate font-body">
-                              {game.name}
-                            </p>
-                            <p className="text-xs text-[var(--text-secondary)] font-body">
-                              Players: {currentPlayers}/{game.maxPlayers}
-                              {isCourtFull && !isCurrentlyJoined && ' - FULL'}
-                            </p>
-                          </div>
-                          
-                          {/* Switch-style toggle button */}
-                          <div className="flex items-center">
-                            <label className="relative inline-flex items-center cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={isCurrentlyJoined}
-                                onChange={() => handleGameActivity(game.name, isCurrentlyJoined ? 'leave' : 'join')}
-                                disabled={gameActivityLoading || !dataFetched || (!isCurrentlyJoined && (isCourtFull || participantCurrentGame))}
-                                className="sr-only peer"
-                              />
-                              <div className={`relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 ${(gameActivityLoading || !dataFetched || (!isCurrentlyJoined && (isCourtFull || participantCurrentGame))) ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
-                              <span className="ml-3 text-sm font-medium text-gray-900">
-                                {gameActivityLoading ? (
-                                  <><Loader className="w-4 h-4 inline animate-spin" /> Processing...</>
-                                ) : isCurrentlyJoined ? (
-                                  'Playing'
-                                ) : (
-                                  'Join'
-                                )}
-                              </span>
-                            </label>
+                <div className="space-y-4">
+                  {availableGames.map((game) => {
+                    const players = allParticipantsInCourts[game.name] || [];
+                    const isFull = players.length >= game.maxPlayers;
+                    return (
+                      <div key={game.name} className="p-3 bg-gray-50 rounded-lg space-y-1">
+                        <div className="flex justify-between items-center">
+                          <div className="font-medium text-gray-900">{game.name}</div>
+                          <div className="text-xs text-gray-600">
+                            {players.length}/{game.maxPlayers} players
                           </div>
                         </div>
-                      )
-                    })}
-                  </div>
+                        <div className="text-xs text-gray-700 space-y-1">
+                          {players.length > 0 ? (
+                            players.map((p: any) => (
+                              <div key={p.participantId}>
+                                {p.participantName} (ID: {p.participantId}) - {p.committee} <span className="text-gray-400">({p.duration})</span>
+                              </div>
+                            ))
+                          ) : (
+                            <div>No players</div>
+                          )}
+                        </div>
+                        <button
+                          className={`btn-primary btn-sm ${isFull || gameActivityLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          disabled={isFull || gameActivityLoading}
+                          onClick={() => handleGameActivity(game.name, 'join')}
+                        >
+                          {gameActivityLoading ? 'Joining...' : isFull ? 'Full' : 'Join Game'}
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -798,4 +794,4 @@ export default function MemberScannerPage() {
       </div>
     </div>
   )
-} 
+}

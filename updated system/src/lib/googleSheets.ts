@@ -685,7 +685,7 @@ export async function getGameCurrentPlayers(activity: string, day: string): Prom
 }
 
 // Get all participants currently in courts with detailed information
-export async function getAllParticipantsInCourts(day: string): Promise<{[courtName: string]: Array<{participantId: string, joinTime: string, duration: string}>}> {
+export async function getAllParticipantsInCourts(day: string): Promise<{[courtName: string]: Array<{participantId: string, participantName: string, committee: string, joinTime: string, duration: string}>}> {
   const sheets = await getGoogleSheetsInstance();
   const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
 
@@ -709,22 +709,23 @@ export async function getAllParticipantsInCourts(day: string): Promise<{[courtNa
     }
 
     // Track players currently in each court
-    const courtsData: {[courtName: string]: Array<{participantId: string, joinTime: string, duration: string}>} = {};
+    const courtsData: {[courtName: string]: Array<{participantId: string, participantName: string, committee: string, joinTime: string, duration: string}>} = {};
     const playerStatus: {[participantId: string]: {activity: string, joinTime: string}} = {};
     
     // Process rows to find current players (skip header)
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      // Defensive check for malformed rows
-      if (!row || row.length < 7) continue;
-      const [participantId, gameActivity, action, timestamp, gameDay, joinTime, leaveTime] = row;
+      // Defensive check: need at least id, activity, action, timestamp, day
+      if (!row || row.length < 5) continue;
+      const [participantId, gameActivity, action, timestamp, gameDay, joinTimeRaw] = row;
+      const joinTimeValue = joinTimeRaw || timestamp;
       
       // Filter by day
       if (gameDay === day || gameDay === 'current') {
         if (action === 'join') {
-          playerStatus[participantId] = { 
-            activity: gameActivity, 
-            joinTime: joinTime || timestamp 
+          playerStatus[participantId] = {
+            activity: gameActivity,
+            joinTime: joinTimeValue
           };
         } else if (action === 'leave') {
           delete playerStatus[participantId];
@@ -733,14 +734,14 @@ export async function getAllParticipantsInCourts(day: string): Promise<{[courtNa
     }
 
     // Format the data for each court
-    Object.entries(playerStatus).forEach(([participantId, data]) => {
+    for (const [participantId, data] of Object.entries(playerStatus)) {
       if (!courtsData[data.activity]) {
         courtsData[data.activity] = [];
       }
       
-      const joinTime = new Date(data.joinTime);
+      const joinTimeDate = new Date(data.joinTime);
       const now = new Date();
-      const durationMs = now.getTime() - joinTime.getTime();
+      const durationMs = now.getTime() - joinTimeDate.getTime();
       const durationMinutes = Math.floor(durationMs / (1000 * 60));
       const durationHours = Math.floor(durationMinutes / 60);
       const remainingMinutes = durationMinutes % 60;
@@ -749,12 +750,19 @@ export async function getAllParticipantsInCourts(day: string): Promise<{[courtNa
         ? `${durationHours}h ${remainingMinutes}m`
         : `${remainingMinutes}m`;
 
+      // Fetch participant name
+      const participant = await getParticipantById(participantId);
+      const participantName = participant?.name || participantId;
+      const committee = participant?.position || '';
+      
       courtsData[data.activity].push({
         participantId,
+        participantName,
+        committee,
         joinTime: data.joinTime,
         duration
       });
-    });
+    }
 
     return courtsData;
   } catch (error) {
