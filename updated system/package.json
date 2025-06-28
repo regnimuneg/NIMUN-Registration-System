@@ -29,7 +29,9 @@
     "react": "^18",
     "react-dom": "^18",
     "react-qr-code": "^2.0.12",
-    "react-qr-scanner": "^1.0.0-alpha.11"
+    "react-qr-scanner": "^1.0.0-alpha.11",
+    "recharts": "^2.12.7",
+    "date-fns": "^3.6.0"
   },
   "devDependencies": {
     "@types/body-parser": "^1.19.5",

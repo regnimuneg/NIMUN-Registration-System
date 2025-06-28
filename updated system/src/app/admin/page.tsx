@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Smartphone, BarChart3, Plus, Upload, Zap } from 'lucide-react'
+import { Smartphone, BarChart3, Plus, Upload, Zap, Users, TrendingUp } from 'lucide-react'
 
 export default function AdminPage() {
   const features = [
@@ -25,11 +25,18 @@ export default function AdminPage() {
       color: 'bg-orange-500',
     },
     {
-      title: 'Analytics Dashboard',
-      description: 'View detailed analytics and reports',
+      title: 'Participants List',
+      description: 'View and manage participant details',
       href: '/admin/participants',
-      icon: <BarChart3 className="w-12 h-12 text-white" />,
+      icon: <Users className="w-12 h-12 text-white" />,
       color: 'bg-purple-500',
+    },
+    {
+      title: 'Analytics Dashboard',
+      description: 'View detailed analytics and visualizations',
+      href: '/admin/analytics',
+      icon: <TrendingUp className="w-12 h-12 text-white" />,
+      color: 'bg-indigo-500',
     },
   ]
 
@@ -44,7 +51,7 @@ export default function AdminPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {features.map((feature) => (
           <Link
             key={feature.href}
