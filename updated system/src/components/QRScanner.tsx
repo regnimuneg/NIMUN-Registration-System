@@ -864,13 +864,23 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
     event.target.value = ''
   }, [handleQRDetection, scanWithExternalAPI, useExternalAPI])
 
+  // Manual input state
+  const [manualInput, setManualInput] = useState('')
+  
   // Handle manual input
   const handleManualInput = useCallback(() => {
-    const participantId = prompt('Enter Participant ID (e.g., EX-01):')
-    if (participantId && participantId.trim()) {
-      onScan(participantId.trim().toUpperCase())
+    if (manualInput && manualInput.trim()) {
+      onScan(manualInput.trim().toUpperCase())
+      setManualInput('') // Clear input after scan
     }
-  }, [onScan])
+  }, [onScan, manualInput])
+
+  // Handle Enter key in manual input
+  const handleManualInputKeyPress = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleManualInput()
+    }
+  }, [handleManualInput])
 
   // Force refresh scanner (for virtual cameras)
   const forceRefreshScanner = useCallback(() => {
@@ -1174,15 +1184,28 @@ export default function QRScanner({ onScan, onError, isActive }: QRScannerProps)
             <span>{isMobileDevice ? 'Upload' : 'Upload Image'}</span>
           </button>
           
-          <button
-            onClick={handleManualInput}
-            className={`btn-secondary flex items-center justify-center space-x-2 ${
-              isMobileDevice ? 'btn-sm' : ''
-            }`}
-          >
-            <Edit3 className="w-4 h-4" />
-            <span>{isMobileDevice ? 'Manual' : 'Manual Input'}</span>
-          </button>
+          <div className="flex gap-2 flex-1">
+            <input
+              type="text"
+              value={manualInput}
+              onChange={(e) => setManualInput(e.target.value)}
+              onKeyPress={handleManualInputKeyPress}
+              placeholder="Enter ID (e.g., EX-01)"
+              className={`flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                isMobileDevice ? 'text-sm' : ''
+              }`}
+            />
+            <button
+              onClick={handleManualInput}
+              disabled={!manualInput.trim()}
+              className={`btn-primary flex items-center justify-center space-x-2 ${
+                isMobileDevice ? 'btn-sm' : ''
+              } ${!manualInput.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <Edit3 className="w-4 h-4" />
+              <span>Enter</span>
+            </button>
+          </div>
         </div>
       </div>
 

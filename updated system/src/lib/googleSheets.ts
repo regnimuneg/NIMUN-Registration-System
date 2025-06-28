@@ -431,8 +431,12 @@ export async function updateFoodTracking(
     throw new Error('GOOGLE_SHEETS_SPREADSHEET_ID not set');
   }
 
-  // Create activity tracking sheet if it doesn't exist
-  await createActivityTrackingSheet();
+  // Create activity tracking and food tracking sheets if they don't exist
+  const createPromises = [
+    createActivityTrackingSheet(),
+    createFoodTrackingSheet()
+  ];
+  await Promise.all(createPromises);
 
   try {
     const activityName = `${dayKey} ${meal}`;
@@ -444,7 +448,16 @@ export async function updateFoodTracking(
           timestamp
     ];
     
-    // Write to ActivityTracking and update legacy system in parallel for speed
+    // Create food tracking row with daily input
+    const foodRow = [
+      participantId,
+      dayKey,
+      meal,
+      value ? 'TRUE' : 'FALSE',
+      timestamp
+    ];
+    
+    // Write to both ActivityTracking and Food sheets in parallel for speed
     const writePromises = [
       sheets.spreadsheets.values.append({
         spreadsheetId,
@@ -454,7 +467,14 @@ export async function updateFoodTracking(
           values: [activityRow],
         },
       }),
-      updateLegacyFoodTracking(participantId, meal, value)
+      sheets.spreadsheets.values.append({
+        spreadsheetId,
+        range: 'Food!A:E',
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [foodRow],
+        },
+      })
     ];
     
     await Promise.all(writePromises);
@@ -553,7 +573,8 @@ export async function updateGameActivity(
   participantId: string,
   activity: string,
   action: 'join' | 'leave',
-  timestamp: string
+  timestamp: string,
+  day?: string
 ): Promise<void> {
   const sheets = await getGoogleSheetsInstance();
   const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
@@ -570,7 +591,10 @@ export async function updateGameActivity(
   await Promise.all(createPromises);
   
   try {
-    const gameRow = [participantId, activity, action, timestamp];
+    // Create row with join/leave time tracking
+    const joinTime = action === 'join' ? timestamp : '';
+    const leaveTime = action === 'leave' ? timestamp : '';
+    const gameRow = [participantId, activity, action, timestamp, day || 'current', joinTime, leaveTime];
     const activityRow = [
       participantId,
       'Games',
@@ -609,6 +633,187 @@ export async function updateGameActivity(
   }
 }
 
+// Get current number of players in a game
+export async function getGameCurrentPlayers(activity: string, day: string): Promise<number> {
+  const sheets = await getGoogleSheetsInstance();
+  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+
+  if (!spreadsheetId) {
+    throw new Error('GOOGLE_SHEETS_SPREADSHEET_ID not set');
+  }
+
+  try {
+    // Ensure the Games sheet exists
+    await createGamesTrackingSheet();
+
+    // Get all game records
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: 'Games!A:G',
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length <= 1) {
+      return 0; // No data or only headers
+    }
+
+    // Track players currently in the game
+    const playersInGame = new Set<string>();
+    
+    // Process rows to find current players (skip header)
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      // Defensive check for malformed rows
+      if (!row || row.length < 5) continue;
+      const [participantId, gameActivity, action, timestamp, gameDay] = row;
+      
+      // Filter by activity and day
+      if (gameActivity === activity && (gameDay === day || gameDay === 'current')) {
+        if (action === 'join') {
+          playersInGame.add(participantId);
+        } else if (action === 'leave') {
+          playersInGame.delete(participantId);
+        }
+      }
+    }
+
+    return playersInGame.size;
+  } catch (error) {
+    console.error('Error getting current players:', error);
+    return 0; // Return 0 on error to be safe
+  }
+}
+
+// Get all participants currently in courts with detailed information
+export async function getAllParticipantsInCourts(day: string): Promise<{[courtName: string]: Array<{participantId: string, joinTime: string, duration: string}>}> {
+  const sheets = await getGoogleSheetsInstance();
+  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+
+  if (!spreadsheetId) {
+    throw new Error('GOOGLE_SHEETS_SPREADSHEET_ID not set');
+  }
+
+  try {
+    // Ensure the Games sheet exists
+    await createGamesTrackingSheet();
+
+    // Get all game records
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: 'Games!A:G',
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length <= 1) {
+      return {}; // No data or only headers
+    }
+
+    // Track players currently in each court
+    const courtsData: {[courtName: string]: Array<{participantId: string, joinTime: string, duration: string}>} = {};
+    const playerStatus: {[participantId: string]: {activity: string, joinTime: string}} = {};
+    
+    // Process rows to find current players (skip header)
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      // Defensive check for malformed rows
+      if (!row || row.length < 7) continue;
+      const [participantId, gameActivity, action, timestamp, gameDay, joinTime, leaveTime] = row;
+      
+      // Filter by day
+      if (gameDay === day || gameDay === 'current') {
+        if (action === 'join') {
+          playerStatus[participantId] = { 
+            activity: gameActivity, 
+            joinTime: joinTime || timestamp 
+          };
+        } else if (action === 'leave') {
+          delete playerStatus[participantId];
+        }
+      }
+    }
+
+    // Format the data for each court
+    Object.entries(playerStatus).forEach(([participantId, data]) => {
+      if (!courtsData[data.activity]) {
+        courtsData[data.activity] = [];
+      }
+      
+      const joinTime = new Date(data.joinTime);
+      const now = new Date();
+      const durationMs = now.getTime() - joinTime.getTime();
+      const durationMinutes = Math.floor(durationMs / (1000 * 60));
+      const durationHours = Math.floor(durationMinutes / 60);
+      const remainingMinutes = durationMinutes % 60;
+      
+      const duration = durationHours > 0 
+        ? `${durationHours}h ${remainingMinutes}m`
+        : `${remainingMinutes}m`;
+
+      courtsData[data.activity].push({
+        participantId,
+        joinTime: data.joinTime,
+        duration
+      });
+    });
+
+    return courtsData;
+  } catch (error) {
+    console.error('Error getting participants in courts:', error);
+    return {};
+  }
+}
+
+// Check if participant is currently in any game
+export async function getParticipantCurrentGame(participantId: string, day: string): Promise<string | null> {
+  const sheets = await getGoogleSheetsInstance();
+  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+
+  if (!spreadsheetId) {
+    throw new Error('GOOGLE_SHEETS_SPREADSHEET_ID not set');
+  }
+
+  try {
+    // Ensure the Games sheet exists
+    await createGamesTrackingSheet();
+
+    // Get all game records
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: 'Games!A:G',
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length <= 1) {
+      return null; // No data or only headers
+    }
+
+    let currentGame: string | null = null;
+    
+    // Process rows to find current game (skip header)
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      // Defensive check for malformed rows
+      if (!row || row.length < 5) continue;
+      const [rowParticipantId, gameActivity, action, timestamp, gameDay] = row;
+      
+      // Filter by participant and day
+      if (rowParticipantId === participantId && (gameDay === day || gameDay === 'current')) {
+        if (action === 'join') {
+          currentGame = gameActivity;
+        } else if (action === 'leave' && currentGame === gameActivity) {
+          // Only nullify if leaving the game they were marked in
+          currentGame = null;
+        }
+      }
+    }
+
+    return currentGame;
+  } catch (error) {
+    console.error('Error getting participant current game:', error);
+    return null;
+  }
+}
+
 // Bus Tracking Functions
 export async function updateBusTracking(
   participantId: string,
@@ -631,7 +836,7 @@ export async function updateBusTracking(
   await Promise.all(createPromises);
   
   try {
-    const busRow = [participantId, type, stop, timestamp];
+    const busRow = [participantId, type, stop, timestamp, 'current'];
     const activityRow = [
       participantId,
       'Bus',
@@ -701,7 +906,7 @@ async function createFoodTrackingSheet(): Promise<void> {
         range: 'Food!A1',
         valueInputOption: 'RAW',
         requestBody: {
-          values: [['Participant ID', 'Breakfast', 'Lunch', 'Dinner', 'Snack 1', 'Snack 2']],
+          values: [['Participant ID', 'Day', 'Meal Type', 'Given', 'Timestamp']],
         },
       });
     } catch (error) {
@@ -740,7 +945,7 @@ async function createGamesTrackingSheet(): Promise<void> {
         range: 'Games!A1',
         valueInputOption: 'RAW',
         requestBody: {
-          values: [['Participant ID', 'Activity', 'Action', 'Timestamp']],
+          values: [['Participant ID', 'Activity', 'Action', 'Timestamp', 'Day', 'Join Time', 'Leave Time']],
         },
       });
     } catch (error) {
@@ -779,7 +984,7 @@ async function createBusTrackingSheet(): Promise<void> {
         range: 'Bus!A1',
         valueInputOption: 'RAW',
         requestBody: {
-          values: [['Participant ID', 'Type', 'Stop', 'Timestamp']],
+          values: [['Participant ID', 'Type', 'Stop', 'Timestamp', 'Day']],
         },
       });
     } catch (error) {
