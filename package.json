@@ -12,9 +12,11 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@types/cors": "^2.8.19",
     "@types/jszip": "^3.4.0",
     "@types/qrcode": "^1.5.5",
     "@zxing/library": "^0.21.3",
+    "cors": "^2.8.5",
     "csv-parser": "^3.0.0",
     "googleapis": "^128.0.0",
     "jszip": "^3.10.1",
