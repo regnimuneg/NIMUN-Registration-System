@@ -7,6 +7,7 @@ import ParticipantHistory from '@/components/ParticipantHistory'
 import DaySelector, { EventDay, eventDays } from '@/components/DaySelector'
 import { Participant, TrackingData } from '@/types/participant'
 import { getAllBusRoutes, getBusRouteById } from '@/lib/busRoutes'
+import MemberGuard from '@/components/MemberGuard'
 
 export default function MemberScannerPage() {
   const [currentParticipant, setCurrentParticipant] = useState<Participant | null>(null)
@@ -453,345 +454,347 @@ export default function MemberScannerPage() {
   const currentDayData = getCurrentDayData()
 
   return (
-    <div className="min-h-screen bg-[var(--background)] px-2 py-1">
-      <div className="w-full max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-3">
-          <h1 className="text-xl md:text-2xl font-heading text-gray-900 mb-1">QR Scanner</h1>
-          <p className="text-sm text-[var(--text-secondary)] font-body">Scan participant QR codes for tracking</p>
-        </div>
-
-        {/* Status Messages */}
-        {error && (
-          <div className="status-error mb-2 mx-1 text-sm animate-fade-in">
-            {error}
+    <MemberGuard>
+      <div className="min-h-screen bg-[var(--background)] px-2 py-1">
+        <div className="w-full max-w-4xl mx-auto">
+          {/* Header */}
+          <div className="text-center mb-3">
+            <h1 className="text-xl md:text-2xl font-heading text-gray-900 mb-1">QR Scanner</h1>
+            <p className="text-sm text-[var(--text-secondary)] font-body">Scan participant QR codes for tracking</p>
           </div>
-        )}
-        {success && (
-          <div className="status-success mb-2 mx-1 text-sm animate-fade-in">
-            {success}
-          </div>
-        )}
 
-        {/* Tab Buttons */}
-        <div className="flex gap-2 mb-2">
-          {(['scan', 'attendance', 'food', 'games', 'bus'] as const).map((tab) => (
+          {/* Status Messages */}
+          {error && (
+            <div className="status-error mb-2 mx-1 text-sm animate-fade-in">
+              {error}
+            </div>
+          )}
+          {success && (
+            <div className="status-success mb-2 mx-1 text-sm animate-fade-in">
+              {success}
+            </div>
+          )}
+
+          {/* Tab Buttons */}
+          <div className="flex gap-2 mb-2">
+            {(['scan', 'attendance', 'food', 'games', 'bus'] as const).map((tab) => (
+                  <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`tab ${activeTab === tab ? 'tab-active' : 'tab-inactive'}`}
+              >
+                <div className="flex flex-col items-center">
+                  <span className="mb-0.5">
+                    {tab === 'scan' && <Smartphone className="w-5 h-5" />}
+                    {tab === 'attendance' && <CheckCircle className="w-5 h-5" />}
+                    {tab === 'food' && <Utensils className="w-5 h-5" />}
+                    {tab === 'games' && <Gamepad2 className="w-5 h-5" />}
+                    {tab === 'bus' && <Bus className="w-5 h-5" />}
+                  </span>
+                  <span className="capitalize">
+                    {tab === 'attendance' ? 'Attendance' : tab}
+                  </span>
+                    </div>
+                  </button>
+                ))}
+            </div>
+
+          {/* Day Selection */}
+          <div className="mb-4">
+            <DaySelector selectedDay={selectedDay} onDayChange={handleDayChange} />
+          </div>
+
+          {/* Current Participant Display */}
+          {currentParticipant && (
+            <div className="card mb-3 mx-1">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-heading text-sm text-gray-900 truncate">{currentParticipant.name}</h3>
+                  <div className="flex flex-col sm:flex-row gap-1 text-xs text-[var(--text-secondary)] font-body">
+                    <span className="truncate">ID: {currentParticipant.id}</span>
+                    <span className="truncate">Position: {currentParticipant.position}</span>
+                  </div>
+                </div>
                 <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`tab ${activeTab === tab ? 'tab-active' : 'tab-inactive'}`}
-            >
-              <div className="flex flex-col items-center">
-                <span className="mb-0.5">
-                  {tab === 'scan' && <Smartphone className="w-5 h-5" />}
-                  {tab === 'attendance' && <CheckCircle className="w-5 h-5" />}
-                  {tab === 'food' && <Utensils className="w-5 h-5" />}
-                  {tab === 'games' && <Gamepad2 className="w-5 h-5" />}
-                  {tab === 'bus' && <Bus className="w-5 h-5" />}
-                </span>
-                <span className="capitalize">
-                  {tab === 'attendance' ? 'Attendance' : tab}
-                </span>
-                  </div>
+                  onClick={() => setShowHistory(!showHistory)}
+                  className="btn-secondary btn-xs shrink-0 font-body"
+                >
+                  History
                 </button>
-              ))}
-          </div>
-
-        {/* Day Selection */}
-        <div className="mb-4">
-          <DaySelector selectedDay={selectedDay} onDayChange={handleDayChange} />
-        </div>
-
-        {/* Current Participant Display */}
-        {currentParticipant && (
-          <div className="card mb-3 mx-1">
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-              <div className="flex-1 min-w-0">
-                <h3 className="font-heading text-sm text-gray-900 truncate">{currentParticipant.name}</h3>
-                <div className="flex flex-col sm:flex-row gap-1 text-xs text-[var(--text-secondary)] font-body">
-                  <span className="truncate">ID: {currentParticipant.id}</span>
-                  <span className="truncate">Position: {currentParticipant.position}</span>
-                </div>
               </div>
-              <button
-                onClick={() => setShowHistory(!showHistory)}
-                className="btn-secondary btn-xs shrink-0 font-body"
-              >
-                History
-              </button>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* History Modal/Section */}
-        {showHistory && currentParticipant && (
-          <div className="card mb-3 mx-1">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="font-heading text-base text-gray-900">Participant History</h3>
-              <button
-                onClick={() => setShowHistory(false)}
-                className="btn-secondary btn-xs"
-              >
-                Close
-              </button>
-            </div>
-            <ParticipantHistory participantId={currentParticipant.id} />
-          </div>
-        )}
-
-        {/* Tab Content */}
-        <div className="p-2 mx-1">
-          {/* QR Scanner Tab */}
-            {activeTab === 'scan' && (
-            <div className="space-y-3">
-              <h2 className="text-base font-heading text-gray-900 mb-2">
-                {currentDay.name.replace(' Day 1', '').replace(' Day 2', '')}
-              </h2>
-                <QRScanner onScan={handleQRScan} isActive={activeTab === 'scan'} />
+          {/* History Modal/Section */}
+          {showHistory && currentParticipant && (
+            <div className="card mb-3 mx-1">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="font-heading text-base text-gray-900">Participant History</h3>
+                <button
+                  onClick={() => setShowHistory(false)}
+                  className="btn-secondary btn-xs"
+                >
+                  Close
+                </button>
               </div>
-            )}
+              <ParticipantHistory participantId={currentParticipant.id} />
+            </div>
+          )}
 
-          {/* Attendance Tab */}
-            {activeTab === 'attendance' && (
-            <div className="space-y-3">
-              <h2 className="text-base font-heading text-gray-900 mb-2">Attendance</h2>
-                {!currentParticipant ? (
-                <p className="text-[var(--text-secondary)] text-sm font-body">Scan a participant to track attendance</p>
-              ) : !canTakeAttendance(selectedDay) ? (
-                <div className="status-info text-sm">
-                  Attendance tracking is only available on event days
+          {/* Tab Content */}
+          <div className="p-2 mx-1">
+            {/* QR Scanner Tab */}
+              {activeTab === 'scan' && (
+              <div className="space-y-3">
+                <h2 className="text-base font-heading text-gray-900 mb-2">
+                  {currentDay.name.replace(' Day 1', '').replace(' Day 2', '')}
+                </h2>
+                  <QRScanner onScan={handleQRScan} isActive={activeTab === 'scan'} />
                 </div>
-              ) : currentDayData ? (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm text-gray-900 truncate font-body">
-                        Mark Attendance
-                      </p>
-                      <p className="text-xs text-[var(--text-secondary)] font-body">
-                        {currentDay.name} - Session Attendance
-                      </p>
-                    </div>
-                    
-                    {/* Switch-style toggle button */}
-                    <div className="flex items-center">
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={currentDayData.attended || false}
-                          onChange={() => handleAttendanceUpdate(getCurrentDayKey(), 'attended')}
-                          disabled={isLoading || !dataFetched}
-                          className="sr-only peer"
-                        />
-                        <div className={`relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600 ${(isLoading || !dataFetched) ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
-                        <span className="ml-3 text-sm font-medium text-gray-900">
-                          {isLoading ? (
-                            <><Loader className="w-4 h-4 inline animate-spin" /> Processing...</>
-                          ) : currentDayData.attended ? (
-                            <><Check className="w-4 h-4 inline mr-1" />Present</>
-                          ) : (
-                            'Mark Present'
-                          )}
-                        </span>
-                      </label>
+              )}
+
+            {/* Attendance Tab */}
+              {activeTab === 'attendance' && (
+              <div className="space-y-3">
+                <h2 className="text-base font-heading text-gray-900 mb-2">Attendance</h2>
+                  {!currentParticipant ? (
+                  <p className="text-[var(--text-secondary)] text-sm font-body">Scan a participant to track attendance</p>
+                ) : !canTakeAttendance(selectedDay) ? (
+                  <div className="status-info text-sm">
+                    Attendance tracking is only available on event days
+                  </div>
+                ) : currentDayData ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm text-gray-900 truncate font-body">
+                          Mark Attendance
+                        </p>
+                        <p className="text-xs text-[var(--text-secondary)] font-body">
+                          {currentDay.name} - Session Attendance
+                        </p>
+                      </div>
+                      
+                      {/* Switch-style toggle button */}
+                      <div className="flex items-center">
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={currentDayData.attended || false}
+                            onChange={() => handleAttendanceUpdate(getCurrentDayKey(), 'attended')}
+                            disabled={isLoading || !dataFetched}
+                            className="sr-only peer"
+                          />
+                          <div className={`relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600 ${(isLoading || !dataFetched) ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
+                          <span className="ml-3 text-sm font-medium text-gray-900">
+                            {isLoading ? (
+                              <><Loader className="w-4 h-4 inline animate-spin" /> Processing...</>
+                            ) : currentDayData.attended ? (
+                              <><Check className="w-4 h-4 inline mr-1" />Present</>
+                            ) : (
+                              'Mark Present'
+                            )}
+                          </span>
+                        </label>
+                      </div>
                     </div>
                   </div>
+                ) : (
+                  <p className="text-[var(--text-secondary)] text-sm font-body">No session data available for this day</p>
+                  )}
                 </div>
-              ) : (
-                <p className="text-[var(--text-secondary)] text-sm font-body">No session data available for this day</p>
+              )}
+
+            {/* Food Tab */}
+            {activeTab === 'food' && (
+              <div className="space-y-3">
+                <h2 className="text-base font-heading text-gray-900 mb-2">Food Tracking</h2>
+                {!currentParticipant ? (
+                  <p className="text-[var(--text-secondary)] text-sm font-body">Scan a participant to track food distribution</p>
+                ) : currentDay.hasFood && currentDay.foodTypes.length > 0 ? (
+                  <div className="space-y-2">
+                    {/* Generate food options based on current day food types */}
+                    {currentDay.foodTypes.map((foodType: string) => {
+                      const isReceived = currentDayData && (
+                        foodType === 'lunch' ? currentDayData.lunch : 
+                        foodType === 'breakfast' ? (currentDayData as any).breakfast :
+                        foodType === 'catering' ? (currentDayData as any).catering : false
+                      )
+                      
+                      return (
+                        <div key={foodType} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm text-gray-900 truncate font-body">
+                              {foodType.charAt(0).toUpperCase() + foodType.slice(1)}
+                            </p>
+                            <p className="text-xs text-[var(--text-secondary)] font-body">
+                              {currentDay.name} - {foodType}
+                            </p>
+                          </div>
+                          
+                          {/* Switch-style toggle button */}
+                          <div className="flex items-center">
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={isReceived || false}
+                                onChange={() => handleFoodUpdate(getCurrentDayKey(), foodType)}
+                                disabled={isLoading || !dataFetched}
+                                className="sr-only peer"
+                              />
+                              <div className={`relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600 ${(isLoading || !dataFetched) ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
+                              <span className="ml-3 text-sm font-medium text-gray-900">
+                                {isLoading ? (
+                                  <><Loader className="w-4 h-4 inline animate-spin" /> Processing...</>
+                                ) : isReceived ? (
+                                  <><Check className="w-4 h-4 inline mr-1" />Given</>
+                                ) : (
+                                  'Mark Given'
+                                )}
+                              </span>
+                            </label>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-[var(--text-secondary)] text-sm font-body">No meal service available for this day</p>
                 )}
               </div>
             )}
 
-          {/* Food Tab */}
-          {activeTab === 'food' && (
-            <div className="space-y-3">
-              <h2 className="text-base font-heading text-gray-900 mb-2">Food Tracking</h2>
-              {!currentParticipant ? (
-                <p className="text-[var(--text-secondary)] text-sm font-body">Scan a participant to track food distribution</p>
-              ) : currentDay.hasFood && currentDay.foodTypes.length > 0 ? (
-                <div className="space-y-2">
-                  {/* Generate food options based on current day food types */}
-                  {currentDay.foodTypes.map((foodType: string) => {
-                    const isReceived = currentDayData && (
-                      foodType === 'lunch' ? currentDayData.lunch : 
-                      foodType === 'breakfast' ? (currentDayData as any).breakfast :
-                      foodType === 'catering' ? (currentDayData as any).catering : false
-                    )
-                    
-                    return (
-                      <div key={foodType} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm text-gray-900 truncate font-body">
-                            {foodType.charAt(0).toUpperCase() + foodType.slice(1)}
-                          </p>
-                          <p className="text-xs text-[var(--text-secondary)] font-body">
-                            {currentDay.name} - {foodType}
-                          </p>
-                        </div>
-                        
-                        {/* Switch-style toggle button */}
-                        <div className="flex items-center">
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={isReceived || false}
-                              onChange={() => handleFoodUpdate(getCurrentDayKey(), foodType)}
-                              disabled={isLoading || !dataFetched}
-                              className="sr-only peer"
-                            />
-                            <div className={`relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600 ${(isLoading || !dataFetched) ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
-                            <span className="ml-3 text-sm font-medium text-gray-900">
-                              {isLoading ? (
-                                <><Loader className="w-4 h-4 inline animate-spin" /> Processing...</>
-                              ) : isReceived ? (
-                                <><Check className="w-4 h-4 inline mr-1" />Given</>
-                              ) : (
-                                'Mark Given'
-                              )}
-                            </span>
-                          </label>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              ) : (
-                <p className="text-[var(--text-secondary)] text-sm font-body">No meal service available for this day</p>
-              )}
-            </div>
-          )}
-
-          {/* Games Tab */}
-            {activeTab === 'games' && (
-            <div className="space-y-3">
-              <h2 className="text-base font-heading text-gray-900 mb-2">Games</h2>
-              {!currentParticipant ? (
-                <p className="text-[var(--text-secondary)] text-sm font-body">Scan a participant to manage games</p>
-              ) : participantCurrentGame ? (
-                <div className="p-3 bg-green-50 border border-green-200 rounded-lg space-y-2">
-                  <div className="text-sm font-medium text-green-800">
-                    🎮 Current Game: {participantCurrentGame}
-                    {timer && <span className="ml-2 text-xs text-green-700">⏱️ {timer}</span>}
-                  </div>
-                  <button
-                    className="btn-danger btn-sm"
-                    disabled={gameActivityLoading}
-                    onClick={() => handleGameActivity(participantCurrentGame, 'leave')}
-                  >
-                    {gameActivityLoading ? 'Leaving...' : 'Leave Game'}
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {availableGames.map((game) => {
-                    const players = allParticipantsInCourts[game.name] || [];
-                    const isFull = players.length >= game.maxPlayers;
-                    return (
-                      <div key={game.name} className="p-3 bg-gray-50 rounded-lg space-y-1">
-                        <div className="flex justify-between items-center">
-                          <div className="font-medium text-gray-900">{game.name}</div>
-                          <div className="text-xs text-gray-600">
-                            {players.length}/{game.maxPlayers} players
-                          </div>
-                        </div>
-                        <div className="text-xs text-gray-700 space-y-1">
-                          {players.length > 0 ? (
-                            players.map((p: any) => (
-                              <div key={p.participantId}>
-                                {p.participantName} (ID: {p.participantId}) - {p.committee} <span className="text-gray-400">({p.duration})</span>
-                              </div>
-                            ))
-                          ) : (
-                            <div>No players</div>
-                          )}
-                        </div>
-                        <button
-                          className={`btn-primary btn-sm ${isFull || gameActivityLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          disabled={isFull || gameActivityLoading}
-                          onClick={() => handleGameActivity(game.name, 'join')}
-                        >
-                          {gameActivityLoading ? 'Joining...' : isFull ? 'Full' : 'Join Game'}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Bus Tab */}
-          {activeTab === 'bus' && (
-            <div className="space-y-3">
-              <h2 className="text-base font-heading text-gray-900 mb-2">Transportation</h2>
+            {/* Games Tab */}
+              {activeTab === 'games' && (
+              <div className="space-y-3">
+                <h2 className="text-base font-heading text-gray-900 mb-2">Games</h2>
                 {!currentParticipant ? (
-                <p className="text-[var(--text-secondary)] text-sm font-body">Scan a participant to track bus travel</p>
-              ) : !currentParticipant.busRoute ? (
-                <div className="status-info text-sm">
-                  This participant is not assigned to any bus route.
-                              </div>
-              ) : (
-                <div className="space-y-3">
-                  {/* Show only the participant's assigned route */}
-                  {(() => {
-                    const assignedRoute = getBusRouteById(currentParticipant.busRoute)
-                    if (!assignedRoute) {
-                      return (
-                        <div className="status-error text-sm">
-                          <strong>Error:</strong> Route {currentParticipant.busRoute} not found in system
-                            </div>
-                      )
-                    }
-                    
-                    return (
-                      <div>
-                        <div className="status-success text-sm mb-3">
-                          <strong>Assigned Route:</strong> {assignedRoute.name}
-                        </div>
-                        
-                        {/* Day-specific bus warnings */}
-                        {selectedDay === 'day1' && (
-                          <div className="status-warning text-sm mb-3">
-                            <strong>Note:</strong> Buses run to University only on Sessions day
-                      </div>
-                    )}
-                    
-                        <div className="card-accent-1">
-                          <h3 className="font-heading text-sm text-gray-900 mb-2">{assignedRoute.name}</h3>
-                              <div className="space-y-2">
-                            {assignedRoute.stops.map((stop: any) => (
-                              <div key={stop.name || stop} className="flex items-center justify-between text-xs">
-                                <span className="flex-1 min-w-0 truncate font-body">{stop.name || stop}</span>
-                                <div className="flex gap-1 ml-2">
-                                  <button
-                                    onClick={() => handleBusTracking('arriving', currentParticipant.busRoute!, stop.name || stop)}
-                                    disabled={busButtonsDisabled.arriving || isLoading || !dataFetched}
-                                    className={`btn-xs btn-primary ${(busButtonsDisabled.arriving || isLoading || !dataFetched) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                  >
-                                    {isLoading && busButtonsDisabled.arriving ? 'Processing...' : 'Arriving'}
-                                  </button>
-                                    <button
-                                    onClick={() => handleBusTracking('departing', currentParticipant.busRoute!, stop.name || stop)}
-                                    disabled={busButtonsDisabled.departing || isLoading || !dataFetched}
-                                    className={`btn-xs btn-secondary ${(busButtonsDisabled.departing || isLoading || !dataFetched) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                    >
-                                    {isLoading && busButtonsDisabled.departing ? 'Processing...' : 'Departing'}
-                                    </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
+                  <p className="text-[var(--text-secondary)] text-sm font-body">Scan a participant to manage games</p>
+                ) : participantCurrentGame ? (
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg space-y-2">
+                    <div className="text-sm font-medium text-green-800">
+                      🎮 Current Game: {participantCurrentGame}
+                      {timer && <span className="ml-2 text-xs text-green-700">⏱️ {timer}</span>}
                     </div>
-                    )
-                  })()}
+                    <button
+                      className="btn-danger btn-sm"
+                      disabled={gameActivityLoading}
+                      onClick={() => handleGameActivity(participantCurrentGame, 'leave')}
+                    >
+                      {gameActivityLoading ? 'Leaving...' : 'Leave Game'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {availableGames.map((game) => {
+                      const players = allParticipantsInCourts[game.name] || [];
+                      const isFull = players.length >= game.maxPlayers;
+                      return (
+                        <div key={game.name} className="p-3 bg-gray-50 rounded-lg space-y-1">
+                          <div className="flex justify-between items-center">
+                            <div className="font-medium text-gray-900">{game.name}</div>
+                            <div className="text-xs text-gray-600">
+                              {players.length}/{game.maxPlayers} players
+                            </div>
+                          </div>
+                          <div className="text-xs text-gray-700 space-y-1">
+                            {players.length > 0 ? (
+                              players.map((p: any) => (
+                                <div key={p.participantId}>
+                                  {p.participantName} (ID: {p.participantId}) - {p.committee} <span className="text-gray-400">({p.duration})</span>
+                                </div>
+                              ))
+                            ) : (
+                              <div>No players</div>
+                            )}
+                          </div>
+                          <button
+                            className={`btn-primary btn-sm ${isFull || gameActivityLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            disabled={isFull || gameActivityLoading}
+                            onClick={() => handleGameActivity(game.name, 'join')}
+                          >
+                            {gameActivityLoading ? 'Joining...' : isFull ? 'Full' : 'Join Game'}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
+
+            {/* Bus Tab */}
+            {activeTab === 'bus' && (
+              <div className="space-y-3">
+                <h2 className="text-base font-heading text-gray-900 mb-2">Transportation</h2>
+                  {!currentParticipant ? (
+                  <p className="text-[var(--text-secondary)] text-sm font-body">Scan a participant to track bus travel</p>
+                ) : !currentParticipant.busRoute ? (
+                  <div className="status-info text-sm">
+                    This participant is not assigned to any bus route.
+                                </div>
+                ) : (
+                  <div className="space-y-3">
+                    {/* Show only the participant's assigned route */}
+                    {(() => {
+                      const assignedRoute = getBusRouteById(currentParticipant.busRoute)
+                      if (!assignedRoute) {
+                        return (
+                          <div className="status-error text-sm">
+                            <strong>Error:</strong> Route {currentParticipant.busRoute} not found in system
+                              </div>
+                        )
+                      }
+                      
+                      return (
+                        <div>
+                          <div className="status-success text-sm mb-3">
+                            <strong>Assigned Route:</strong> {assignedRoute.name}
+                          </div>
+                          
+                          {/* Day-specific bus warnings */}
+                          {selectedDay === 'day1' && (
+                            <div className="status-warning text-sm mb-3">
+                              <strong>Note:</strong> Buses run to University only on Sessions day
+                        </div>
+                      )}
+                      
+                          <div className="card-accent-1">
+                            <h3 className="font-heading text-sm text-gray-900 mb-2">{assignedRoute.name}</h3>
+                                <div className="space-y-2">
+                              {assignedRoute.stops.map((stop: any) => (
+                                <div key={stop.name || stop} className="flex items-center justify-between text-xs">
+                                  <span className="flex-1 min-w-0 truncate font-body">{stop.name || stop}</span>
+                                  <div className="flex gap-1 ml-2">
+                                    <button
+                                      onClick={() => handleBusTracking('arriving', currentParticipant.busRoute!, stop.name || stop)}
+                                      disabled={busButtonsDisabled.arriving || isLoading || !dataFetched}
+                                      className={`btn-xs btn-primary ${(busButtonsDisabled.arriving || isLoading || !dataFetched) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    >
+                                      {isLoading && busButtonsDisabled.arriving ? 'Processing...' : 'Arriving'}
+                                    </button>
+                                      <button
+                                      onClick={() => handleBusTracking('departing', currentParticipant.busRoute!, stop.name || stop)}
+                                      disabled={busButtonsDisabled.departing || isLoading || !dataFetched}
+                                      className={`btn-xs btn-secondary ${(busButtonsDisabled.departing || isLoading || !dataFetched) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                      >
+                                      {isLoading && busButtonsDisabled.departing ? 'Processing...' : 'Departing'}
+                                      </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                      </div>
+                      )
+                    })()}
+                </div>
+              )}
+            </div>
+          )}
           </div>
-        )}
         </div>
       </div>
-    </div>
+    </MemberGuard>
   )
 }
