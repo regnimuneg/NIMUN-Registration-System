@@ -8,22 +8,10 @@ interface AdminCredentials {
 // Admin credentials - in production, these should be in environment variables
 const ADMIN_CREDENTIALS: AdminCredentials[] = [
   {
-    username: 'jnimun.admin',
-    password: 'JNIMUN2025@Admin',
+    username: 'admin',
+    password: 'JNimUn@2025',
     role: 'super-admin',
     name: 'JNIMUN Admin'
-  },
-  {
-    username: 'tech.admin',
-    password: 'TechTeam@2025',
-    role: 'admin',
-    name: 'Tech Team Admin'
-  },
-  {
-    username: 'event.admin',
-    password: 'EventMgmt@2025',
-    role: 'admin',
-    name: 'Event Management'
   }
 ]
 
