@@ -180,7 +180,7 @@ export default function AdminGuard({ children }: AdminGuardProps) {
             </button>
           </div>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+          {/* <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
             <div className="text-sm text-blue-800">
               <strong>Admin Credentials:</strong>
             </div>
@@ -189,7 +189,7 @@ export default function AdminGuard({ children }: AdminGuardProps) {
               <div><strong>Tech Team:</strong> tech.admin / TechTeam@2025</div>
               <div><strong>Event Mgmt:</strong> event.admin / EventMgmt@2025</div>
             </div>
-          </div>
+          </div> */}
 
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <div className="text-sm text-yellow-800">
