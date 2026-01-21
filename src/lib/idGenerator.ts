@@ -2,12 +2,10 @@ import { IdPrefixConfig, CommitteeType } from '@/types/participant';
 import { getLockedId, getAllLockedIds, isIdLocked } from './lockedParticipants';
 
 const ID_PREFIX_MAP: IdPrefixConfig = {
-  'ICJ Delegates': 'IC',
-  'UNOOSA Delegates': 'OS',
-  'DISEC Delegates': 'DC',
-  'Press Delegates': 'PS',
-  'UN Women Delegates': 'UW',
-  'UNODC Delegates': 'OD',
+  'UNHRC Delegates': 'HRC',
+  'ICJ Delegates': 'ICJ',
+  'DISEC Delegates': 'DSC',
+  'Press Delegates': 'PRS',
   'Media & Design': 'MD',
   'Operations': 'OP',
   'Registration Affairs': 'RG',

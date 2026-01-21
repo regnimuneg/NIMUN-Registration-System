@@ -1,3 +1,0 @@
-Super Admin:    jnimun.admin     / JNIMUN2025@Admin
-Tech Team:      tech.admin       / TechTeam@2025  
-Event Mgmt:     event.admin      / EventMgmt@202

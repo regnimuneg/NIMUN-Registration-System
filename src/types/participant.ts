@@ -7,7 +7,7 @@ export interface Participant {
   qrUrl?: string;
   busRoute?: string; // Bus route ID (route-1, route-2, etc.)
   busStop?: string;  // Specific bus stop name
-  
+
   // Attendance tracking
   attendance?: {
     session1?: boolean;
@@ -20,7 +20,7 @@ export interface Participant {
     performanceDay?: boolean;
     openingDay?: boolean;
   };
-  
+
   // Food tracking
   food?: {
     [date: string]: {
@@ -28,7 +28,7 @@ export interface Participant {
       lunch?: boolean;
     };
   };
-  
+
   // Bus tracking
   bus?: {
     [date: string]: {
@@ -41,32 +41,32 @@ export interface Participant {
 export interface DayTrackingData {
   // Sessions: June 28 - July 1 (4 days)
   sessions: {
-    day1: { 
+    day1: {
       attended: boolean
       attendedAt?: string
       lunch: boolean
       lunchAt?: string
     }
-    day2: { 
+    day2: {
       attended: boolean
       attendedAt?: string
       lunch: boolean
       lunchAt?: string
     }
-    day3: { 
+    day3: {
       attended: boolean
       attendedAt?: string
       lunch: boolean
       lunchAt?: string
     }
-    day4: { 
+    day4: {
       attended: boolean
       attendedAt?: string
       lunch: boolean
       lunchAt?: string
     }
   }
-  
+
   // Performance Day: July 2
   performanceDay: {
     attended: boolean
@@ -76,9 +76,9 @@ export interface DayTrackingData {
     lunch: boolean
     lunchAt?: string
   }
-  
+
   // Off Day: July 3 (no tracking)
-  
+
   // Opening Ceremony: July 4
   openingCeremony: {
     attended: boolean
@@ -86,10 +86,10 @@ export interface DayTrackingData {
     catering: boolean
     cateringAt?: string
   }
-  
+
   // Conference Days: July 5-7 (3 days)
   conference: {
-    day1: { 
+    day1: {
       attended: boolean
       attendedAt?: string
       breakfast: boolean
@@ -97,7 +97,7 @@ export interface DayTrackingData {
       lunch: boolean
       lunchAt?: string
     }
-    day2: { 
+    day2: {
       attended: boolean
       attendedAt?: string
       breakfast: boolean
@@ -105,7 +105,7 @@ export interface DayTrackingData {
       lunch: boolean
       lunchAt?: string
     }
-    day3: { 
+    day3: {
       attended: boolean
       attendedAt?: string
       breakfast: boolean
@@ -147,12 +147,10 @@ export interface BulkImportData {
 }
 
 export interface IdPrefixConfig {
-  'ICJ Delegates': 'IC';
-  'UNOOSA Delegates': 'OS';
-  'DISEC Delegates': 'DC';
-  'Press Delegates': 'PS';
-  'UN Women Delegates': 'UW';
-  'UNODC Delegates': 'OD';
+  'UNHRC Delegates': 'HRC';
+  'ICJ Delegates': 'ICJ';
+  'DISEC Delegates': 'DSC';
+  'Press Delegates': 'PRS';
   'Media & Design': 'MD';
   'Operations': 'OP';
   'Registration Affairs': 'RG';

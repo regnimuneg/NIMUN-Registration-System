@@ -41,5 +41,14 @@ dist/
 *.tsbuildinfo
 
 # Google Sheets credentials (keep private)
-*-service-account-*.json 
+*-service-account-*.json
+*-registration-system-*.json
+jnimun*.json
 certificates
+
+# Sensitive credential files
+admin_creds.txt
+*.credentials.json
+
+# CSV files with sensitive data (optional - uncomment if needed)
+# *.csv

@@ -18,24 +18,22 @@ export default function RegisterPage() {
     busRoute: '' as string,
     busStop: '' as string
   })
-  
+
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [registeredParticipant, setRegisteredParticipant] = useState<Participant | null>(null)
   const [error, setError] = useState<string>('')
 
   const committees: CommitteeType[] = [
     'Executive',
-    'Operations', 
+    'Operations',
     'Registration Affairs',
     'Public Relations',
     'Media & Design',
     'Socials',
+    'UNHRC Delegates',
     'ICJ Delegates',
-    'UNOOSA Delegates',
     'DISEC Delegates',
-    'Press Delegates',
-    'UN Women Delegates',
-    'UNODC Delegates'
+    'Press Delegates'
   ]
 
   const busRoutes = getAllBusRoutes()
@@ -52,7 +50,7 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!formData.name || !formData.phoneNumber || !formData.position) {
       setError('Please fill in all required fields')
       return
@@ -79,7 +77,7 @@ export default function RegisterPage() {
 
       console.log('Successfully registered participant:', result.participant)
       setRegisteredParticipant(result.participant)
-      
+
       // Reset form
       setFormData({
         name: '',
@@ -145,7 +143,7 @@ export default function RegisterPage() {
           {/* QR Code */}
           <div className="card">
             <h2 className="text-xl font-semibold mb-4">QR Code</h2>
-            <QRCodeDisplay 
+            <QRCodeDisplay
               qrData={registeredParticipant.qrUrl || ''}
               participantId={registeredParticipant.id}
               size={250}
