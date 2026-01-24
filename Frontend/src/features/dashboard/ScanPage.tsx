@@ -768,12 +768,7 @@ export default function ScanPage() {
                 </div>
               </div>
 
-              {participant.qrUrl && (
-                <div className="mt-6">
-                  <p className="text-sm font-medium text-gray-700 mb-2">QR Code</p>
-                  <img src={participant.qrUrl} alt="QR Code" className="w-32 h-32 border border-gray-300 rounded" />
-                </div>
-              )}
+
 
               {/* Activity Tracking */}
               <div className="mt-6 pt-6 border-t border-gray-200">
@@ -970,6 +965,6 @@ export default function ScanPage() {
           )}
         </div>
       </div>
-    </div>
+    </div >
   )
 }
