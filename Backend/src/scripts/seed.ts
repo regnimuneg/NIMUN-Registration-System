@@ -14,7 +14,7 @@ dotenv.config({ path: path.join(__dirname, '../../.env') })
 
 async function seed() {
     // Dynamic import to ensure env vars are loaded first
-    const { query } = await import('../config')
+    const { query } = await import('../config/index.js')
     const seedFile = path.join(__dirname, '../../seeds/participants.csv')
     console.log(`Starting seed from: ${seedFile}`)
 

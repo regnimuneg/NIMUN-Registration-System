@@ -8,7 +8,7 @@ const __dirname = path.dirname(__filename)
 dotenv.config({ path: path.join(__dirname, '../../.env') })
 
 async function migrate() {
-  const { query } = await import('../config')
+  const { query } = await import('../config/index.js')
   console.log('Applying schema updates...')
   try {
     await query(`

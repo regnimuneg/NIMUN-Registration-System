@@ -1,5 +1,5 @@
 import express, { type Request, type Response } from 'express'
-import { query } from '../config'
+import { query } from '../config/index.js'
 
 const router = express.Router()
 
@@ -18,7 +18,7 @@ router.post('/', async (req: Request, res: Response) => {
         await query('DELETE FROM attendance_records')
         await query('DELETE FROM food_history')
         await query('DELETE FROM activity_timeline WHERE activity_type IN (\'game\', \'other\')')
-        
+
         // Reset attendance fields in delegates and members
         await query(`
           UPDATE delegates SET

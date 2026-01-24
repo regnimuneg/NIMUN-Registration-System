@@ -1,4 +1,4 @@
-import { query } from '../../config'
+import { query } from '../../config/index.js'
 
 type DelegateUsageRow = {
   delegate_id: string

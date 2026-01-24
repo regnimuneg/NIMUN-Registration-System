@@ -1,5 +1,5 @@
 import express, { type Request, type Response } from 'express'
-import { query } from '../config'
+import { query } from '../config/index.js'
 
 const router = express.Router()
 

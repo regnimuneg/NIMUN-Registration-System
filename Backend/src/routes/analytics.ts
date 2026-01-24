@@ -1,6 +1,6 @@
 import express, { type Request, type Response } from 'express'
-import { query } from '../config'
-import { getVoucherUsageByDelegate, getVoucherUsageByVendor } from '../modules/analytics'
+import { query } from '../config/index.js'
+import { getVoucherUsageByDelegate, getVoucherUsageByVendor } from '../modules/analytics/index.js'
 
 const router = express.Router()
 

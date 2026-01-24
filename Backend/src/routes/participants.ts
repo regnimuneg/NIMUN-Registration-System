@@ -1,5 +1,5 @@
 import express, { type Request, type Response } from 'express'
-import { query } from '../config'
+import { query } from '../config/index.js'
 
 const router = express.Router()
 
@@ -126,7 +126,7 @@ router.get('/:id', async (req: Request, res: Response) => {
         LEFT JOIN users u ON m.user_id = u.id
         WHERE m.id = $1
       `, [id])
-      
+
       // Debug logging
       if (participant.rows.length > 0) {
         console.log(`[DEBUG] Member ${id} data:`, {
@@ -166,7 +166,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 
     // Ensure all fields are properly mapped (PostgreSQL returns lowercase without quotes)
     const participantData = participant.rows[0]
-    
+
     // Normalize field names - PostgreSQL returns lowercase, so map them correctly
     const normalizedData: any = {
       ...participantData,
@@ -181,7 +181,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       // Ensure position is available
       position: participantData.position || null
     }
-    
+
     // Determine if this is a delegate:
     // - Delegates have council in position field (like "PRESS", "DISEC", etc.)
     // - Delegates don't have committee
@@ -189,7 +189,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     const knownCouncils = ['PRESS', 'DISEC', 'HRC', 'ICJ']
     const hasCouncilInPosition = normalizedData.position && knownCouncils.includes(normalizedData.position.toUpperCase())
     const isDelegate = (normalizedData.council || hasCouncilInPosition) && !normalizedData.committee
-    
+
     // For delegates: council is in position/council field, role should always be "Delegate"
     if (isDelegate) {
       normalizedData.council = normalizedData.council || normalizedData.position || null
@@ -210,13 +210,13 @@ router.get('/:id', async (req: Request, res: Response) => {
       }
       normalizedData.council = null // Members/invitations don't have councils
     }
-    
+
     // Convert empty strings to null
     if (normalizedData.phoneNumber === '') normalizedData.phoneNumber = null
     if (normalizedData.committee === '') normalizedData.committee = null
     if (normalizedData.role === '') normalizedData.role = null
     if (normalizedData.council === '') normalizedData.council = null
-    
+
     console.log(`[DEBUG] Normalized participant data for ${id}:`, {
       phoneNumber: normalizedData.phoneNumber,
       committee: normalizedData.committee,
@@ -224,8 +224,8 @@ router.get('/:id', async (req: Request, res: Response) => {
       council: normalizedData.council,
       position: normalizedData.position
     })
-    
-    const result: any = { 
+
+    const result: any = {
       participant: normalizedData
     }
 

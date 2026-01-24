@@ -1,5 +1,5 @@
 import express, { type Request, type Response } from 'express'
-import { query } from '../config'
+import { query } from '../config/index.js'
 
 const router = express.Router()
 
@@ -130,7 +130,7 @@ router.post('/', async (req: Request, res: Response) => {
     if (userResult.rows.length > 0) {
       const userId = userResult.rows[0].user_id
       const title = `${dayKey} Attendance`
-      
+
       // Determine description based on action type
       let description: string
       if (checkIn) {

@@ -1,5 +1,5 @@
 import express, { type Request, type Response } from 'express'
-import { query } from '../config'
+import { query } from '../config/index.js'
 
 const router = express.Router()
 
@@ -251,7 +251,7 @@ async function getAllParticipantsInCourts(day: string) {
   const courts: Record<string, any[]> = {}
   allRows.forEach((row: any) => {
     if (!row.activity) return
-    
+
     if (!courts[row.activity]) {
       courts[row.activity] = []
     }
@@ -261,7 +261,7 @@ async function getAllParticipantsInCourts(day: string) {
     const durationMinutes = Math.floor(durationMs / (1000 * 60))
     const durationHours = Math.floor(durationMinutes / 60)
     const remainingMinutes = durationMinutes % 60
-    const duration = durationHours > 0 
+    const duration = durationHours > 0
       ? `${durationHours}h ${remainingMinutes}m`
       : `${remainingMinutes}m`
 

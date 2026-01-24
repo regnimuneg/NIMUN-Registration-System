@@ -1,22 +1,22 @@
 import 'dotenv/config'
 import express, { type Request, type Response } from 'express'
 import cors from 'cors'
-import { checkConnection } from './config'
+import { checkConnection } from './config/index.js'
 
 // Import route handlers
-import participantsRoutes from './routes/participants'
-import attendanceRoutes from './routes/attendance'
-import foodRoutes from './routes/food'
-import gamesRoutes from './routes/games'
-import commentsRoutes from './routes/comments'
+import participantsRoutes from './routes/participants.js'
+import attendanceRoutes from './routes/attendance.js'
+import foodRoutes from './routes/food.js'
+import gamesRoutes from './routes/games.js'
+import commentsRoutes from './routes/comments.js'
 // Bus routes commented out - not used for this event
 // import busRoutes from './routes/bus'
-import qrRoutes from './routes/qr'
-import importRoutes from './routes/import'
-import registerRoutes from './routes/register'
-import analyticsRoutes from './routes/analytics'
-import authRoutes from './routes/auth'
-import clearTrackingRoutes from './routes/clear-tracking'
+import qrRoutes from './routes/qr.js'
+import importRoutes from './routes/import.js'
+import registerRoutes from './routes/register.js'
+import analyticsRoutes from './routes/analytics.js'
+import authRoutes from './routes/auth.js'
+import clearTrackingRoutes from './routes/clear-tracking.js'
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -77,7 +77,7 @@ app.get('/', (_req: Request, res: Response) => {
 // Health check
 app.get('/health', async (_req: Request, res: Response) => {
   const dbOk = await checkConnection()
-  const { getConnectionStatus } = await import('./config')
+  const { getConnectionStatus } = await import('./config/index.js')
   res.json({
     status: 'ok',
     database: dbOk ? 'connected' : 'unavailable',
