@@ -21,7 +21,7 @@ router.post('/generate', async (req: Request, res: Response) => {
     // Check if participant is delegate or member
     const delegateCheck = await query('SELECT id FROM delegates WHERE id = $1', [participantId])
     const memberCheck = await query('SELECT id FROM members WHERE id = $1', [participantId])
-    
+
     if (delegateCheck.rows.length > 0) {
       // Update QR code in delegates table (store ID, not data URL)
       await query(`
@@ -38,7 +38,6 @@ router.post('/generate', async (req: Request, res: Response) => {
     // Generate QR code buffer first with white background
     const qrBuffer = await QRCode.toBuffer(participantId, {
       errorCorrectionLevel: 'M',
-      type: 'image/png',
       margin: 1,
       color: {
         dark: '#195F8C', // RGB(25, 95, 140) from generate_qrcodes.py
@@ -55,13 +54,13 @@ router.post('/generate', async (req: Request, res: Response) => {
 
     const pixels = new Uint8Array(data)
     const fillColor = [25, 95, 140, 255] // #195F8C with full opacity
-    
+
     // Process each pixel
     for (let i = 0; i < pixels.length; i += 4) {
       const r = pixels[i]
       const g = pixels[i + 1]
       const b = pixels[i + 2]
-      
+
       // If pixel is white/light (RGB > 200), make it transparent
       if (r > 200 && g > 200 && b > 200) {
         pixels[i + 3] = 0 // Set alpha to 0 (transparent)
@@ -73,7 +72,7 @@ router.post('/generate', async (req: Request, res: Response) => {
         pixels[i + 3] = fillColor[3]
       }
     }
-    
+
     // Convert back to PNG with transparency
     const final = await sharp(pixels, {
       raw: {
@@ -115,7 +114,7 @@ router.post('/bulk', async (req: Request, res: Response) => {
         // Check if delegate or member
         const delegateCheck = await query('SELECT id FROM delegates WHERE id = $1', [participantId])
         const memberCheck = await query('SELECT id FROM members WHERE id = $1', [participantId])
-        
+
         if (delegateCheck.rows.length > 0) {
           // Store just the ID (schema limitation) for delegates
           await query(`
@@ -132,7 +131,6 @@ router.post('/bulk', async (req: Request, res: Response) => {
         // Generate QR code with transparent background
         const qrBuffer = await QRCode.toBuffer(participantId, {
           errorCorrectionLevel: 'M',
-          type: 'image/png',
           margin: 1,
           color: {
             dark: '#195F8C',
@@ -148,12 +146,12 @@ router.post('/bulk', async (req: Request, res: Response) => {
 
         const pixels = new Uint8Array(data)
         const fillColor = [25, 95, 140, 255]
-        
+
         for (let i = 0; i < pixels.length; i += 4) {
           const r = pixels[i]
           const g = pixels[i + 1]
           const b = pixels[i + 2]
-          
+
           if (r > 200 && g > 200 && b > 200) {
             pixels[i + 3] = 0
           } else {
@@ -163,7 +161,7 @@ router.post('/bulk', async (req: Request, res: Response) => {
             pixels[i + 3] = fillColor[3]
           }
         }
-        
+
         const final = await sharp(pixels, {
           raw: {
             width: info.width,

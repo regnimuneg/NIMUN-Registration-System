@@ -43,8 +43,6 @@ router.post('/', async (req: Request, res: Response) => {
     // Generate QR code data URL for response
     const qrData = await QRCode.toDataURL(participantId, {
       errorCorrectionLevel: 'M',
-      type: 'image/png',
-      quality: 0.92,
       margin: 1
     })
 
@@ -66,8 +64,8 @@ router.post('/', async (req: Request, res: Response) => {
         'Media & Design',
         'Operations & Logistics'
       ]
-      
-      const committee = validCommittees.find(c => 
+
+      const committee = validCommittees.find(c =>
         position.toLowerCase().includes(c.toLowerCase().split(' ')[0])
       ) || position
 

@@ -51,7 +51,7 @@ router.post('/', async (req: Request, res: Response) => {
 
     // Append new comment to existing comments
     // Format: existing comments, new comment (separated by ', ')
-    let updatedComments = ''
+    let updatedComments: string | null = ''
     if (comments && comments.trim()) {
       const newComment = comments.trim()
       if (existingComments && existingComments.trim()) {
