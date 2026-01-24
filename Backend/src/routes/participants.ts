@@ -92,12 +92,15 @@ router.get('/:id', async (req: Request, res: Response) => {
         d.id,
         CONCAT(u.first_name, ' ', u.last_name) as name,
         d.council as position,
-        d.qr_code as qrUrl,
+        d.council,
+        NULL::text as committee,
+        'Delegate' as role,
+        d.qr_code as "qrUrl",
         u.email,
-        u.phone_number as phoneNumber,
+        u.phone_number as "phoneNumber",
         'Male' as gender,
-        NULL::text as busRoute,
-        NULL::text as busStop
+        NULL::text as "busRoute",
+        NULL::text as "busStop"
       FROM delegates d
       LEFT JOIN users u ON d.user_id = u.id
       WHERE d.id = $1
@@ -110,16 +113,29 @@ router.get('/:id', async (req: Request, res: Response) => {
           m.id,
           CONCAT(u.first_name, ' ', u.last_name) as name,
           COALESCE(m.role || ' - ' || m.committee, m.committee) as position,
-          NULL::text as qrUrl,
+          NULL::text as council,
+          m.committee,
+          m.role,
+          NULL::text as "qrUrl",
           u.email,
-          u.phone_number as phoneNumber,
+          u.phone_number as "phoneNumber",
           'Male' as gender,
-          NULL::text as busRoute,
-          NULL::text as busStop
+          NULL::text as "busRoute",
+          NULL::text as "busStop"
         FROM members m
         LEFT JOIN users u ON m.user_id = u.id
         WHERE m.id = $1
       `, [id])
+      
+      // Debug logging
+      if (participant.rows.length > 0) {
+        console.log(`[DEBUG] Member ${id} data:`, {
+          phoneNumber: participant.rows[0].phoneNumber,
+          committee: participant.rows[0].committee,
+          role: participant.rows[0].role,
+          email: participant.rows[0].email
+        })
+      }
     }
 
     // If not found, try invitations
@@ -129,6 +145,9 @@ router.get('/:id', async (req: Request, res: Response) => {
           i.id,
           CONCAT(u.first_name, ' ', u.last_name) as name,
           COALESCE(i.role || ' - ' || i.committee, i.committee) as position,
+          NULL::text as council,
+          i.committee,
+          i.role,
           NULL::text as qrUrl,
           u.email,
           u.phone_number as "phoneNumber",
@@ -145,7 +164,70 @@ router.get('/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Participant not found' })
     }
 
-    const result: any = { participant: participant.rows[0] }
+    // Ensure all fields are properly mapped (PostgreSQL returns lowercase without quotes)
+    const participantData = participant.rows[0]
+    
+    // Normalize field names - PostgreSQL returns lowercase, so map them correctly
+    const normalizedData: any = {
+      ...participantData,
+      // Map phone number (could be phoneNumber, phonenumber, or phone_number)
+      phoneNumber: participantData.phoneNumber || participantData.phonenumber || participantData.phone_number || null,
+      // Map committee (check both cases)
+      committee: participantData.committee || null,
+      // Map council (check both cases)
+      council: participantData.council || null,
+      // Map role (check both cases)
+      role: participantData.role || null,
+      // Ensure position is available
+      position: participantData.position || null
+    }
+    
+    // Determine if this is a delegate:
+    // - Delegates have council in position field (like "PRESS", "DISEC", etc.)
+    // - Delegates don't have committee
+    // - If position matches a known council name and no committee, it's a delegate
+    const knownCouncils = ['PRESS', 'DISEC', 'HRC', 'ICJ']
+    const hasCouncilInPosition = normalizedData.position && knownCouncils.includes(normalizedData.position.toUpperCase())
+    const isDelegate = (normalizedData.council || hasCouncilInPosition) && !normalizedData.committee
+    
+    // For delegates: council is in position/council field, role should always be "Delegate"
+    if (isDelegate) {
+      normalizedData.council = normalizedData.council || normalizedData.position || null
+      normalizedData.role = 'Delegate' // Always "Delegate" for delegates
+      normalizedData.committee = null // Delegates don't have committees
+    } else {
+      // For members/invitations: extract role and committee from position if needed
+      if (!normalizedData.committee && normalizedData.position) {
+        // Position format might be "Role - Committee" or just "Committee"
+        const positionParts = normalizedData.position.split(' - ')
+        if (positionParts.length === 2) {
+          normalizedData.role = normalizedData.role || positionParts[0].trim()
+          normalizedData.committee = normalizedData.committee || positionParts[1].trim()
+        } else if (positionParts.length === 1) {
+          // Might be just committee name
+          normalizedData.committee = normalizedData.committee || positionParts[0].trim()
+        }
+      }
+      normalizedData.council = null // Members/invitations don't have councils
+    }
+    
+    // Convert empty strings to null
+    if (normalizedData.phoneNumber === '') normalizedData.phoneNumber = null
+    if (normalizedData.committee === '') normalizedData.committee = null
+    if (normalizedData.role === '') normalizedData.role = null
+    if (normalizedData.council === '') normalizedData.council = null
+    
+    console.log(`[DEBUG] Normalized participant data for ${id}:`, {
+      phoneNumber: normalizedData.phoneNumber,
+      committee: normalizedData.committee,
+      role: normalizedData.role,
+      council: normalizedData.council,
+      position: normalizedData.position
+    })
+    
+    const result: any = { 
+      participant: normalizedData
+    }
 
     if (includeTracking) {
       // Get tracking data
@@ -396,14 +478,14 @@ async function getParticipantTrackingData(participantId: string) {
   if (isDelegate) {
     const delegateData = await query(`
       SELECT 
-        day1_session_attended, day1_food,
-        day2_session_attended, day2_food,
-        day3_session_attended, day3_food,
-        day4_session_attended, day4_food,
-        opening_ceremony_attended, opening_ceremony_food,
-        conf_day1_attended, conf_day1_breakfast, conf_day1_lunch,
-        conf_day2_attended, conf_day2_breakfast, conf_day2_lunch,
-        conf_day3_attended, conf_day3_breakfast, conf_day3_lunch
+        day1_session_attended, day1_food, day1_comments,
+        day2_session_attended, day2_food, day2_comments,
+        day3_session_attended, day3_food, day3_comments,
+        day4_session_attended, day4_food, day4_comments,
+        opening_ceremony_attended, opening_ceremony_food, opening_ceremony_comments,
+        conf_day1_attended, conf_day1_breakfast, conf_day1_lunch, conf_day1_comments,
+        conf_day2_attended, conf_day2_breakfast, conf_day2_lunch, conf_day2_comments,
+        conf_day3_attended, conf_day3_breakfast, conf_day3_lunch, conf_day3_comments
       FROM delegates WHERE id = $1
     `, [participantId])
 
@@ -411,16 +493,16 @@ async function getParticipantTrackingData(participantId: string) {
       const d = delegateData.rows[0]
       attendanceData = {
         sessions: {
-          day1: { attended: d.day1_session_attended || false, lunch: d.day1_food || false },
-          day2: { attended: d.day2_session_attended || false, lunch: d.day2_food || false },
-          day3: { attended: d.day3_session_attended || false, lunch: d.day3_food || false },
-          day4: { attended: d.day4_session_attended || false, lunch: d.day4_food || false }
+          day1: { attended: d.day1_session_attended || false, lunch: d.day1_food || false, comments: d.day1_comments || null },
+          day2: { attended: d.day2_session_attended || false, lunch: d.day2_food || false, comments: d.day2_comments || null },
+          day3: { attended: d.day3_session_attended || false, lunch: d.day3_food || false, comments: d.day3_comments || null },
+          day4: { attended: d.day4_session_attended || false, lunch: d.day4_food || false, comments: d.day4_comments || null }
         },
-        openingCeremony: { attended: d.opening_ceremony_attended || false, catering: d.opening_ceremony_food || false },
+        openingCeremony: { attended: d.opening_ceremony_attended || false, catering: d.opening_ceremony_food || false, comments: d.opening_ceremony_comments || null },
         conference: {
-          day1: { attended: d.conf_day1_attended || false, breakfast: d.conf_day1_breakfast || false, lunch: d.conf_day1_lunch || false },
-          day2: { attended: d.conf_day2_attended || false, breakfast: d.conf_day2_breakfast || false, lunch: d.conf_day2_lunch || false },
-          day3: { attended: d.conf_day3_attended || false, breakfast: d.conf_day3_breakfast || false, lunch: d.conf_day3_lunch || false }
+          day1: { attended: d.conf_day1_attended || false, breakfast: d.conf_day1_breakfast || false, lunch: d.conf_day1_lunch || false, comments: d.conf_day1_comments || null },
+          day2: { attended: d.conf_day2_attended || false, breakfast: d.conf_day2_breakfast || false, lunch: d.conf_day2_lunch || false, comments: d.conf_day2_comments || null },
+          day3: { attended: d.conf_day3_attended || false, breakfast: d.conf_day3_breakfast || false, lunch: d.conf_day3_lunch || false, comments: d.conf_day3_comments || null }
         },
         performanceDay: {}
       }
@@ -429,14 +511,14 @@ async function getParticipantTrackingData(participantId: string) {
     // For members, use same structure
     const memberData = await query(`
       SELECT 
-        day1_session_attended, day1_food,
-        day2_session_attended, day2_food,
-        day3_session_attended, day3_food,
-        day4_session_attended, day4_food,
-        opening_ceremony_attended, opening_ceremony_food,
-        conf_day1_attended, conf_day1_breakfast, conf_day1_lunch,
-        conf_day2_attended, conf_day2_breakfast, conf_day2_lunch,
-        conf_day3_attended, conf_day3_breakfast, conf_day3_lunch
+        day1_session_attended, day1_food, day1_comments,
+        day2_session_attended, day2_food, day2_comments,
+        day3_session_attended, day3_food, day3_comments,
+        day4_session_attended, day4_food, day4_comments,
+        opening_ceremony_attended, opening_ceremony_food, opening_ceremony_comments,
+        conf_day1_attended, conf_day1_breakfast, conf_day1_lunch, conf_day1_comments,
+        conf_day2_attended, conf_day2_breakfast, conf_day2_lunch, conf_day2_comments,
+        conf_day3_attended, conf_day3_breakfast, conf_day3_lunch, conf_day3_comments
       FROM members WHERE id = $1
     `, [participantId])
 
@@ -444,16 +526,16 @@ async function getParticipantTrackingData(participantId: string) {
       const m = memberData.rows[0]
       attendanceData = {
         sessions: {
-          day1: { attended: m.day1_session_attended || false, lunch: m.day1_food || false },
-          day2: { attended: m.day2_session_attended || false, lunch: m.day2_food || false },
-          day3: { attended: m.day3_session_attended || false, lunch: m.day3_food || false },
-          day4: { attended: m.day4_session_attended || false, lunch: m.day4_food || false }
+          day1: { attended: m.day1_session_attended || false, lunch: m.day1_food || false, comments: m.day1_comments || null },
+          day2: { attended: m.day2_session_attended || false, lunch: m.day2_food || false, comments: m.day2_comments || null },
+          day3: { attended: m.day3_session_attended || false, lunch: m.day3_food || false, comments: m.day3_comments || null },
+          day4: { attended: m.day4_session_attended || false, lunch: m.day4_food || false, comments: m.day4_comments || null }
         },
-        openingCeremony: { attended: m.opening_ceremony_attended || false, catering: m.opening_ceremony_food || false },
+        openingCeremony: { attended: m.opening_ceremony_attended || false, catering: m.opening_ceremony_food || false, comments: m.opening_ceremony_comments || null },
         conference: {
-          day1: { attended: m.conf_day1_attended || false, breakfast: m.conf_day1_breakfast || false, lunch: m.conf_day1_lunch || false },
-          day2: { attended: m.conf_day2_attended || false, breakfast: m.conf_day2_breakfast || false, lunch: m.conf_day2_lunch || false },
-          day3: { attended: m.conf_day3_attended || false, breakfast: m.conf_day3_breakfast || false, lunch: m.conf_day3_lunch || false }
+          day1: { attended: m.conf_day1_attended || false, breakfast: m.conf_day1_breakfast || false, lunch: m.conf_day1_lunch || false, comments: m.conf_day1_comments || null },
+          day2: { attended: m.conf_day2_attended || false, breakfast: m.conf_day2_breakfast || false, lunch: m.conf_day2_lunch || false, comments: m.conf_day2_comments || null },
+          day3: { attended: m.conf_day3_attended || false, breakfast: m.conf_day3_breakfast || false, lunch: m.conf_day3_lunch || false, comments: m.conf_day3_comments || null }
         },
         performanceDay: {}
       }

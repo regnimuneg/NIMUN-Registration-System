@@ -59,10 +59,10 @@ export default function ParticipantsPage() {
       }))
       console.log('Participants data loaded:', {
         total: typedData.length,
-        staff: typedData.filter(p => p.type === 'staff').length,
-        delegates: typedData.filter(p => p.type === 'delegate').length,
-        members: typedData.filter(p => p.type === 'member').length,
-        invitations: typedData.filter(p => p.type === 'invitation').length
+        staff: typedData.filter((p: Participant) => p.type === 'staff').length,
+        delegates: typedData.filter((p: Participant) => p.type === 'delegate').length,
+        members: typedData.filter((p: Participant) => p.type === 'member').length,
+        invitations: typedData.filter((p: Participant) => p.type === 'invitation').length
       })
       setParticipants(typedData)
     } catch (err: any) {
@@ -415,9 +415,9 @@ export default function ParticipantsPage() {
 
   return (
     <div className="min-h-screen bg-white w-full max-w-full overflow-x-hidden">
-      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 w-full max-w-full overflow-x-hidden">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 w-full max-w-full overflow-x-hidden">
         <div className="max-w-7xl mx-auto w-full overflow-x-hidden">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold mb-2">Participants Management</h1>
               <p className="text-gray-600 text-sm sm:text-base">Manage all delegates and members</p>
@@ -441,7 +441,7 @@ export default function ParticipantsPage() {
           </div>
 
           {/* Filters */}
-          <div className="mb-6">
+          <div className="mb-8">
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -504,88 +504,88 @@ export default function ParticipantsPage() {
           </div>
 
           {/* Participants List */}
-          <div className="overflow-x-auto -mx-4 sm:mx-0">
-            <table className="w-full divide-y divide-gray-200 text-xs sm:text-sm">
+          <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+            <table className="w-full divide-y divide-gray-200 text-sm min-w-[900px] sm:min-w-0">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-2 py-2 text-left font-medium text-gray-500 uppercase">ID</th>
-                  <th className="px-2 py-2 text-left font-medium text-gray-500 uppercase">Name</th>
-                  <th className="px-2 py-2 text-left font-medium text-gray-500 uppercase">Council/Committee</th>
-                  <th className="px-2 py-2 text-left font-medium text-gray-500 uppercase">Position</th>
-                  <th className="px-2 py-2 text-left font-medium text-gray-500 uppercase">Email</th>
-                  <th className="px-2 py-2 text-left font-medium text-gray-500 uppercase">Phone</th>
-                  <th className="px-2 py-2 text-left font-medium text-gray-500 uppercase">Type</th>
-                  <th className="px-2 py-2 text-left font-medium text-gray-500 uppercase">Actions</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700 uppercase tracking-wider">ID</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700 uppercase tracking-wider min-w-[140px]">Name</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700 uppercase tracking-wider min-w-[120px]">Council/Committee</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700 uppercase tracking-wider min-w-[160px]">Position</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700 uppercase tracking-wider min-w-[180px]">Email</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700 uppercase tracking-wider min-w-[120px]">Phone</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700 uppercase tracking-wider">Type</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700 uppercase tracking-wider min-w-[140px]">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredParticipants.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center text-gray-500">
+                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
                       {searchTerm ? 'No participants found matching your search' : 'No participants found'}
                     </td>
                   </tr>
                 ) : (
                   filteredParticipants.map((participant) => (
-                    <tr key={participant.id} className="hover:bg-gray-50">
-                      <td className="px-2 py-3 font-medium text-xs">
+                    <tr key={participant.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-4 font-medium text-gray-900 whitespace-nowrap">
                         {participant.id}
                       </td>
-                      <td className="px-2 py-3 text-xs max-w-[120px] truncate">
+                      <td className="px-4 py-4 text-gray-900 whitespace-normal break-words">
                         {participant.name}
                       </td>
-                      <td className="px-2 py-3 text-xs max-w-[100px] truncate">
+                      <td className="px-4 py-4 text-gray-700 whitespace-normal break-words">
                         {participant.council || participant.committee || 'N/A'}
                       </td>
-                      <td className="px-2 py-3 text-xs whitespace-normal break-words min-w-[150px]">
+                      <td className="px-4 py-4 text-gray-700 whitespace-normal break-words">
                         {participant.role || 'N/A'}
                       </td>
-                      <td className="px-2 py-3 text-xs break-all">
+                      <td className="px-4 py-4 text-gray-700 break-all">
                         {participant.email && participant.email.trim() !== '' ? participant.email : 'N/A'}
                       </td>
-                      <td className="px-2 py-3 text-xs whitespace-nowrap">
+                      <td className="px-4 py-4 text-gray-700 whitespace-nowrap">
                         {participant.phoneNumber && participant.phoneNumber.trim() !== '' ? participant.phoneNumber : 'N/A'}
                       </td>
-                      <td className="px-2 py-3">
-                        <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${participant.type === 'delegate' ? 'bg-purple-100 text-purple-700' :
-                            participant.type === 'staff' ? 'bg-red-100 text-red-700' :
-                              participant.type === 'invitation' ? 'bg-green-100 text-green-700' :
-                                'bg-blue-100 text-blue-700'
+                      <td className="px-4 py-4">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${participant.type === 'delegate' ? 'bg-purple-100 text-purple-700' :
+                          participant.type === 'staff' ? 'bg-red-100 text-red-700' :
+                            participant.type === 'invitation' ? 'bg-green-100 text-green-700' :
+                              'bg-blue-100 text-blue-700'
                           }`}>
-                          {participant.type === 'delegate' ? 'D' :
-                            participant.type === 'staff' ? 'S' :
-                              participant.type === 'invitation' ? 'I' : 'M'}
+                          {participant.type === 'delegate' ? 'Delegate' :
+                            participant.type === 'staff' ? 'Staff' :
+                              participant.type === 'invitation' ? 'Invitation' : 'Member'}
                         </span>
                       </td>
-                      <td className="px-2 py-3">
-                        <div className="flex items-center gap-1">
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-2">
                           <button
                             onClick={() => handleViewHistory(participant)}
-                            className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                             title="View History"
                           >
-                            <Eye className="w-3.5 h-3.5" />
+                            <Eye className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleGenerateQR(participant.id)}
-                            className="p-1 text-green-600 hover:bg-green-50 rounded transition-colors"
+                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                             title="Generate QR Code"
                           >
-                            <QrCode className="w-3.5 h-3.5" />
+                            <QrCode className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleEdit(participant)}
-                            className="p-1 text-yellow-600 hover:bg-yellow-50 rounded transition-colors"
+                            className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
                             title="Edit"
                           >
-                            <Edit className="w-3.5 h-3.5" />
+                            <Edit className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDelete(participant.id)}
-                            className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                             title="Delete"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
@@ -596,7 +596,7 @@ export default function ParticipantsPage() {
             </table>
           </div>
 
-          <div className="mt-4 text-sm text-gray-600 text-center">
+          <div className="mt-6 text-sm text-gray-600 text-center">
             Showing {filteredParticipants.length} of {participants.length} participants
           </div>
         </div>

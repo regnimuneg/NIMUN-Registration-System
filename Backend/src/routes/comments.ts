@@ -35,15 +35,46 @@ router.post('/', async (req: Request, res: Response) => {
     const delegateCheck = await query('SELECT id FROM delegates WHERE id = $1', [participantId])
     const isDelegate = delegateCheck.rows.length > 0
 
+    // Get existing comments first
+    let existingComments = ''
+    if (isDelegate) {
+      const result = await query(`
+        SELECT ${commentField} as comments FROM delegates WHERE id = $1
+      `, [participantId])
+      existingComments = result.rows[0]?.comments || ''
+    } else {
+      const result = await query(`
+        SELECT ${commentField} as comments FROM members WHERE id = $1
+      `, [participantId])
+      existingComments = result.rows[0]?.comments || ''
+    }
+
+    // Append new comment to existing comments
+    // Format: existing comments, new comment (separated by ', ')
+    let updatedComments = ''
+    if (comments && comments.trim()) {
+      const newComment = comments.trim()
+      if (existingComments && existingComments.trim()) {
+        // Append to existing comments with separator
+        updatedComments = `${existingComments}, '${newComment}'`
+      } else {
+        // First comment
+        updatedComments = `'${newComment}'`
+      }
+    } else {
+      // If no new comment provided, keep existing
+      updatedComments = existingComments || null
+    }
+
     // Update comments field
     if (isDelegate) {
       await query(`
         UPDATE delegates SET ${commentField} = $1 WHERE id = $2
-      `, [comments || null, participantId])
+      `, [updatedComments || null, participantId])
     } else {
       await query(`
         UPDATE members SET ${commentField} = $1 WHERE id = $2
-      `, [comments || null, participantId])
+      `, [updatedComments || null, participantId])
     }
 
     res.json({

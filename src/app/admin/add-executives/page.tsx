@@ -89,7 +89,7 @@ export default function AddExecutivesPage() {
           <Users className="w-5 h-5 mr-2" />
           Participants to be Added ({EXECUTIVE_PARTICIPANTS.length})
         </h2>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 mb-6">
           {EXECUTIVE_PARTICIPANTS.map((participant, index) => (
             <div key={index} className="text-sm text-gray-700 font-mono bg-gray-50 px-3 py-2 rounded">
@@ -117,11 +117,11 @@ export default function AddExecutivesPage() {
           disabled={isLoading || (result?.success === true)}
           className={`
             w-full flex items-center justify-center px-6 py-3 rounded-lg font-medium transition-colors
-            ${isLoading 
-              ? 'bg-blue-100 text-blue-600 cursor-not-allowed' 
+            ${isLoading
+              ? 'bg-blue-100 text-blue-600 cursor-not-allowed'
               : result?.success === true
-              ? 'bg-green-100 text-green-600 cursor-not-allowed'
-              : 'bg-blue-600 text-white hover:bg-blue-700'
+                ? 'bg-green-100 text-green-600 cursor-not-allowed'
+                : 'bg-blue-600 text-white hover:bg-blue-700'
             }
           `}
         >
@@ -146,28 +146,25 @@ export default function AddExecutivesPage() {
 
       {/* Results */}
       {result && (
-        <div className={`rounded-lg shadow p-6 ${
-          result.success 
-            ? 'bg-green-50 border border-green-200' 
-            : 'bg-red-50 border border-red-200'
-        }`}>
+        <div className={`rounded-lg shadow p-6 ${result.success
+          ? 'bg-green-50 border border-green-200'
+          : 'bg-red-50 border border-red-200'
+          }`}>
           <div className="flex items-start">
             {result.success ? (
               <Check className="w-5 h-5 text-green-600 mt-0.5 mr-3" />
             ) : (
               <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 mr-3" />
             )}
-            
+
             <div className="flex-1">
-              <h3 className={`font-semibold ${
-                result.success ? 'text-green-900' : 'text-red-900'
-              }`}>
+              <h3 className={`font-semibold ${result.success ? 'text-green-900' : 'text-red-900'
+                }`}>
                 {result.success ? 'Success!' : 'Error'}
               </h3>
-              
-              <p className={`mt-1 ${
-                result.success ? 'text-green-700' : 'text-red-700'
-              }`}>
+
+              <p className={`mt-1 ${result.success ? 'text-green-700' : 'text-red-700'
+                }`}>
                 {result.message}
               </p>
 

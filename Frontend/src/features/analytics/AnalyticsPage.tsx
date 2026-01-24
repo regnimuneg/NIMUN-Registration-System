@@ -603,7 +603,9 @@ export default function AnalyticsPage() {
                 {/* Info text */}
                 <p className="text-sm text-gray-500 mb-4">
                   {attendanceFilters.participantType === 'members'
-                    ? '📋 Exporting member/staff attendance from selected committee(s)'
+                    ? attendanceFilters.committee === 'Executive'
+                      ? '📋 Exporting Executive and High Board attendance'
+                      : '📋 Exporting member/staff attendance from selected committee(s)'
                     : '📋 Exporting delegate attendance from selected council(s)'}
                 </p>
 

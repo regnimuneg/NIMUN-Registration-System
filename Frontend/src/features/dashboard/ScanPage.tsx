@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Html5Qrcode } from 'html5-qrcode'
 import { api } from '../../lib/api'
-import { QrCode, Search, CheckCircle, XCircle, RefreshCw, User, Camera, CameraOff, Calendar, UtensilsCrossed, Clock, LogIn, LogOut, MessageSquare, CheckSquare, Square } from 'lucide-react'
+import { QrCode, Search, CheckCircle, XCircle, RefreshCw, User, Camera, CameraOff, Calendar, UtensilsCrossed, Clock, LogIn, LogOut, MessageSquare, CheckSquare, Square, ChevronDown, Check } from 'lucide-react'
 
 interface SessionOption {
   id: string
@@ -30,9 +30,11 @@ export default function ScanPage() {
   const [scanHistory, setScanHistory] = useState<Array<{ id: string; name: string; time: string }>>([])
   const [isScanning, setIsScanning] = useState(false)
   const [cameraError, setCameraError] = useState<string | null>(null)
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const scannerRef = useRef<Html5Qrcode | null>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
   const qrCodeRegionId = 'qr-reader'
-  
+
   // Activity tracking state
   const [attendance, setAttendance] = useState(false)
   const [breakfast, setBreakfast] = useState(false)
@@ -42,16 +44,118 @@ export default function ScanPage() {
   const [checkInTime, setCheckInTime] = useState<string | null>(null)
   const [checkOutTime, setCheckOutTime] = useState<string | null>(null)
   const [comments, setComments] = useState('')
+  const [existingComments, setExistingComments] = useState('')
+  const [newComment, setNewComment] = useState('')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     // Cleanup on unmount
     return () => {
       if (scannerRef.current && isScanning) {
-        scannerRef.current.stop().catch(() => {})
+        scannerRef.current.stop().catch(() => { })
       }
     }
   }, [isScanning])
+
+  // Helper function to get day data from the nested tracking structure
+  function getDayDataFromTracking(dayTracking: any, dayKey: string): any {
+    if (!dayTracking) return null
+
+    // Map dayKey to the nested path in tracking structure
+    // Backend returns: { sessions: { day1: {...} }, conference: { day1: {...} }, openingCeremony: {...} }
+    if (dayKey.startsWith('sessions.')) {
+      const dayNum = dayKey.replace('sessions.', '') // e.g., 'day1'
+      return dayTracking.sessions?.[dayNum] || null
+    } else if (dayKey.startsWith('conference.')) {
+      const dayNum = dayKey.replace('conference.', '') // e.g., 'day1'
+      return dayTracking.conference?.[dayNum] || null
+    } else if (dayKey === 'openingCeremony') {
+      return dayTracking.openingCeremony || null
+    }
+    return null
+  }
+
+  // Load tracking data when session changes (if participant is already scanned)
+  useEffect(() => {
+    const loadSessionData = async () => {
+      if (!participant || !selectedSession) return
+
+      try {
+        setLoading(true)
+        const data = await api.getParticipant(participant.id, true)
+
+        if (data.tracking) {
+          const tracking = data.tracking
+
+          // Reset all tracking state first
+          setAttendance(false)
+          setBreakfast(false)
+          setLunch(false)
+          setCatering(false)
+          setActivity(false)
+          setCheckInTime(null)
+          setCheckOutTime(null)
+          setExistingComments('')
+          setComments('')
+          setNewComment('')
+
+          // Get day data from nested structure
+          const dayData = getDayDataFromTracking(tracking.dayTracking, selectedSession.dayKey)
+
+          // Set attendance status for this session
+          if (dayData) {
+            setAttendance(dayData.attended || false)
+            if (dayData.checkin) setCheckInTime(dayData.checkin)
+            if (dayData.checkout) setCheckOutTime(dayData.checkout)
+            // Load existing comments for this session
+            if (dayData.comments) {
+              setExistingComments(dayData.comments)
+              setComments(dayData.comments)
+            }
+            // Set food from dayData (lunch for sessions, breakfast/lunch for conference)
+            if (dayData.lunch) setLunch(true)
+            if (dayData.breakfast) setBreakfast(true)
+            if (dayData.catering) setCatering(true)
+          }
+        } else {
+          // Reset all tracking state if no tracking data
+          setAttendance(false)
+          setBreakfast(false)
+          setLunch(false)
+          setCatering(false)
+          setActivity(false)
+          setCheckInTime(null)
+          setCheckOutTime(null)
+          setExistingComments('')
+          setComments('')
+          setNewComment('')
+        }
+      } catch (err: any) {
+        console.error('Failed to load session data:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadSessionData()
+  }, [selectedSession?.dayKey, participant?.id])
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false)
+      }
+    }
+
+    if (isDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isDropdownOpen])
 
   const startScanning = async () => {
     try {
@@ -106,34 +210,76 @@ export default function ScanPage() {
 
     try {
       const data = await api.getParticipant(searchId, true)
-      
+
       if (data.participant) {
-        setParticipant(data.participant)
+        // Normalize field names - PostgreSQL might return lowercase
+        const normalizedParticipant = {
+          ...data.participant,
+          phoneNumber: data.participant.phoneNumber || data.participant.phonenumber || data.participant.phone_number || null,
+          committee: data.participant.committee || null,
+          role: data.participant.role || null,
+          council: data.participant.council || null
+        }
+
+        // Determine if this is a delegate:
+        // - Delegates have council in position field (like "PRESS", "DISEC", etc.)
+        // - Delegates don't have committee
+        // - If position matches a known council name and no committee, it's a delegate
+        const knownCouncils = ['PRESS', 'DISEC', 'HRC', 'ICJ']
+        const hasCouncilInPosition = normalizedParticipant.position && knownCouncils.includes(normalizedParticipant.position.toUpperCase())
+        const isDelegate = (normalizedParticipant.council || hasCouncilInPosition) && !normalizedParticipant.committee
+
+        // For delegates: council is in position/council field, role should always be "Delegate"
+        if (isDelegate) {
+          normalizedParticipant.council = normalizedParticipant.council || normalizedParticipant.position || null
+          normalizedParticipant.role = 'Delegate' // Always "Delegate" for delegates
+          normalizedParticipant.committee = null // Delegates don't have committees
+        } else {
+          // For members/invitations: extract role and committee from position if needed
+          if (!normalizedParticipant.committee && normalizedParticipant.position) {
+            const positionParts = normalizedParticipant.position.split(' - ')
+            if (positionParts.length === 2) {
+              normalizedParticipant.role = normalizedParticipant.role || positionParts[0].trim()
+              normalizedParticipant.committee = normalizedParticipant.committee || positionParts[1].trim()
+            } else if (positionParts.length === 1) {
+              // Might be just committee name
+              normalizedParticipant.committee = normalizedParticipant.committee || positionParts[0].trim()
+            }
+          }
+          normalizedParticipant.council = null // Members/invitations don't have councils
+        }
+
+        console.log('Normalized participant:', normalizedParticipant)
+        setParticipant(normalizedParticipant)
         setScannedId(searchId)
-        
+
         // Load existing tracking data for this session
         if (data.tracking) {
           const tracking = data.tracking
-          const sessionType = mapDayKeyToSessionType(selectedSession.dayKey)
-          
+
+          // Get day data from nested structure
+          const dayData = getDayDataFromTracking(tracking.dayTracking, selectedSession.dayKey)
+
           // Set attendance status
-          if (tracking.dayTracking && sessionType) {
-            const dayData = tracking.dayTracking[sessionType]
-            if (dayData) {
-              setAttendance(dayData.attended || false)
-              if (dayData.checkin) setCheckInTime(dayData.checkin)
-              if (dayData.checkout) setCheckOutTime(dayData.checkout)
+          if (dayData) {
+            setAttendance(dayData.attended || false)
+            if (dayData.checkin) setCheckInTime(dayData.checkin)
+            if (dayData.checkout) setCheckOutTime(dayData.checkout)
+            // Load existing comments for this session
+            if (dayData.comments) {
+              setExistingComments(dayData.comments)
+              setComments(dayData.comments)
+            } else {
+              setExistingComments('')
+              setComments('')
             }
-          }
-          
-          // Set food status
-          if (tracking.foodData) {
-            const foodKey = `${selectedSession.dayKey}.breakfast`
-            const lunchKey = `${selectedSession.dayKey}.lunch`
-            const cateringKey = `${selectedSession.dayKey}.catering`
-            if (tracking.foodData[foodKey]) setBreakfast(true)
-            if (tracking.foodData[lunchKey]) setLunch(true)
-            if (tracking.foodData[cateringKey]) setCatering(true)
+            // Set food from dayData (lunch for sessions, breakfast/lunch for conference)
+            if (dayData.lunch) setLunch(true)
+            if (dayData.breakfast) setBreakfast(true)
+            if (dayData.catering) setCatering(true)
+          } else {
+            setExistingComments('')
+            setComments('')
           }
         } else {
           // Reset activity tracking state if no tracking data
@@ -144,11 +290,11 @@ export default function ScanPage() {
           setActivity(false)
           setCheckInTime(null)
           setCheckOutTime(null)
+          setComments('')
+          setExistingComments('')
+          setNewComment('')
         }
-        
-        // Reset comments (will be loaded separately if needed)
-        setComments('')
-        
+
         // Add to scan history
         setScanHistory(prev => [
           { id: searchId, name: data.participant.name, time: new Date().toLocaleTimeString() },
@@ -188,6 +334,8 @@ export default function ScanPage() {
     setCheckInTime(null)
     setCheckOutTime(null)
     setComments('')
+    setExistingComments('')
+    setNewComment('')
     if (isScanning) {
       stopScanning()
     }
@@ -195,7 +343,7 @@ export default function ScanPage() {
 
   const handleCheckIn = async () => {
     if (!participant || !selectedSession) return
-    
+
     try {
       setSaving(true)
       const timestamp = new Date().toISOString()
@@ -217,18 +365,21 @@ export default function ScanPage() {
 
   const handleCheckOut = async () => {
     if (!participant || !selectedSession) return
-    
+
     try {
       setSaving(true)
       const timestamp = new Date().toISOString()
+      // Checkout does NOT mean absent - they were present and are now leaving
+      // We keep attendance as true, just record the checkout time
       await api.updateAttendance({
         participantId: participant.id,
         dayKey: selectedSession.dayKey,
         field: 'attended',
-        value: false,
+        value: true, // Keep attendance as true - they were present, just checking out
         checkOut: true
       })
       setCheckOutTime(timestamp)
+      // Don't change attendance state - they're still marked as present
     } catch (err: any) {
       alert(`Failed to check out: ${err.message}`)
     } finally {
@@ -238,7 +389,7 @@ export default function ScanPage() {
 
   const handleToggleAttendance = async (value: boolean) => {
     if (!participant || !selectedSession) return
-    
+
     try {
       setSaving(true)
       await api.updateAttendance({
@@ -260,7 +411,7 @@ export default function ScanPage() {
 
   const handleToggleBreakfast = async (value: boolean) => {
     if (!participant || !selectedSession) return
-    
+
     try {
       setSaving(true)
       await api.updateFood({
@@ -279,7 +430,7 @@ export default function ScanPage() {
 
   const handleToggleLunch = async (value: boolean) => {
     if (!participant || !selectedSession) return
-    
+
     try {
       setSaving(true)
       await api.updateFood({
@@ -298,7 +449,7 @@ export default function ScanPage() {
 
   const handleToggleCatering = async (value: boolean) => {
     if (!participant || !selectedSession) return
-    
+
     try {
       setSaving(true)
       await api.updateFood({
@@ -317,7 +468,7 @@ export default function ScanPage() {
 
   const handleToggleActivity = async (value: boolean) => {
     if (!participant || !selectedSession) return
-    
+
     try {
       setSaving(true)
       await api.updateGame({
@@ -335,16 +486,23 @@ export default function ScanPage() {
   }
 
   const handleSaveComments = async () => {
-    if (!participant || !selectedSession) return
-    
+    if (!participant || !selectedSession || !newComment.trim()) return
+
     try {
       setSaving(true)
       await api.updateComments({
         participantId: participant.id,
         dayKey: selectedSession.dayKey,
-        comments
+        comments: newComment
       })
-      // Don't show alert, just save silently
+
+      // Update existing comments display with the new comment appended
+      const updatedComments = existingComments
+        ? `${existingComments}, '${newComment.trim()}'`
+        : `'${newComment.trim()}'`
+      setExistingComments(updatedComments)
+      setComments(updatedComments)
+      setNewComment('') // Clear the new comment input
     } catch (err: any) {
       alert(`Failed to save comments: ${err.message}`)
     } finally {
@@ -382,22 +540,80 @@ export default function ScanPage() {
               <Calendar className="w-5 h-5 text-[var(--color-primary-blue)]" />
               <h2 className="text-lg sm:text-xl font-bold">Select Session</h2>
             </div>
-            <div className="w-full">
-              <select
-                value={selectedSession?.id || ''}
-                onChange={(e) => {
-                  const session = SESSION_OPTIONS.find(s => s.id === e.target.value)
-                  setSelectedSession(session || null)
-                }}
-                className="w-full px-4 py-3 rounded-lg border-2 border-gray-200 focus:border-[var(--color-primary-blue)] focus:ring-2 focus:ring-blue-100 bg-white text-base font-medium"
+            <div className="w-full relative" ref={dropdownRef}>
+              {/* Custom Dropdown Button */}
+              <button
+                type="button"
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="w-full px-4 py-3.5 rounded-xl border-2 border-gray-200 bg-white hover:border-blue-300 focus:border-[var(--color-primary-blue)] focus:ring-2 focus:ring-blue-100 transition-all duration-200 flex items-center justify-between text-left shadow-sm hover:shadow-md"
               >
-                <option value="">-- Select a session --</option>
-                {SESSION_OPTIONS.map((session) => (
-                  <option key={session.id} value={session.id}>
-                    {session.label} ({session.date})
-                  </option>
-                ))}
-              </select>
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  {selectedSession ? (
+                    <>
+                      <div className="flex-shrink-0 w-2 h-2 rounded-full bg-green-500"></div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-gray-900 truncate">{selectedSession.label}</div>
+                        <div className="text-sm text-gray-500">{selectedSession.date}</div>
+                      </div>
+                    </>
+                  ) : (
+                    <span className="text-gray-500 font-medium">Select a session...</span>
+                  )}
+                </div>
+                <ChevronDown
+                  className={`w-5 h-5 text-gray-400 flex-shrink-0 transition-transform duration-200 ${isDropdownOpen ? 'transform rotate-180' : ''
+                    }`}
+                />
+              </button>
+
+              {/* Dropdown Menu */}
+              {isDropdownOpen && (
+                <div className="absolute z-50 w-full mt-2 bg-white border-2 border-gray-200 rounded-xl shadow-xl overflow-hidden dropdown-menu">
+                  <div className="max-h-80 overflow-y-auto scrollbar-hide">
+                    {SESSION_OPTIONS.map((session) => {
+                      const isSelected = selectedSession?.id === session.id
+                      const isSessions = session.dayKey.startsWith('sessions.')
+                      const isConference = session.dayKey.startsWith('conference.')
+                      const isOpening = session.dayKey === 'openingCeremony'
+
+                      return (
+                        <button
+                          key={session.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedSession(session)
+                            setIsDropdownOpen(false)
+                          }}
+                          className={`w-full px-4 py-3.5 text-left hover:bg-blue-50 transition-colors duration-150 border-b border-gray-100 last:border-b-0 ${isSelected ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
+                            }`}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <div className={`flex-shrink-0 w-2 h-2 rounded-full ${isSessions ? 'bg-purple-500' :
+                                isConference ? 'bg-indigo-500' :
+                                  isOpening ? 'bg-orange-500' : 'bg-gray-400'
+                                }`}></div>
+                              <div className="flex-1 min-w-0">
+                                <div className={`font-semibold truncate ${isSelected ? 'text-blue-700' : 'text-gray-900'
+                                  }`}>
+                                  {session.label}
+                                </div>
+                                <div className={`text-sm mt-0.5 ${isSelected ? 'text-blue-600' : 'text-gray-500'
+                                  }`}>
+                                  {session.date}
+                                </div>
+                              </div>
+                            </div>
+                            {isSelected && (
+                              <Check className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                            )}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
             {!selectedSession && (
               <p className="mt-4 text-sm text-orange-600 flex items-center gap-2">
@@ -409,296 +625,319 @@ export default function ScanPage() {
 
           {/* Camera Scanner */}
           <div className="card mb-4 sm:mb-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
-            <h2 className="text-lg sm:text-xl font-bold">Camera Scanner</h2>
-            {!isScanning ? (
-              <button
-                onClick={startScanning}
-                disabled={!selectedSession}
-                className="btn-primary flex items-center gap-2 text-sm sm:text-base w-full sm:w-auto justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Camera className="w-4 h-4" />
-                Start Camera
-              </button>
-            ) : (
-              <button
-                onClick={stopScanning}
-                className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium text-sm sm:text-base w-full sm:w-auto justify-center"
-              >
-                <CameraOff className="w-4 h-4" />
-                Stop Camera
-              </button>
-            )}
-          </div>
-          
-          <div id={qrCodeRegionId} className="w-full max-w-md mx-auto" />
-          
-          {cameraError && (
-            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-sm text-yellow-700">{cameraError}</p>
-              <p className="text-xs text-yellow-600 mt-1">You can still use manual entry below</p>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
+              <h2 className="text-lg sm:text-xl font-bold">Camera Scanner</h2>
+              {!isScanning ? (
+                <button
+                  onClick={startScanning}
+                  disabled={!selectedSession}
+                  className="btn-primary flex items-center gap-2 text-sm sm:text-base w-full sm:w-auto justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Camera className="w-4 h-4" />
+                  Start Camera
+                </button>
+              ) : (
+                <button
+                  onClick={stopScanning}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium text-sm sm:text-base w-full sm:w-auto justify-center"
+                >
+                  <CameraOff className="w-4 h-4" />
+                  Stop Camera
+                </button>
+              )}
             </div>
-          )}
+
+            <div id={qrCodeRegionId} className="w-full max-w-md mx-auto" />
+
+            {cameraError && (
+              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-700">{cameraError}</p>
+                <p className="text-xs text-yellow-600 mt-1">You can still use manual entry below</p>
+              </div>
+            )}
           </div>
 
           {/* Manual Input */}
           <div className="card mb-4 sm:mb-6">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Or Enter Participant ID Manually
-              </label>
-              <div className="relative">
-                <QrCode className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={scannedId}
-                  onChange={handleInputChange}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Enter participant ID (e.g., IC-01, EX-05)"
-                  disabled={!selectedSession}
-                  className="w-full pl-10 pr-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
-                />
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Or Enter Participant ID Manually
+                </label>
+                <div className="relative">
+                  <QrCode className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    value={scannedId}
+                    onChange={handleInputChange}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Enter participant ID (e.g., IC-01, EX-05)"
+                    disabled={!selectedSession}
+                    className="w-full pl-10 pr-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                </div>
+              </div>
+              <div className="flex flex-row sm:flex-col gap-2">
+                <button
+                  onClick={() => handleScan(scannedId)}
+                  disabled={!scannedId.trim() || loading || !selectedSession}
+                  className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm sm:text-base flex-1 sm:flex-none justify-center"
+                >
+                  {loading ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Searching...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="w-4 h-4" />
+                      Search
+                    </>
+                  )}
+                </button>
+                {participant && (
+                  <button
+                    onClick={clearScan}
+                    className="px-4 sm:px-6 py-2 sm:py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm sm:text-base flex-1 sm:flex-none"
+                  >
+                    Clear
+                  </button>
+                )}
               </div>
             </div>
-            <div className="flex flex-row sm:flex-col gap-2">
-              <button
-                onClick={() => handleScan(scannedId)}
-                disabled={!scannedId.trim() || loading || !selectedSession}
-                className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm sm:text-base flex-1 sm:flex-none justify-center"
-              >
-                {loading ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    Searching...
-                  </>
-                ) : (
-                  <>
-                    <Search className="w-4 h-4" />
-                    Search
-                  </>
-                )}
-              </button>
-              {participant && (
-                <button
-                  onClick={clearScan}
-                  className="px-4 sm:px-6 py-2 sm:py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm sm:text-base flex-1 sm:flex-none"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-          </div>
           </div>
 
           {/* Participant Details */}
           {participant && selectedSession && (
             <div className="card mb-4 sm:mb-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                  <User className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <User className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-xl sm:text-2xl font-bold break-words">{participant.name}</h2>
+                    {participant.role && (
+                      <p className="text-gray-600 text-sm sm:text-base break-words mt-1">
+                        {participant.role}
+                      </p>
+                    )}
+                    {(participant.committee || participant.council) && (
+                      <p className="text-gray-600 text-sm sm:text-base break-words">
+                        {participant.council || participant.committee}
+                      </p>
+                    )}
+                    <p className="text-xs sm:text-sm text-gray-500 mt-1">
+                      Session: {selectedSession.label} ({selectedSession.date})
+                    </p>
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <h2 className="text-xl sm:text-2xl font-bold truncate">{participant.name}</h2>
-                  <p className="text-gray-600 text-sm sm:text-base truncate">{participant.position}</p>
-                  <p className="text-xs sm:text-sm text-gray-500 mt-1">
-                    Session: {selectedSession.label} ({selectedSession.date})
+                <CheckCircle className="w-6 h-6 sm:w-8 sm:h-8 text-green-500 flex-shrink-0" />
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mt-4 sm:mt-6">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-600 mb-1">ID</p>
+                  <p className="font-semibold">{participant.id}</p>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-600 mb-1">Phone</p>
+                  <p className="font-semibold break-all text-sm">
+                    {participant.phoneNumber && participant.phoneNumber.trim() !== ''
+                      ? participant.phoneNumber
+                      : 'N/A'}
                   </p>
                 </div>
-              </div>
-              <CheckCircle className="w-6 h-6 sm:w-8 sm:h-8 text-green-500 flex-shrink-0" />
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mt-4 sm:mt-6">
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600 mb-1">ID</p>
-                <p className="font-semibold">{participant.id}</p>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600 mb-1">Phone</p>
-                <p className="font-semibold">{participant.phoneNumber || 'N/A'}</p>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600 mb-1">Gender</p>
-                <p className="font-semibold">{participant.gender || 'N/A'}</p>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600 mb-1">Status</p>
-                <p className="font-semibold text-green-600">Active</p>
-              </div>
-            </div>
-
-            {participant.qrUrl && (
-              <div className="mt-6">
-                <p className="text-sm font-medium text-gray-700 mb-2">QR Code</p>
-                <img src={participant.qrUrl} alt="QR Code" className="w-32 h-32 border border-gray-300 rounded" />
-              </div>
-            )}
-
-            {/* Activity Tracking */}
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <h3 className="text-lg font-bold mb-4">Activity Tracking</h3>
-              
-              {/* Check-in/Check-out */}
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <button
-                  onClick={handleCheckIn}
-                  disabled={saving || attendance}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
-                >
-                  <LogIn className="w-4 h-4" />
-                  Check In
-                </button>
-                <button
-                  onClick={handleCheckOut}
-                  disabled={saving || !attendance}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Check Out
-                </button>
-              </div>
-
-              {checkInTime && (
-                <div className="mb-3 text-sm text-gray-600">
-                  <Clock className="w-4 h-4 inline mr-1" />
-                  Check-in: {new Date(checkInTime).toLocaleString()}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-600 mb-1">
+                    {participant.council ? 'Council' : 'Committee'}
+                  </p>
+                  <p className="font-semibold break-words text-sm" title={participant.council || participant.committee || 'N/A'}>
+                    {participant.council || participant.committee || 'N/A'}
+                  </p>
                 </div>
-              )}
-              {checkOutTime && (
-                <div className="mb-3 text-sm text-gray-600">
-                  <Clock className="w-4 h-4 inline mr-1" />
-                  Check-out: {new Date(checkOutTime).toLocaleString()}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-600 mb-1">Role</p>
+                  <p className="font-semibold break-words text-sm" title={participant.role || 'N/A'}>
+                    {participant.role || 'N/A'}
+                  </p>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-600 mb-1">Status</p>
+                  <p className="font-semibold text-green-600">Active</p>
+                </div>
+              </div>
+
+              {participant.qrUrl && (
+                <div className="mt-6">
+                  <p className="text-sm font-medium text-gray-700 mb-2">QR Code</p>
+                  <img src={participant.qrUrl} alt="QR Code" className="w-32 h-32 border border-gray-300 rounded" />
                 </div>
               )}
 
-              {/* Activity Toggles */}
-              <div className="space-y-3">
-                <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <Calendar className="w-5 h-5 text-blue-500" />
-                    <span className="font-medium">Attendance</span>
-                  </div>
+              {/* Activity Tracking */}
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <h3 className="text-lg font-bold mb-4">Activity Tracking</h3>
+
+                {/* Check-in/Check-out */}
+                <div className="grid grid-cols-2 gap-3 mb-4">
                   <button
-                    onClick={() => handleToggleAttendance(!attendance)}
-                    disabled={saving}
-                    className={`w-12 h-6 rounded-full transition-colors ${
-                      attendance ? 'bg-green-500' : 'bg-gray-300'
-                    } relative disabled:opacity-50`}
+                    onClick={handleCheckIn}
+                    disabled={saving || attendance || !!checkOutTime}
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
                   >
-                    <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                      attendance ? 'translate-x-6' : 'translate-x-0'
-                    }`} />
+                    <LogIn className="w-4 h-4" />
+                    Check In
                   </button>
-                </label>
-
-                {/* Show breakfast only for conference days */}
-                {selectedSession && selectedSession.dayKey.startsWith('conference.') && (
-                  <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <UtensilsCrossed className="w-5 h-5 text-orange-500" />
-                      <span className="font-medium">Breakfast</span>
-                    </div>
-                    <button
-                      onClick={() => handleToggleBreakfast(!breakfast)}
-                      disabled={saving}
-                      className={`w-12 h-6 rounded-full transition-colors ${
-                        breakfast ? 'bg-green-500' : 'bg-gray-300'
-                      } relative disabled:opacity-50`}
-                    >
-                      <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                        breakfast ? 'translate-x-6' : 'translate-x-0'
-                      }`} />
-                    </button>
-                  </label>
-                )}
-
-                {/* Show lunch for sessions and conference days */}
-                {selectedSession && (selectedSession.dayKey.startsWith('sessions.') || selectedSession.dayKey.startsWith('conference.')) && (
-                  <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <UtensilsCrossed className="w-5 h-5 text-orange-500" />
-                      <span className="font-medium">Lunch</span>
-                    </div>
-                    <button
-                      onClick={() => handleToggleLunch(!lunch)}
-                      disabled={saving}
-                      className={`w-12 h-6 rounded-full transition-colors ${
-                        lunch ? 'bg-green-500' : 'bg-gray-300'
-                      } relative disabled:opacity-50`}
-                    >
-                      <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                        lunch ? 'translate-x-6' : 'translate-x-0'
-                      }`} />
-                    </button>
-                  </label>
-                )}
-
-                {/* Show catering for opening ceremony */}
-                {selectedSession && selectedSession.dayKey === 'openingCeremony' && (
-                  <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <UtensilsCrossed className="w-5 h-5 text-orange-500" />
-                      <span className="font-medium">Catering</span>
-                    </div>
-                    <button
-                      onClick={() => handleToggleCatering(!catering)}
-                      disabled={saving}
-                      className={`w-12 h-6 rounded-full transition-colors ${
-                        catering ? 'bg-green-500' : 'bg-gray-300'
-                      } relative disabled:opacity-50`}
-                    >
-                      <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                        catering ? 'translate-x-6' : 'translate-x-0'
-                      }`} />
-                    </button>
-                  </label>
-                )}
-
-                <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <CheckSquare className="w-5 h-5 text-purple-500" />
-                    <span className="font-medium">Activity</span>
-                  </div>
                   <button
-                    onClick={() => handleToggleActivity(!activity)}
-                    disabled={saving}
-                    className={`w-12 h-6 rounded-full transition-colors ${
-                      activity ? 'bg-green-500' : 'bg-gray-300'
-                    } relative disabled:opacity-50`}
+                    onClick={handleCheckOut}
+                    disabled={saving || !attendance || !!checkOutTime}
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
                   >
-                    <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                      activity ? 'translate-x-6' : 'translate-x-0'
-                    }`} />
+                    <LogOut className="w-4 h-4" />
+                    {checkOutTime ? 'Checked Out' : 'Check Out'}
                   </button>
-                </label>
-              </div>
+                </div>
 
-              {/* Comments */}
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4" />
-                  Comments
-                </label>
-                <textarea
-                  value={comments}
-                  onChange={(e) => setComments(e.target.value)}
-                  placeholder="Add comments for this participant and day..."
-                  rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base resize-none"
-                />
-                <button
-                  onClick={handleSaveComments}
-                  disabled={saving}
-                  className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
-                >
-                  {saving ? 'Saving...' : 'Save Comments'}
-                </button>
+                {checkInTime && (
+                  <div className="mb-3 text-sm text-gray-600">
+                    <Clock className="w-4 h-4 inline mr-1" />
+                    Check-in: {new Date(checkInTime).toLocaleString()}
+                  </div>
+                )}
+                {checkOutTime && (
+                  <div className="mb-3 text-sm text-gray-600">
+                    <Clock className="w-4 h-4 inline mr-1" />
+                    Check-out: {new Date(checkOutTime).toLocaleString()}
+                  </div>
+                )}
+
+                {/* Activity Toggles */}
+                <div className="space-y-3">
+                  <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <Calendar className="w-5 h-5 text-blue-500" />
+                      <span className="font-medium">Attendance</span>
+                    </div>
+                    <button
+                      onClick={() => handleToggleAttendance(!attendance)}
+                      disabled={saving}
+                      className={`w-12 h-6 rounded-full transition-colors ${attendance ? 'bg-green-500' : 'bg-gray-300'
+                        } relative disabled:opacity-50`}
+                    >
+                      <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${attendance ? 'translate-x-6' : 'translate-x-0'
+                        }`} />
+                    </button>
+                  </label>
+
+                  {/* Show breakfast only for conference days */}
+                  {selectedSession && selectedSession.dayKey.startsWith('conference.') && (
+                    <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <UtensilsCrossed className="w-5 h-5 text-orange-500" />
+                        <span className="font-medium">Breakfast</span>
+                      </div>
+                      <button
+                        onClick={() => handleToggleBreakfast(!breakfast)}
+                        disabled={saving}
+                        className={`w-12 h-6 rounded-full transition-colors ${breakfast ? 'bg-green-500' : 'bg-gray-300'
+                          } relative disabled:opacity-50`}
+                      >
+                        <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${breakfast ? 'translate-x-6' : 'translate-x-0'
+                          }`} />
+                      </button>
+                    </label>
+                  )}
+
+                  {/* Show lunch for sessions and conference days */}
+                  {selectedSession && (selectedSession.dayKey.startsWith('sessions.') || selectedSession.dayKey.startsWith('conference.')) && (
+                    <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <UtensilsCrossed className="w-5 h-5 text-orange-500" />
+                        <span className="font-medium">Lunch</span>
+                      </div>
+                      <button
+                        onClick={() => handleToggleLunch(!lunch)}
+                        disabled={saving}
+                        className={`w-12 h-6 rounded-full transition-colors ${lunch ? 'bg-green-500' : 'bg-gray-300'
+                          } relative disabled:opacity-50`}
+                      >
+                        <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${lunch ? 'translate-x-6' : 'translate-x-0'
+                          }`} />
+                      </button>
+                    </label>
+                  )}
+
+                  {/* Show catering for opening ceremony */}
+                  {selectedSession && selectedSession.dayKey === 'openingCeremony' && (
+                    <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <UtensilsCrossed className="w-5 h-5 text-orange-500" />
+                        <span className="font-medium">Catering</span>
+                      </div>
+                      <button
+                        onClick={() => handleToggleCatering(!catering)}
+                        disabled={saving}
+                        className={`w-12 h-6 rounded-full transition-colors ${catering ? 'bg-green-500' : 'bg-gray-300'
+                          } relative disabled:opacity-50`}
+                      >
+                        <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${catering ? 'translate-x-6' : 'translate-x-0'
+                          }`} />
+                      </button>
+                    </label>
+                  )}
+
+                  <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <CheckSquare className="w-5 h-5 text-purple-500" />
+                      <span className="font-medium">Activity</span>
+                    </div>
+                    <button
+                      onClick={() => handleToggleActivity(!activity)}
+                      disabled={saving}
+                      className={`w-12 h-6 rounded-full transition-colors ${activity ? 'bg-green-500' : 'bg-gray-300'
+                        } relative disabled:opacity-50`}
+                    >
+                      <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${activity ? 'translate-x-6' : 'translate-x-0'
+                        }`} />
+                    </button>
+                  </label>
+                </div>
+
+                {/* Comments */}
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4" />
+                    Comments
+                  </label>
+
+                  {/* Display existing comments */}
+                  {existingComments && (
+                    <div className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                      <p className="text-xs text-gray-500 mb-1">Existing comments:</p>
+                      <p className="text-sm text-gray-700 break-words">{existingComments}</p>
+                    </div>
+                  )}
+
+                  {/* Input for new comment */}
+                  <textarea
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder="Add a new comment..."
+                    rows={2}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base resize-none"
+                  />
+                  <button
+                    onClick={handleSaveComments}
+                    disabled={saving || !newComment.trim()}
+                    className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
+                  >
+                    {saving ? 'Saving...' : 'Add Comment'}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
           {/* Error Message */}
           {error && (
@@ -711,22 +950,22 @@ export default function ScanPage() {
           {/* Scan History */}
           {scanHistory.length > 0 && (
             <div className="card">
-            <h3 className="text-lg font-semibold mb-4">Recent Scans</h3>
-            <div className="space-y-2">
-              {scanHistory.map((scan, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer"
-                  onClick={() => handleScan(scan.id)}
-                >
-                  <div>
-                    <p className="font-medium">{scan.name}</p>
-                    <p className="text-sm text-gray-600">{scan.id}</p>
+              <h3 className="text-lg font-semibold mb-4">Recent Scans</h3>
+              <div className="space-y-2">
+                {scanHistory.map((scan, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer"
+                    onClick={() => handleScan(scan.id)}
+                  >
+                    <div>
+                      <p className="font-medium">{scan.name}</p>
+                      <p className="text-sm text-gray-600">{scan.id}</p>
+                    </div>
+                    <p className="text-sm text-gray-500">{scan.time}</p>
                   </div>
-                  <p className="text-sm text-gray-500">{scan.time}</p>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

@@ -34,10 +34,10 @@ const EXECUTIVE_PARTICIPANTS = [
 export async function POST() {
   try {
     console.log('Adding Executive participants with locked IDs...')
-    
+
     // Ensure the Participants and Attendance sheets exist
     await createParticipantsSheet()
-    
+
     // Create participant objects with locked IDs
     const participants: Participant[] = EXECUTIVE_PARTICIPANTS.map(exec => ({
       id: exec.id,
@@ -47,7 +47,7 @@ export async function POST() {
       gender: exec.gender,
       qrUrl: generateQRCodeUrl(exec.id),
     }))
-    
+
     // Validate that all participants match locked configuration
     const validationErrors: string[] = []
     participants.forEach(participant => {
@@ -58,20 +58,20 @@ export async function POST() {
         validationErrors.push(`ID ${participant.id} should be '${lockedName}' but got '${participant.name}'`)
       }
     })
-    
+
     if (validationErrors.length > 0) {
       return NextResponse.json({
         error: 'Validation failed',
         details: validationErrors
       }, { status: 400 })
     }
-    
+
     // Save to Google Sheets
     console.log('Saving', participants.length, 'Executive participants to Google Sheets...')
     await bulkAddParticipants(participants)
-    
+
     console.log('✅ Successfully added Executive participants with locked IDs!')
-    
+
     return NextResponse.json({
       success: true,
       message: 'Executive participants added successfully with locked IDs',
@@ -82,7 +82,7 @@ export async function POST() {
         position: p.position
       }))
     })
-    
+
   } catch (error) {
     console.error('Error adding Executive participants:', error)
     return NextResponse.json({

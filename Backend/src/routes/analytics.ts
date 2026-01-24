@@ -263,9 +263,16 @@ router.get('/attendance/export', async (req: Request, res: Response) => {
       let memberParamIndex = 1
 
       if (committee) {
-        memberQuery += ` AND m.committee = $${memberParamIndex}`
-        memberParams.push(committee)
-        memberParamIndex++
+        // If exporting Executive, also include High Board members
+        if (committee === 'Executive') {
+          memberQuery += ` AND (m.committee = $${memberParamIndex} OR m.committee = $${memberParamIndex + 1})`
+          memberParams.push('Executive', 'High Board')
+          memberParamIndex += 2
+        } else {
+          memberQuery += ` AND m.committee = $${memberParamIndex}`
+          memberParams.push(committee)
+          memberParamIndex++
+        }
       }
 
       memberQuery += ` ORDER BY m.committee, m.id`

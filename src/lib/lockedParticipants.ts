@@ -60,7 +60,7 @@ export function validateLockedParticipant(id: string, name: string): boolean {
   if (!lockedName) {
     return true; // Not a locked ID, validation passes
   }
-  
+
   return lockedName.toLowerCase().trim() === name.toLowerCase().trim();
 }
 
@@ -91,17 +91,17 @@ export function isNameLocked(name: string): boolean {
  */
 export function getNextAvailableId(prefix: string, existingIds: string[]): string {
   let counter = 1;
-  
+
   while (true) {
     const candidateId = `${prefix}-${counter.toString().padStart(2, '0')}`;
-    
+
     // Skip if this ID is locked or already exists
     if (!isIdLocked(candidateId) && !existingIds.includes(candidateId)) {
       return candidateId;
     }
-    
+
     counter++;
-    
+
     // Safety check to prevent infinite loop
     if (counter > 999) {
       throw new Error(`Cannot generate ID for prefix ${prefix} - too many participants`);

@@ -72,7 +72,7 @@ router.post('/', async (req: Request, res: Response) => {
       await updateParticipantCheckIn(participantId, sessionType, timestamp, isDelegate)
       await updateParticipantAttendanceField(participantId, sessionType, true, isDelegate)
     } else if (checkOut) {
-      // Handle check-out
+      // Handle check-out - checkout does NOT mean absent, they were present and left
       if (isDelegate) {
         await query(`
           UPDATE attendance_records
@@ -82,6 +82,7 @@ router.post('/', async (req: Request, res: Response) => {
       }
 
       // Update delegates/members table check-out time
+      // Note: We do NOT change attendance status - they were present, they just checked out
       await updateParticipantCheckOut(participantId, sessionType, timestamp, isDelegate)
     } else if (value) {
       // Toggle attendance on
@@ -129,7 +130,16 @@ router.post('/', async (req: Request, res: Response) => {
     if (userResult.rows.length > 0) {
       const userId = userResult.rows[0].user_id
       const title = `${dayKey} Attendance`
-      const description = value ? `Marked as present` : `Marked as absent`
+      
+      // Determine description based on action type
+      let description: string
+      if (checkIn) {
+        description = 'Checked in'
+      } else if (checkOut) {
+        description = 'Checked out' // Checkout != absent, they were present and left
+      } else {
+        description = value ? `Marked as present` : `Marked as absent`
+      }
 
       // Check if there's a recent entry for this dayKey (within last 2 minutes)
       // If so, update it instead of creating a duplicate
@@ -155,7 +165,7 @@ router.post('/', async (req: Request, res: Response) => {
           WHERE id = $4
         `, [
           description,
-          JSON.stringify({ dayKey, field, value }),
+          JSON.stringify({ dayKey, field, value, checkIn, checkOut }),
           timestamp,
           recentEntry.rows[0].id
         ])
@@ -175,7 +185,7 @@ router.post('/', async (req: Request, res: Response) => {
           'attendance',
           title,
           description,
-          JSON.stringify({ dayKey, field, value }),
+          JSON.stringify({ dayKey, field, value, checkIn, checkOut }),
           timestamp
         ])
       }

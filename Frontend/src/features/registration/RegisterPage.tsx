@@ -84,126 +84,126 @@ export default function RegisterPage() {
           </div>
 
           <div className="p-4 sm:p-6 mb-4 sm:mb-6">
-          <form onSubmit={handleSingleRegister} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Full Name *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Phone Number *
-                    </label>
-                    <input
-                      type="tel"
-                      required
-                      value={formData.phoneNumber}
-                      onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {isDelegate ? 'Council *' : 'Committee/Position *'}
-                    </label>
-                    <select
-                      required
-                      value={formData.council || formData.position}
-                      onChange={(e) => {
-                        if (delegateCommittees.includes(e.target.value)) {
-                          setFormData({ ...formData, council: e.target.value, position: '' })
-                        } else {
-                          setFormData({ ...formData, position: e.target.value, council: '' })
-                        }
-                      }}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select...</option>
-                      <optgroup label="Member Committees">
-                        {memberCommittees.map(committee => (
-                          <option key={committee} value={committee}>{committee}</option>
-                        ))}
-                      </optgroup>
-                      <optgroup label="Delegate Councils">
-                        {delegateCouncils.map(council => (
-                          <option key={council} value={council}>{council}</option>
-                        ))}
-                      </optgroup>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Gender *
-                    </label>
-                    <select
-                      required
-                      value={formData.gender}
-                      onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="Male">Male</option>
-                      <option value="Female">Female</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+            <form onSubmit={handleSingleRegister} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full md:w-auto px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-                >
-                  {loading ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      Registering...
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus className="w-4 h-4" />
-                      Register Participant
-                    </>
-                  )}
-                </button>
-          </form>
-        </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Phone Number *
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={formData.phoneNumber}
+                    onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
 
-        {/* Success/Error Messages */}
-        {success && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6 flex items-center gap-3">
-            <CheckCircle className="w-5 h-5 text-green-500" />
-            <p className="text-green-700">{success}</p>
-          </div>
-        )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {isDelegate ? 'Council *' : 'Committee/Position *'}
+                  </label>
+                  <select
+                    required
+                    value={formData.council || formData.position}
+                    onChange={(e) => {
+                      if (delegateCouncils.includes(e.target.value)) {
+                        setFormData({ ...formData, council: e.target.value, position: '' })
+                      } else {
+                        setFormData({ ...formData, position: e.target.value, council: '' })
+                      }
+                    }}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select...</option>
+                    <optgroup label="Member Committees">
+                      {memberCommittees.map(committee => (
+                        <option key={committee} value={committee}>{committee}</option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Delegate Councils">
+                      {delegateCouncils.map(council => (
+                        <option key={council} value={council}>{council}</option>
+                      ))}
+                    </optgroup>
+                  </select>
+                </div>
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 flex items-center gap-3">
-            <XCircle className="w-5 h-5 text-red-500" />
-            <p className="text-red-700">{error}</p>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Gender *
+                  </label>
+                  <select
+                    required
+                    value={formData.gender}
+                    onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full md:w-auto px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Registering...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4" />
+                    Register Participant
+                  </>
+                )}
+              </button>
+            </form>
           </div>
-        )}
+
+          {/* Success/Error Messages */}
+          {success && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6 flex items-center gap-3">
+              <CheckCircle className="w-5 h-5 text-green-500" />
+              <p className="text-green-700">{success}</p>
+            </div>
+          )}
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 flex items-center gap-3">
+              <XCircle className="w-5 h-5 text-red-500" />
+              <p className="text-red-700">{error}</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

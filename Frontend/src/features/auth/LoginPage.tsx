@@ -135,7 +135,7 @@ export default function LoginPage() {
         <div className="login-form-container">
           <div className="login-card">
             <h1 className="login-title">Welcome Back</h1>
-            <p className="login-subtitle">Sign in to access your delegate dashboard</p>
+            <p className="login-subtitle">Sign in to access the registration system</p>
 
             <form onSubmit={handleSubmit} className="login-form">
               <div className="login-input-group">
