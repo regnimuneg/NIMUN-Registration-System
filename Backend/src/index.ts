@@ -29,7 +29,8 @@ const allowedOrigins = [
   'http://localhost:5174',
   'http://localhost:3000',
   'http://localhost:5175',
-  'http://10.2.144.168:5173'
+  'http://10.2.144.168:5173',
+  'https://reg.nimuneg.org'
 ].filter(Boolean)
 
 app.use(cors({
