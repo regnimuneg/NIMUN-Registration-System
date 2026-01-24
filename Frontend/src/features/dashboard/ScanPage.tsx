@@ -60,7 +60,7 @@ export default function ScanPage() {
   // Helper function to get day data from the nested tracking structure
   function getDayDataFromTracking(dayTracking: any, dayKey: string): any {
     if (!dayTracking) return null
-
+    // add
     // Map dayKey to the nested path in tracking structure
     // Backend returns: { sessions: { day1: {...} }, conference: { day1: {...} }, openingCeremony: {...} }
     if (dayKey.startsWith('sessions.')) {
