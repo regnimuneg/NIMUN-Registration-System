@@ -478,14 +478,14 @@ async function getParticipantTrackingData(participantId: string) {
   if (isDelegate) {
     const delegateData = await query(`
       SELECT 
-        day1_session_attended, day1_food, day1_comments,
-        day2_session_attended, day2_food, day2_comments,
-        day3_session_attended, day3_food, day3_comments,
-        day4_session_attended, day4_food, day4_comments,
-        opening_ceremony_attended, opening_ceremony_food, opening_ceremony_comments,
-        conf_day1_attended, conf_day1_breakfast, conf_day1_lunch, conf_day1_comments,
-        conf_day2_attended, conf_day2_breakfast, conf_day2_lunch, conf_day2_comments,
-        conf_day3_attended, conf_day3_breakfast, conf_day3_lunch, conf_day3_comments
+        day1_session_attended, day1_food, day1_comments, day1_checkin, day1_checkout,
+        day2_session_attended, day2_food, day2_comments, day2_checkin, day2_checkout,
+        day3_session_attended, day3_food, day3_comments, day3_checkin, day3_checkout,
+        day4_session_attended, day4_food, day4_comments, day4_checkin, day4_checkout,
+        opening_ceremony_attended, opening_ceremony_food, opening_ceremony_comments, opening_ceremony_checkin, opening_ceremony_checkout,
+        conf_day1_attended, conf_day1_breakfast, conf_day1_lunch, conf_day1_comments, conf_day1_checkin, conf_day1_checkout,
+        conf_day2_attended, conf_day2_breakfast, conf_day2_lunch, conf_day2_comments, conf_day2_checkin, conf_day2_checkout,
+        conf_day3_attended, conf_day3_breakfast, conf_day3_lunch, conf_day3_comments, conf_day3_checkin, conf_day3_checkout
       FROM delegates WHERE id = $1
     `, [participantId])
 
@@ -493,16 +493,16 @@ async function getParticipantTrackingData(participantId: string) {
       const d = delegateData.rows[0]
       attendanceData = {
         sessions: {
-          day1: { attended: d.day1_session_attended || false, lunch: d.day1_food || false, comments: d.day1_comments || null },
-          day2: { attended: d.day2_session_attended || false, lunch: d.day2_food || false, comments: d.day2_comments || null },
-          day3: { attended: d.day3_session_attended || false, lunch: d.day3_food || false, comments: d.day3_comments || null },
-          day4: { attended: d.day4_session_attended || false, lunch: d.day4_food || false, comments: d.day4_comments || null }
+          day1: { attended: d.day1_session_attended || false, lunch: d.day1_food || false, comments: d.day1_comments || null, checkin: d.day1_checkin || null, checkout: d.day1_checkout || null },
+          day2: { attended: d.day2_session_attended || false, lunch: d.day2_food || false, comments: d.day2_comments || null, checkin: d.day2_checkin || null, checkout: d.day2_checkout || null },
+          day3: { attended: d.day3_session_attended || false, lunch: d.day3_food || false, comments: d.day3_comments || null, checkin: d.day3_checkin || null, checkout: d.day3_checkout || null },
+          day4: { attended: d.day4_session_attended || false, lunch: d.day4_food || false, comments: d.day4_comments || null, checkin: d.day4_checkin || null, checkout: d.day4_checkout || null }
         },
-        openingCeremony: { attended: d.opening_ceremony_attended || false, catering: d.opening_ceremony_food || false, comments: d.opening_ceremony_comments || null },
+        openingCeremony: { attended: d.opening_ceremony_attended || false, catering: d.opening_ceremony_food || false, comments: d.opening_ceremony_comments || null, checkin: d.opening_ceremony_checkin || null, checkout: d.opening_ceremony_checkout || null },
         conference: {
-          day1: { attended: d.conf_day1_attended || false, breakfast: d.conf_day1_breakfast || false, lunch: d.conf_day1_lunch || false, comments: d.conf_day1_comments || null },
-          day2: { attended: d.conf_day2_attended || false, breakfast: d.conf_day2_breakfast || false, lunch: d.conf_day2_lunch || false, comments: d.conf_day2_comments || null },
-          day3: { attended: d.conf_day3_attended || false, breakfast: d.conf_day3_breakfast || false, lunch: d.conf_day3_lunch || false, comments: d.conf_day3_comments || null }
+          day1: { attended: d.conf_day1_attended || false, breakfast: d.conf_day1_breakfast || false, lunch: d.conf_day1_lunch || false, comments: d.conf_day1_comments || null, checkin: d.conf_day1_checkin || null, checkout: d.conf_day1_checkout || null },
+          day2: { attended: d.conf_day2_attended || false, breakfast: d.conf_day2_breakfast || false, lunch: d.conf_day2_lunch || false, comments: d.conf_day2_comments || null, checkin: d.conf_day2_checkin || null, checkout: d.conf_day2_checkout || null },
+          day3: { attended: d.conf_day3_attended || false, breakfast: d.conf_day3_breakfast || false, lunch: d.conf_day3_lunch || false, comments: d.conf_day3_comments || null, checkin: d.conf_day3_checkin || null, checkout: d.conf_day3_checkout || null }
         },
         performanceDay: {}
       }
@@ -511,14 +511,14 @@ async function getParticipantTrackingData(participantId: string) {
     // For members, use same structure
     const memberData = await query(`
       SELECT 
-        day1_session_attended, day1_food, day1_comments,
-        day2_session_attended, day2_food, day2_comments,
-        day3_session_attended, day3_food, day3_comments,
-        day4_session_attended, day4_food, day4_comments,
-        opening_ceremony_attended, opening_ceremony_food, opening_ceremony_comments,
-        conf_day1_attended, conf_day1_breakfast, conf_day1_lunch, conf_day1_comments,
-        conf_day2_attended, conf_day2_breakfast, conf_day2_lunch, conf_day2_comments,
-        conf_day3_attended, conf_day3_breakfast, conf_day3_lunch, conf_day3_comments
+        day1_session_attended, day1_food, day1_comments, day1_checkin, day1_checkout,
+        day2_session_attended, day2_food, day2_comments, day2_checkin, day2_checkout,
+        day3_session_attended, day3_food, day3_comments, day3_checkin, day3_checkout,
+        day4_session_attended, day4_food, day4_comments, day4_checkin, day4_checkout,
+        opening_ceremony_attended, opening_ceremony_food, opening_ceremony_comments, opening_ceremony_checkin, opening_ceremony_checkout,
+        conf_day1_attended, conf_day1_breakfast, conf_day1_lunch, conf_day1_comments, conf_day1_checkin, conf_day1_checkout,
+        conf_day2_attended, conf_day2_breakfast, conf_day2_lunch, conf_day2_comments, conf_day2_checkin, conf_day2_checkout,
+        conf_day3_attended, conf_day3_breakfast, conf_day3_lunch, conf_day3_comments, conf_day3_checkin, conf_day3_checkout
       FROM members WHERE id = $1
     `, [participantId])
 
@@ -526,16 +526,16 @@ async function getParticipantTrackingData(participantId: string) {
       const m = memberData.rows[0]
       attendanceData = {
         sessions: {
-          day1: { attended: m.day1_session_attended || false, lunch: m.day1_food || false, comments: m.day1_comments || null },
-          day2: { attended: m.day2_session_attended || false, lunch: m.day2_food || false, comments: m.day2_comments || null },
-          day3: { attended: m.day3_session_attended || false, lunch: m.day3_food || false, comments: m.day3_comments || null },
-          day4: { attended: m.day4_session_attended || false, lunch: m.day4_food || false, comments: m.day4_comments || null }
+          day1: { attended: m.day1_session_attended || false, lunch: m.day1_food || false, comments: m.day1_comments || null, checkin: m.day1_checkin || null, checkout: m.day1_checkout || null },
+          day2: { attended: m.day2_session_attended || false, lunch: m.day2_food || false, comments: m.day2_comments || null, checkin: m.day2_checkin || null, checkout: m.day2_checkout || null },
+          day3: { attended: m.day3_session_attended || false, lunch: m.day3_food || false, comments: m.day3_comments || null, checkin: m.day3_checkin || null, checkout: m.day3_checkout || null },
+          day4: { attended: m.day4_session_attended || false, lunch: m.day4_food || false, comments: m.day4_comments || null, checkin: m.day4_checkin || null, checkout: m.day4_checkout || null }
         },
-        openingCeremony: { attended: m.opening_ceremony_attended || false, catering: m.opening_ceremony_food || false, comments: m.opening_ceremony_comments || null },
+        openingCeremony: { attended: m.opening_ceremony_attended || false, catering: m.opening_ceremony_food || false, comments: m.opening_ceremony_comments || null, checkin: m.opening_ceremony_checkin || null, checkout: m.opening_ceremony_checkout || null },
         conference: {
-          day1: { attended: m.conf_day1_attended || false, breakfast: m.conf_day1_breakfast || false, lunch: m.conf_day1_lunch || false, comments: m.conf_day1_comments || null },
-          day2: { attended: m.conf_day2_attended || false, breakfast: m.conf_day2_breakfast || false, lunch: m.conf_day2_lunch || false, comments: m.conf_day2_comments || null },
-          day3: { attended: m.conf_day3_attended || false, breakfast: m.conf_day3_breakfast || false, lunch: m.conf_day3_lunch || false, comments: m.conf_day3_comments || null }
+          day1: { attended: m.conf_day1_attended || false, breakfast: m.conf_day1_breakfast || false, lunch: m.conf_day1_lunch || false, comments: m.conf_day1_comments || null, checkin: m.conf_day1_checkin || null, checkout: m.conf_day1_checkout || null },
+          day2: { attended: m.conf_day2_attended || false, breakfast: m.conf_day2_breakfast || false, lunch: m.conf_day2_lunch || false, comments: m.conf_day2_comments || null, checkin: m.conf_day2_checkin || null, checkout: m.conf_day2_checkout || null },
+          day3: { attended: m.conf_day3_attended || false, breakfast: m.conf_day3_breakfast || false, lunch: m.conf_day3_lunch || false, comments: m.conf_day3_comments || null, checkin: m.conf_day3_checkin || null, checkout: m.conf_day3_checkout || null }
         },
         performanceDay: {}
       }

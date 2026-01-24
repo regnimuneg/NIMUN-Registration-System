@@ -186,13 +186,37 @@ router.get('/attendance/export', async (req: Request, res: Response) => {
           d.council,
           'delegate' as participant_type,
           CASE WHEN COALESCE(d.day1_session_attended, false) THEN 1 ELSE 0 END as day1,
+          d.day1_checkin,
+          d.day1_checkout,
+          d.day1_comments,
           CASE WHEN COALESCE(d.day2_session_attended, false) THEN 1 ELSE 0 END as day2,
+          d.day2_checkin,
+          d.day2_checkout,
+          d.day2_comments,
           CASE WHEN COALESCE(d.day3_session_attended, false) THEN 1 ELSE 0 END as day3,
+          d.day3_checkin,
+          d.day3_checkout,
+          d.day3_comments,
           CASE WHEN COALESCE(d.day4_session_attended, false) THEN 1 ELSE 0 END as day4,
+          d.day4_checkin,
+          d.day4_checkout,
+          d.day4_comments,
           CASE WHEN COALESCE(d.opening_ceremony_attended, false) THEN 1 ELSE 0 END as opening_ceremony,
+          d.opening_ceremony_checkin,
+          d.opening_ceremony_checkout,
+          d.opening_ceremony_comments,
           CASE WHEN COALESCE(d.conf_day1_attended, false) THEN 1 ELSE 0 END as conf_day1,
+          d.conf_day1_checkin,
+          d.conf_day1_checkout,
+          d.conf_day1_comments,
           CASE WHEN COALESCE(d.conf_day2_attended, false) THEN 1 ELSE 0 END as conf_day2,
-          CASE WHEN COALESCE(d.conf_day3_attended, false) THEN 1 ELSE 0 END as conf_day3
+          d.conf_day2_checkin,
+          d.conf_day2_checkout,
+          d.conf_day2_comments,
+          CASE WHEN COALESCE(d.conf_day3_attended, false) THEN 1 ELSE 0 END as conf_day3,
+          d.conf_day3_checkin,
+          d.conf_day3_checkout,
+          d.conf_day3_comments
         FROM delegates d
         LEFT JOIN users u ON d.user_id = u.id
         WHERE 1=1
@@ -221,17 +245,41 @@ router.get('/attendance/export', async (req: Request, res: Response) => {
 
         if (!dayType || dayType === 'sessions') {
           formattedRow.day1 = row.day1
+          formattedRow.day1_checkin = row.day1_checkin
+          formattedRow.day1_checkout = row.day1_checkout
+          formattedRow.day1_comments = row.day1_comments
           formattedRow.day2 = row.day2
+          formattedRow.day2_checkin = row.day2_checkin
+          formattedRow.day2_checkout = row.day2_checkout
+          formattedRow.day2_comments = row.day2_comments
           formattedRow.day3 = row.day3
+          formattedRow.day3_checkin = row.day3_checkin
+          formattedRow.day3_checkout = row.day3_checkout
+          formattedRow.day3_comments = row.day3_comments
           formattedRow.day4 = row.day4
+          formattedRow.day4_checkin = row.day4_checkin
+          formattedRow.day4_checkout = row.day4_checkout
+          formattedRow.day4_comments = row.day4_comments
         }
         if (!dayType || dayType === 'opening') {
           formattedRow.opening_ceremony = row.opening_ceremony
+          formattedRow.opening_ceremony_checkin = row.opening_ceremony_checkin
+          formattedRow.opening_ceremony_checkout = row.opening_ceremony_checkout
+          formattedRow.opening_ceremony_comments = row.opening_ceremony_comments
         }
         if (!dayType || dayType === 'conf') {
           formattedRow.conf_day1 = row.conf_day1
+          formattedRow.conf_day1_checkin = row.conf_day1_checkin
+          formattedRow.conf_day1_checkout = row.conf_day1_checkout
+          formattedRow.conf_day1_comments = row.conf_day1_comments
           formattedRow.conf_day2 = row.conf_day2
+          formattedRow.conf_day2_checkin = row.conf_day2_checkin
+          formattedRow.conf_day2_checkout = row.conf_day2_checkout
+          formattedRow.conf_day2_comments = row.conf_day2_comments
           formattedRow.conf_day3 = row.conf_day3
+          formattedRow.conf_day3_checkin = row.conf_day3_checkin
+          formattedRow.conf_day3_checkout = row.conf_day3_checkout
+          formattedRow.conf_day3_comments = row.conf_day3_comments
         }
 
         data.push(formattedRow)
@@ -248,13 +296,37 @@ router.get('/attendance/export', async (req: Request, res: Response) => {
           m.role,
           'member' as participant_type,
           CASE WHEN COALESCE(m.day1_session_attended, false) THEN 1 ELSE 0 END as day1,
+          m.day1_checkin,
+          m.day1_checkout,
+          m.day1_comments,
           CASE WHEN COALESCE(m.day2_session_attended, false) THEN 1 ELSE 0 END as day2,
+          m.day2_checkin,
+          m.day2_checkout,
+          m.day2_comments,
           CASE WHEN COALESCE(m.day3_session_attended, false) THEN 1 ELSE 0 END as day3,
+          m.day3_checkin,
+          m.day3_checkout,
+          m.day3_comments,
           CASE WHEN COALESCE(m.day4_session_attended, false) THEN 1 ELSE 0 END as day4,
+          m.day4_checkin,
+          m.day4_checkout,
+          m.day4_comments,
           CASE WHEN COALESCE(m.opening_ceremony_attended, false) THEN 1 ELSE 0 END as opening_ceremony,
+          m.opening_ceremony_checkin,
+          m.opening_ceremony_checkout,
+          m.opening_ceremony_comments,
           CASE WHEN COALESCE(m.conf_day1_attended, false) THEN 1 ELSE 0 END as conf_day1,
+          m.conf_day1_checkin,
+          m.conf_day1_checkout,
+          m.conf_day1_comments,
           CASE WHEN COALESCE(m.conf_day2_attended, false) THEN 1 ELSE 0 END as conf_day2,
-          CASE WHEN COALESCE(m.conf_day3_attended, false) THEN 1 ELSE 0 END as conf_day3
+          m.conf_day2_checkin,
+          m.conf_day2_checkout,
+          m.conf_day2_comments,
+          CASE WHEN COALESCE(m.conf_day3_attended, false) THEN 1 ELSE 0 END as conf_day3,
+          m.conf_day3_checkin,
+          m.conf_day3_checkout,
+          m.conf_day3_comments
         FROM members m
         LEFT JOIN users u ON m.user_id = u.id
         WHERE 1=1
@@ -291,17 +363,41 @@ router.get('/attendance/export', async (req: Request, res: Response) => {
 
         if (!dayType || dayType === 'sessions') {
           formattedRow.day1 = row.day1
+          formattedRow.day1_checkin = row.day1_checkin
+          formattedRow.day1_checkout = row.day1_checkout
+          formattedRow.day1_comments = row.day1_comments
           formattedRow.day2 = row.day2
+          formattedRow.day2_checkin = row.day2_checkin
+          formattedRow.day2_checkout = row.day2_checkout
+          formattedRow.day2_comments = row.day2_comments
           formattedRow.day3 = row.day3
+          formattedRow.day3_checkin = row.day3_checkin
+          formattedRow.day3_checkout = row.day3_checkout
+          formattedRow.day3_comments = row.day3_comments
           formattedRow.day4 = row.day4
+          formattedRow.day4_checkin = row.day4_checkin
+          formattedRow.day4_checkout = row.day4_checkout
+          formattedRow.day4_comments = row.day4_comments
         }
         if (!dayType || dayType === 'opening') {
           formattedRow.opening_ceremony = row.opening_ceremony
+          formattedRow.opening_ceremony_checkin = row.opening_ceremony_checkin
+          formattedRow.opening_ceremony_checkout = row.opening_ceremony_checkout
+          formattedRow.opening_ceremony_comments = row.opening_ceremony_comments
         }
         if (!dayType || dayType === 'conf') {
           formattedRow.conf_day1 = row.conf_day1
+          formattedRow.conf_day1_checkin = row.conf_day1_checkin
+          formattedRow.conf_day1_checkout = row.conf_day1_checkout
+          formattedRow.conf_day1_comments = row.conf_day1_comments
           formattedRow.conf_day2 = row.conf_day2
+          formattedRow.conf_day2_checkin = row.conf_day2_checkin
+          formattedRow.conf_day2_checkout = row.conf_day2_checkout
+          formattedRow.conf_day2_comments = row.conf_day2_comments
           formattedRow.conf_day3 = row.conf_day3
+          formattedRow.conf_day3_checkin = row.conf_day3_checkin
+          formattedRow.conf_day3_checkout = row.conf_day3_checkout
+          formattedRow.conf_day3_comments = row.conf_day3_comments
         }
 
         data.push(formattedRow)
