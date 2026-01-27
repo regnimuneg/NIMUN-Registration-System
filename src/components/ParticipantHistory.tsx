@@ -23,11 +23,11 @@ interface ParticipantHistoryProps {
   onClose?: () => void
 }
 
-export default function ParticipantHistory({ 
-  participantId, 
-  participantName, 
-  isModal = false, 
-  onClose 
+export default function ParticipantHistory({
+  participantId,
+  participantName,
+  isModal = false,
+  onClose
 }: ParticipantHistoryProps) {
   const [historyData, setHistoryData] = useState<HistoryData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -41,12 +41,12 @@ export default function ParticipantHistory({
     try {
       setLoading(true)
       setError('')
-      
+
       const response = await fetch(`/api/participants/${participantId}/history`)
       if (!response.ok) {
         throw new Error('Failed to fetch history')
       }
-      
+
       const data = await response.json()
       setHistoryData(data)
     } catch (err) {
@@ -112,7 +112,7 @@ export default function ParticipantHistory({
           <div className="text-red-800">
             <strong>Error:</strong> {error}
           </div>
-          <button 
+          <button
             onClick={fetchHistory}
             className="mt-2 btn-secondary text-sm"
           >
@@ -144,32 +144,84 @@ export default function ParticipantHistory({
             </div>
           ) : (
             <div className="space-y-4">
-              {historyData.history.map((entry, index) => (
-                <div key={index} className="flex items-start space-x-4">
-                  {/* Icon */}
-                  <div className="flex-shrink-0 w-10 h-10 bg-white border-2 border-gray-200 rounded-full flex items-center justify-center">
-                    <span className="text-lg">{entry.icon}</span>
-                  </div>
-                  
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center space-x-2 mb-1">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeColor(entry.type)}`}>
-                        {entry.type.charAt(0).toUpperCase() + entry.type.slice(1)}
-                      </span>
-                      <span className="text-sm text-gray-500">
-                        {formatTimestamp(entry.timestamp)}
-                      </span>
+              {(() => {
+                const processedGames = new Set<string>();
+                const filteredHistory = historyData.history.filter(entry => {
+                  // Keep non-game entries
+                  if (entry.type !== 'games') return true;
+
+                  const actionLower = entry.action.toLowerCase();
+                  let activityName = '';
+
+                  // Valid games list
+                  const validGames = [
+                    'SPRPRK Subsoccer',
+                    'SPRPRK Foosball',
+                    'SPRPRK Music Tiles',
+                    'Adrenaline Target Shooting'
+                  ];
+
+                  // Extract game name
+                  if (actionLower.startsWith('join ')) {
+                    activityName = entry.action.substring(5);
+                  } else if (actionLower.startsWith('leave ')) {
+                    // Ignore all leave events completely (as per user request)
+                    return false;
+                  } else {
+                    return true; // Unknown game action, keep it
+                  }
+
+                  // Filter out invalid games
+                  if (!validGames.some(g => activityName.includes(g) || g.toLowerCase() === activityName.toLowerCase())) {
+                    // Strict check or partial match? Let's use exact match or includes to be safe, but given earlier code used exact strings...
+                    // The validGames in backend were exact strings.
+                    // activityName comes from 'join <Name>'. 
+                    // Let's match loosely to be safe ("includes") or fix exact.
+                    // Backend used: validGames.map(g => `'${g}'`).join(', ') -> Exact match in DB.
+                    // The action string is `join ${activity}`.
+                    // So activityName should be exactly one of the valid games.
+                    if (!validGames.includes(activityName)) {
+                      return false;
+                    }
+                  }
+
+                  // Deduplicate: If we already saw this game, ignore it
+                  // This ensures each game appears only once in the list ("Played")
+                  if (processedGames.has(activityName)) {
+                    return false;
+                  }
+
+                  processedGames.add(activityName);
+                  return true;
+                });
+
+                return filteredHistory.map((entry, index) => (
+                  <div key={index} className="flex items-start space-x-4">
+                    {/* Icon */}
+                    <div className="flex-shrink-0 w-10 h-10 bg-white border-2 border-gray-200 rounded-full flex items-center justify-center">
+                      <span className="text-lg">{entry.icon}</span>
                     </div>
-                    <p className="text-sm text-gray-900">
-                      <span className="font-medium capitalize">{entry.action}</span>
-                      {entry.details && (
-                        <span className="text-gray-600"> • {entry.details}</span>
-                      )}
-                    </p>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeColor(entry.type)}`}>
+                          {entry.type.charAt(0).toUpperCase() + entry.type.slice(1)}
+                        </span>
+                        <span className="text-sm text-gray-500">
+                          {formatTimestamp(entry.timestamp)}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-900">
+                        <span className="font-medium capitalize">{entry.action}</span>
+                        {entry.details && (
+                          <span className="text-gray-600"> • {entry.details}</span>
+                        )}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ));
+              })()}
             </div>
           )}
         </div>
@@ -188,4 +240,4 @@ export default function ParticipantHistory({
   }
 
   return <div className="card">{content}</div>
-} 
+}

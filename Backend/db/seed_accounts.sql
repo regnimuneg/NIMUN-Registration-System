@@ -58,8 +58,8 @@ ON CONFLICT (id) DO UPDATE SET
 -- LOGIN CREDENTIALS
 -- ============================================
 -- ADMIN ACCOUNTS:
---   Email: admin1@nimuneg.org | Password: 3}PG8U+9FcSp
---   Email: admin2@nimuneg.org | Password: '£I}707Gva;4
+--   Email: adsys1@nimuneg.org | Password: 3}PG8U+9FcSp
+--   Email: adsys2@nimuneg.org | Password: '£I}707Gva;4
 --
 -- MEMBER ACCOUNTS (Committee-based passwords):
 --   Email: reg@nimuneg.org     | Password: reg-nimun26

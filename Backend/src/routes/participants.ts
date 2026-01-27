@@ -593,6 +593,7 @@ function formatGamesData(games: any[]) {
     return {
       activity: metadata.activity || game.title?.replace(/^(join|leave) /, '') || '',
       action: metadata.action || (game.title?.includes('join') ? 'join' : 'leave'),
+      day: metadata.day || null,
       timestamp: game.created_at
     }
   })

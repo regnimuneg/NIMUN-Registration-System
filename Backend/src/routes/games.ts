@@ -35,12 +35,13 @@ router.post('/', async (req: Request, res: Response) => {
     // For join action, check validations
     if (action === 'join') {
       // Check if participant is already in a game
-      const currentGame = await getParticipantCurrentGame(participantId, currentDay)
-      if (currentGame) {
-        return res.status(400).json({
-          error: `You are already in ${currentGame}. Please leave current game first.`
-        })
-      }
+      // Check if participant is already in a game - ALLOWED NOW
+      // const currentGame = await getParticipantCurrentGame(participantId, currentDay)
+      // if (currentGame) {
+      //   return res.status(400).json({
+      //     error: `You are already in ${currentGame}. Please leave current game first.`
+      //   })
+      // }
 
       // Check player limits
       const maxPlayers = GAME_LIMITS[activity]

@@ -21,6 +21,12 @@ const SESSION_OPTIONS: SessionOption[] = [
   { id: 'conference-day3', label: 'Conference Day 3', date: '2 Feb', dayKey: 'conference.day3' }
 ]
 
+const DAY_ACTIVITIES: Record<string, string[]> = {
+  'sessions.day2': ['SPRPRK Subsoccer', 'SPRPRK Foosball'],
+  'sessions.day3': ['SPRPRK Subsoccer', 'SPRPRK Foosball', 'SPRPRK Music Tiles'],
+  'sessions.day4': ['Adrenaline Target Shooting']
+}
+
 export default function ScanPage() {
   const [selectedSession, setSelectedSession] = useState<SessionOption | null>(null)
   const [scannedId, setScannedId] = useState<string>('')
@@ -40,7 +46,7 @@ export default function ScanPage() {
   const [breakfast, setBreakfast] = useState(false)
   const [lunch, setLunch] = useState(false)
   const [catering, setCatering] = useState(false)
-  const [activity, setActivity] = useState(false)
+  const [activityStatus, setActivityStatus] = useState<Record<string, boolean>>({})
   const [checkInTime, setCheckInTime] = useState<string | null>(null)
   const [checkOutTime, setCheckOutTime] = useState<string | null>(null)
   const [comments, setComments] = useState('')
@@ -92,7 +98,7 @@ export default function ScanPage() {
           setBreakfast(false)
           setLunch(false)
           setCatering(false)
-          setActivity(false)
+          setActivityStatus({})
           setCheckInTime(null)
           setCheckOutTime(null)
           setExistingComments('')
@@ -117,13 +123,29 @@ export default function ScanPage() {
             if (dayData.breakfast) setBreakfast(true)
             if (dayData.catering) setCatering(true)
           }
+
+          // Set activity status from games history
+          if (tracking.games && Array.isArray(tracking.games)) {
+            const newActivityStatus: Record<string, boolean> = {}
+            tracking.games.forEach((game: any) => {
+              const gameDay = game.day || game.metadata?.day
+              if (gameDay === selectedSession.dayKey || !gameDay || gameDay === 'current') {
+                if (game.action === 'join') {
+                  newActivityStatus[game.activity] = true
+                } else if (game.action === 'leave') {
+                  newActivityStatus[game.activity] = false
+                }
+              }
+            })
+            setActivityStatus(newActivityStatus)
+          }
         } else {
           // Reset all tracking state if no tracking data
           setAttendance(false)
           setBreakfast(false)
           setLunch(false)
           setCatering(false)
-          setActivity(false)
+          setActivityStatus({})
           setCheckInTime(null)
           setCheckOutTime(null)
           setExistingComments('')
@@ -277,9 +299,26 @@ export default function ScanPage() {
             if (dayData.lunch) setLunch(true)
             if (dayData.breakfast) setBreakfast(true)
             if (dayData.catering) setCatering(true)
+            if (dayData.catering) setCatering(true)
           } else {
             setExistingComments('')
             setComments('')
+          }
+
+          // Set activity status from games history
+          if (tracking.games && Array.isArray(tracking.games)) {
+            const newActivityStatus: Record<string, boolean> = {}
+            tracking.games.forEach((game: any) => {
+              const gameDay = game.day || game.metadata?.day
+              if (gameDay === selectedSession.dayKey || !gameDay || gameDay === 'current') {
+                if (game.action === 'join') {
+                  newActivityStatus[game.activity] = true
+                } else if (game.action === 'leave') {
+                  newActivityStatus[game.activity] = false
+                }
+              }
+            })
+            setActivityStatus(newActivityStatus)
           }
         } else {
           // Reset activity tracking state if no tracking data
@@ -287,7 +326,7 @@ export default function ScanPage() {
           setBreakfast(false)
           setLunch(false)
           setCatering(false)
-          setActivity(false)
+          setActivityStatus({})
           setCheckInTime(null)
           setCheckOutTime(null)
           setComments('')
@@ -330,7 +369,7 @@ export default function ScanPage() {
     setAttendance(false)
     setBreakfast(false)
     setLunch(false)
-    setActivity(false)
+    setActivityStatus({})
     setCheckInTime(null)
     setCheckOutTime(null)
     setComments('')
@@ -466,18 +505,18 @@ export default function ScanPage() {
     }
   }
 
-  const handleToggleActivity = async (value: boolean) => {
+  const handleToggleActivity = async (activityName: string, value: boolean) => {
     if (!participant || !selectedSession) return
 
     try {
       setSaving(true)
       await api.updateGame({
         participantId: participant.id,
-        activity: 'other',
+        activity: activityName,
         day: selectedSession.dayKey,
         action: value ? 'join' : 'leave'
       })
-      setActivity(value)
+      setActivityStatus(prev => ({ ...prev, [activityName]: value }))
     } catch (err: any) {
       alert(`Failed to update activity: ${err.message}`)
     } finally {
@@ -882,21 +921,41 @@ export default function ScanPage() {
                     </label>
                   )}
 
-                  <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <CheckSquare className="w-5 h-5 text-purple-500" />
-                      <span className="font-medium">Activity</span>
-                    </div>
-                    <button
-                      onClick={() => handleToggleActivity(!activity)}
-                      disabled={saving}
-                      className={`w-12 h-6 rounded-full transition-colors ${activity ? 'bg-green-500' : 'bg-gray-300'
-                        } relative disabled:opacity-50`}
-                    >
-                      <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${activity ? 'translate-x-6' : 'translate-x-0'
-                        }`} />
-                    </button>
-                  </label>
+                  {selectedSession && DAY_ACTIVITIES[selectedSession.dayKey] ? (
+                    DAY_ACTIVITIES[selectedSession.dayKey].map((activityName) => (
+                      <label key={activityName} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <CheckSquare className="w-5 h-5 text-purple-500" />
+                          <span className="font-medium">{activityName}</span>
+                        </div>
+                        <button
+                          onClick={() => handleToggleActivity(activityName, !activityStatus[activityName])}
+                          disabled={saving}
+                          className={`w-12 h-6 rounded-full transition-colors ${activityStatus[activityName] ? 'bg-green-500' : 'bg-gray-300'
+                            } relative disabled:opacity-50`}
+                        >
+                          <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${activityStatus[activityName] ? 'translate-x-6' : 'translate-x-0'
+                            }`} />
+                        </button>
+                      </label>
+                    ))
+                  ) : (
+                    <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <CheckSquare className="w-5 h-5 text-purple-500" />
+                        <span className="font-medium">Activity</span>
+                      </div>
+                      <button
+                        onClick={() => handleToggleActivity('other', !activityStatus['other'])}
+                        disabled={saving}
+                        className={`w-12 h-6 rounded-full transition-colors ${activityStatus['other'] ? 'bg-green-500' : 'bg-gray-300'
+                          } relative disabled:opacity-50`}
+                      >
+                        <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${activityStatus['other'] ? 'translate-x-6' : 'translate-x-0'
+                          }`} />
+                      </button>
+                    </label>
+                  )}
                 </div>
 
                 {/* Comments */}

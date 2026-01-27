@@ -53,8 +53,27 @@ interface VoucherAnalytics {
   }
 }
 
+interface GeneralAnalytics {
+  participants: {
+    delegates: number
+    members: number
+    total: number
+    claimed: {
+      delegates: number
+      members: number
+      total: number
+    }
+  }
+  games?: {
+    totalSessions: number
+    uniquePlayers: number
+    popular: Array<{ activity: string; count: string }>
+  }
+}
+
 export default function AnalyticsPage() {
   const [data, setData] = useState<VoucherAnalytics | null>(null)
+  const [generalAnalytics, setGeneralAnalytics] = useState<GeneralAnalytics | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'delegates' | 'vendors' | 'types' | 'recent' | 'attendance'>('delegates')
@@ -85,7 +104,10 @@ export default function AnalyticsPage() {
       setLoading(true)
       setError(null)
       const analytics = await api.getVoucherAnalytics()
+      const general = await api.getAnalytics()
       setData(analytics)
+      setGeneralAnalytics(general)
+      console.log('Analytics data loaded:', general)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load voucher analytics'
       setError(errorMessage)
@@ -233,6 +255,97 @@ export default function AnalyticsPage() {
           </div>
         </div>
       </div>
+
+      {/* Claimed Accounts Card */}
+      {/* Claimed Accounts Card */}
+      {generalAnalytics?.participants?.claimed && (
+        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6 sm:mb-8">
+          <h2 className="text-lg font-semibold mb-4 text-gray-800">Account Activation</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-4 bg-green-50 rounded-lg border border-green-100">
+              <p className="text-sm text-green-800 mb-1">Total Claimed</p>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-green-700">{generalAnalytics.participants.claimed.total || 0}</span>
+                <span className="text-sm text-green-600">/ {generalAnalytics.participants.total || 0}</span>
+              </div>
+              <div className="w-full bg-green-200 h-1.5 rounded-full mt-2 overflow-hidden">
+                <div
+                  className="bg-green-500 h-full rounded-full"
+                  style={{ width: `${((generalAnalytics.participants.claimed.total || 0) / (generalAnalytics.participants.total || 1)) * 100}%` }}
+                ></div>
+              </div>
+            </div>
+
+            <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
+              <p className="text-sm text-blue-800 mb-1">Delegates Claimed</p>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-blue-700">{generalAnalytics.participants.claimed.delegates || 0}</span>
+                <span className="text-sm text-blue-600">/ {generalAnalytics.participants.delegates || 0}</span>
+              </div>
+              <div className="w-full bg-blue-200 h-1.5 rounded-full mt-2 overflow-hidden">
+                <div
+                  className="bg-blue-500 h-full rounded-full"
+                  style={{ width: `${((generalAnalytics.participants.claimed.delegates || 0) / (generalAnalytics.participants.delegates || 1)) * 100}%` }}
+                ></div>
+              </div>
+            </div>
+
+            <div className="p-4 bg-purple-50 rounded-lg border border-purple-100">
+              <p className="text-sm text-purple-800 mb-1">Members Claimed</p>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-purple-700">{generalAnalytics.participants.claimed.members || 0}</span>
+                <span className="text-sm text-purple-600">/ {generalAnalytics.participants.members || 0}</span>
+              </div>
+              <div className="w-full bg-purple-200 h-1.5 rounded-full mt-2 overflow-hidden">
+                <div
+                  className="bg-purple-500 h-full rounded-full"
+                  style={{ width: `${((generalAnalytics.participants.claimed.members || 0) / (generalAnalytics.participants.members || 1)) * 100}%` }}
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Games Analytics Card */}
+      {generalAnalytics?.games && (
+        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6 sm:mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <TrendingUp className="w-5 h-5 text-indigo-600" />
+            <h2 className="text-lg font-semibold text-gray-800">Games Analytics</h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
+              <p className="text-sm text-indigo-800 mb-1">Total Game Sessions</p>
+              <p className="text-3xl font-bold text-indigo-700">{generalAnalytics.games.totalSessions || 0}</p>
+            </div>
+            <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
+              <p className="text-sm text-purple-800 mb-1">Unique Players</p>
+              <p className="text-3xl font-bold text-purple-700">{generalAnalytics.games.uniquePlayers || 0}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="col-span-1 lg:col-span-2">
+              <h3 className="text-sm font-medium text-gray-500 uppercase mb-3">Popular Games (Unique Players)</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {generalAnalytics.games.popular?.slice(0, 5).map((game, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <span className="text-sm font-medium text-gray-700">{game.activity}</span>
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-800">
+                      {game.count} players
+                    </span>
+                  </div>
+                ))}
+                {(!generalAnalytics.games.popular || generalAnalytics.games.popular.length === 0) && (
+                  <p className="text-sm text-gray-400 italic col-span-2">No games played yet</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="bg-white rounded-lg shadow-md mb-6 overflow-hidden">

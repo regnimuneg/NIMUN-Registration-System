@@ -6,10 +6,17 @@ const router = express.Router()
 
 // Get analytics data
 router.get('/', async (_req: Request, res: Response) => {
+  console.log('GET /api/analytics - Fetching analytics data (v5 - unique users)')
   try {
     // Get participant counts
     const delegatesCount = await query('SELECT COUNT(*) as count FROM delegates').catch(() => ({ rows: [{ count: '0' }] }))
     const membersCount = await query('SELECT COUNT(*) as count FROM members').catch(() => ({ rows: [{ count: '0' }] }))
+
+    // Get claimed participants count
+    // Delegates: status = 'active'
+    // Members: claim_token_used = true
+    const claimedDelegatesCount = await query("SELECT COUNT(*) as count FROM delegates WHERE status = 'active'").catch(() => ({ rows: [{ count: '0' }] }))
+    const claimedMembersCount = await query('SELECT COUNT(*) as count FROM members WHERE claim_token_used = TRUE').catch(() => ({ rows: [{ count: '0' }] }))
 
     // Get attendance stats
     const attendanceStats = await query(`
@@ -43,11 +50,57 @@ router.get('/', async (_req: Request, res: Response) => {
       console.error('Voucher stats error (non-critical):', err)
     }
 
+    // Valid games list
+    const validGames = [
+      'SPRPRK Subsoccer',
+      'SPRPRK Foosball',
+      'SPRPRK Music Tiles',
+      'Adrenaline Target Shooting'
+    ]
+    const gamesListSql = validGames.map(g => `'${g}'`).join(', ')
+
+    // Get games stats
+    const totalSessions = await query(`
+      SELECT COUNT(*) as count 
+      FROM activity_timeline 
+      WHERE activity_type = 'game' 
+        AND metadata->>'action' = 'join'
+        AND metadata->>'activity' IN (${gamesListSql})
+    `).catch(() => ({ rows: [{ count: '0' }] }))
+
+    const uniquePlayers = await query(`
+      SELECT COUNT(DISTINCT user_id) as count 
+      FROM activity_timeline 
+      WHERE activity_type = 'game' 
+        AND metadata->>'action' = 'join'
+        AND metadata->>'activity' IN (${gamesListSql})
+    `).catch(() => ({ rows: [{ count: '0' }] }))
+
+    const popularGames = await query(`
+      SELECT metadata->>'activity' as activity, COUNT(DISTINCT user_id) as count
+      FROM activity_timeline
+      WHERE activity_type = 'game' 
+        AND metadata->>'action' = 'join'
+        AND metadata->>'activity' IN (${gamesListSql})
+      GROUP BY metadata->>'activity'
+      ORDER BY count DESC
+    `).catch(() => ({ rows: [] }))
+
     res.json({
       participants: {
         delegates: parseInt(delegatesCount.rows[0]?.count || '0', 10),
         members: parseInt(membersCount.rows[0]?.count || '0', 10),
-        total: parseInt(delegatesCount.rows[0]?.count || '0', 10) + parseInt(membersCount.rows[0]?.count || '0', 10)
+        total: parseInt(delegatesCount.rows[0]?.count || '0', 10) + parseInt(membersCount.rows[0]?.count || '0', 10),
+        claimed: {
+          delegates: parseInt(claimedDelegatesCount.rows[0]?.count || '0', 10),
+          members: parseInt(claimedMembersCount.rows[0]?.count || '0', 10),
+          total: parseInt(claimedDelegatesCount.rows[0]?.count || '0', 10) + parseInt(claimedMembersCount.rows[0]?.count || '0', 10)
+        }
+      },
+      games: {
+        totalSessions: parseInt(totalSessions.rows[0]?.count || '0', 10),
+        uniquePlayers: parseInt(uniquePlayers.rows[0]?.count || '0', 10),
+        popular: popularGames.rows
       },
       attendance: attendanceStats.rows,
       food: foodStats.rows,
@@ -60,7 +113,12 @@ router.get('/', async (_req: Request, res: Response) => {
       participants: {
         delegates: 0,
         members: 0,
-        total: 0
+        total: 0,
+        claimed: {
+          delegates: 0,
+          members: 0,
+          total: 0
+        }
       },
       attendance: [],
       food: [],
