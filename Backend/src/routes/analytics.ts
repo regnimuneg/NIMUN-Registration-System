@@ -15,7 +15,7 @@ router.get('/', async (_req: Request, res: Response) => {
     // Get claimed participants count
     // Delegates: status = 'active'
     // Members: claim_token_used = true
-    const claimedDelegatesCount = await query("SELECT COUNT(*) as count FROM delegates WHERE status = 'active'").catch(() => ({ rows: [{ count: '0' }] }))
+    const claimedDelegatesCount = await query('SELECT COUNT(*) as count FROM delegates WHERE claim_token_used = TRUE').catch(() => ({ rows: [{ count: '0' }] }))
     const claimedMembersCount = await query('SELECT COUNT(*) as count FROM members WHERE claim_token_used = TRUE').catch(() => ({ rows: [{ count: '0' }] }))
 
     // Get attendance stats
