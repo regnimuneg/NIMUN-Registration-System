@@ -24,7 +24,7 @@ const SESSION_OPTIONS: SessionOption[] = [
 const DAY_ACTIVITIES: Record<string, string[]> = {
   'sessions.day2': ['SPRPRK Subsoccer', 'SPRPRK Foosball'],
   'sessions.day3': ['SPRPRK Subsoccer', 'SPRPRK Foosball', 'SPRPRK Music Tiles'],
-  'sessions.day4': ['Adrenaline Target Shooting']
+  'sessions.day4': ['SPRPRK Subsoccer', 'SPRPRK Foosball']
 }
 
 export default function ScanPage() {
