@@ -236,17 +236,30 @@ export default function PortalLayout() {
               )}
 
               {isMember && (
-                <a
-                  href="/member/scanner"
-                  className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                  onClick={() => {
-                    setIsMobileMenuOpen(false)
-                    setMobileMemberOpen(false)
-                  }}
-                >
-                  <Smartphone className="w-5 h-5 mr-3" />
-                  Scanner
-                </a>
+                <>
+                  <a
+                    href="/member/participants"
+                    className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false)
+                      setMobileMemberOpen(false)
+                    }}
+                  >
+                    <Users className="w-5 h-5 mr-3" />
+                    Participants
+                  </a>
+                  <a
+                    href="/member/scanner"
+                    className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false)
+                      setMobileMemberOpen(false)
+                    }}
+                  >
+                    <Smartphone className="w-5 h-5 mr-3" />
+                    Scanner
+                  </a>
+                </>
               )}
             </div>
           </nav>
@@ -336,10 +349,16 @@ export default function PortalLayout() {
                   </>
                 )}
                 {isMember && (
-                  <a href="/member/scanner" className="nav-link flex items-center">
-                    <Smartphone className="w-4 h-4" />
-                    <span className="ml-2 hidden lg:inline text-base">Scanner</span>
-                  </a>
+                  <>
+                    <a href="/member/participants" className="nav-link flex items-center">
+                      <Users className="w-4 h-4" />
+                      <span className="ml-2 hidden lg:inline text-base">Participants</span>
+                    </a>
+                    <a href="/member/scanner" className="nav-link flex items-center">
+                      <Smartphone className="w-4 h-4" />
+                      <span className="ml-2 hidden lg:inline text-base">Scanner</span>
+                    </a>
+                  </>
                 )}
                 {isAuthenticated && (
                   <button
