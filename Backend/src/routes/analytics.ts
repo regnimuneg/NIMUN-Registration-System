@@ -18,6 +18,16 @@ router.get('/', async (_req: Request, res: Response) => {
     const claimedDelegatesCount = await query('SELECT COUNT(*) as count FROM delegates WHERE claim_token_used = TRUE').catch(() => ({ rows: [{ count: '0' }] }))
     const claimedMembersCount = await query('SELECT COUNT(*) as count FROM members WHERE claim_token_used = TRUE').catch(() => ({ rows: [{ count: '0' }] }))
 
+    // Get total attendance records from activity timeline
+    const totalAttendanceRecords = await query(`
+      SELECT COUNT(*) as count FROM activity_timeline WHERE activity_type = 'attendance'
+    `).catch(() => ({ rows: [{ count: '0' }] }))
+
+    // Get total bus tracking records from activity timeline
+    const totalBusRecords = await query(`
+      SELECT COUNT(*) as count FROM activity_timeline WHERE activity_type = 'bus'
+    `).catch(() => ({ rows: [{ count: '0' }] }))
+
     // Get attendance stats
     const attendanceStats = await query(`
       SELECT 
@@ -26,6 +36,24 @@ router.get('/', async (_req: Request, res: Response) => {
       FROM attendance_records
       GROUP BY session_type
     `).catch(() => ({ rows: [] }))
+
+    // Get bus stats (from delegates checking in)
+    // Approximation using delegates table where bus_checkin IS NOT NULL
+    const busStats = await query(`
+      SELECT 'day1' as session_type, COUNT(id) as count FROM delegates WHERE day1_bus_checkin IS NOT NULL
+      UNION ALL SELECT 'day2', COUNT(id) FROM delegates WHERE day2_bus_checkin IS NOT NULL
+      UNION ALL SELECT 'day3', COUNT(id) FROM delegates WHERE day3_bus_checkin IS NOT NULL
+      UNION ALL SELECT 'day4', COUNT(id) FROM delegates WHERE day4_bus_checkin IS NOT NULL
+      UNION ALL SELECT 'opening_ceremony', COUNT(id) FROM delegates WHERE opening_ceremony_bus_checkin IS NOT NULL
+      UNION ALL SELECT 'conf_day1', COUNT(id) FROM delegates WHERE conf_day1_bus_checkin IS NOT NULL
+      UNION ALL SELECT 'conf_day2', COUNT(id) FROM delegates WHERE conf_day2_bus_checkin IS NOT NULL
+      UNION ALL SELECT 'conf_day3', COUNT(id) FROM delegates WHERE conf_day3_bus_checkin IS NOT NULL
+    `).catch(() => ({ rows: [] }))
+
+    // Get total food claims from activity timeline
+    const totalFoodClaims = await query(`
+      SELECT COUNT(*) as count FROM activity_timeline WHERE activity_type = 'food'
+    `).catch(() => ({ rows: [{ count: '0' }] }))
 
     // Get food stats
     const foodStats = await query(`
@@ -102,8 +130,18 @@ router.get('/', async (_req: Request, res: Response) => {
         uniquePlayers: parseInt(uniquePlayers.rows[0]?.count || '0', 10),
         popular: popularGames.rows
       },
-      attendance: attendanceStats.rows,
-      food: foodStats.rows,
+      attendance: {
+        total: parseInt(totalAttendanceRecords.rows[0]?.count || '0', 10),
+        items: attendanceStats.rows
+      },
+      food: {
+        total: parseInt(totalFoodClaims.rows[0]?.count || '0', 10),
+        items: foodStats.rows
+      },
+      bus: {
+        total: parseInt(totalBusRecords.rows[0]?.count || '0', 10),
+        items: busStats.rows.filter((r: any) => parseInt(r.count, 10) > 0)
+      },
       vouchers: voucherStats
     })
   } catch (error) {
@@ -120,8 +158,9 @@ router.get('/', async (_req: Request, res: Response) => {
           total: 0
         }
       },
-      attendance: [],
-      food: [],
+      attendance: { total: 0, items: [] },
+      food: { total: 0, items: [] },
+      bus: { total: 0, items: [] },
       vouchers: {
         byDelegate: [],
         byVendor: []

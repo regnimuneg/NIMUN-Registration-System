@@ -141,20 +141,17 @@ export default function AnalyticsPage() {
     window.URL.revokeObjectURL(url)
   }
 
-  const handleExportAttendance = async () => {
+  const handleLoadAttendance = async () => {
     try {
       setLoadingAttendance(true)
       const result = await api.exportAttendance(attendanceFilters)
       setAttendanceData(result.data || [])
 
-      if (result.data && result.data.length > 0) {
-        const filename = `attendance_export_${new Date().toISOString().split('T')[0]}.csv`
-        exportToCSV(result.data, filename)
-      } else {
+      if (!result.data || result.data.length === 0) {
         alert('No attendance data found with the selected filters.')
       }
     } catch (err: any) {
-      alert(`Failed to export attendance: ${err.message}`)
+      alert(`Failed to load attendance: ${err.message}`)
     } finally {
       setLoadingAttendance(false)
     }
@@ -358,7 +355,7 @@ export default function AnalyticsPage() {
               { id: 'vendors', label: 'By Vendor', count: data.byVendor.length },
               { id: 'types', label: 'By Voucher Type', count: data.byVoucherType.length },
               { id: 'recent', label: 'Recent Claims', count: data.recentClaims.length },
-              { id: 'attendance', label: 'Attendance Export', count: 0 }
+              { id: 'attendance', label: 'Attendance Viewer', count: 0 }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -604,7 +601,7 @@ export default function AnalyticsPage() {
               <div className="mb-6">
                 <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
                   <Calendar className="w-5 h-5" />
-                  Export Attendance Data
+                  Attendance Viewer
                 </h2>
 
                 {/* Participant Type Selection */}
@@ -686,10 +683,12 @@ export default function AnalyticsPage() {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
                         <option value="">All Councils</option>
-                        <option value="UNHRC">UNHRC</option>
-                        <option value="ICJ">ICJ</option>
-                        <option value="DISEC">DISEC</option>
-                        <option value="PRESS">PRESS</option>
+                        <option value="Crisis Committee">Crisis Committee</option>
+                        <option value="International Maritime Organization (IMO)">International Maritime Organization (IMO)</option>
+                        <option value="International Press Committee">International Press Committee</option>
+                        <option value="United Nations High Commissioner for Refugees (UNHCR)">United Nations High Commissioner for Refugees (UNHCR)</option>
+                        <option value="United Nations Security Council (UNSC)">United Nations Security Council (UNSC)</option>
+                        <option value="United Nations Office on Drugs and Crime (UNODC)">United Nations Office on Drugs and Crime (UNODC)</option>
                       </select>
                     </div>
                   )}
@@ -725,28 +724,68 @@ export default function AnalyticsPage() {
                 </p>
 
                 <button
-                  onClick={handleExportAttendance}
+                  onClick={handleLoadAttendance}
                   disabled={loadingAttendance}
-                  className="flex items-center gap-2 px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {loadingAttendance ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" />
-                      Exporting...
+                      Loading Data...
                     </>
                   ) : (
                     <>
-                      <Download className="w-4 h-4" />
-                      Export Attendance CSV
+                      <BarChart3 className="w-4 h-4" />
+                      View Attendance Data
                     </>
                   )}
                 </button>
               </div>
               {attendanceData.length > 0 && (
                 <div className="mt-6">
-                  <p className="text-sm text-gray-600 mb-2">
-                    Found {attendanceData.length} attendance records. CSV file has been downloaded.
-                  </p>
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                    <p className="text-sm text-gray-600">
+                      Showing {attendanceData.length} records matching your filters.
+                    </p>
+                    <button
+                      onClick={() => {
+                        const filename = `attendance_export_${new Date().toISOString().split('T')[0]}.csv`
+                        exportToCSV(attendanceData, filename)
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-lg hover:bg-green-600 transition-colors"
+                    >
+                      <Download className="w-4 h-4" />
+                      Download CSV
+                    </button>
+                  </div>
+                  
+                  <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          {Object.keys(attendanceData[0]).map(key => (
+                            <th key={key} className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50 sticky top-0">
+                              {key.replace(/_/g, ' ')}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200 text-sm">
+                        {attendanceData.map((row, i) => (
+                          <tr key={i} className="hover:bg-gray-50 transition-colors">
+                            {Object.values(row).map((val: any, j) => (
+                              <td key={j} className="px-3 py-3 whitespace-nowrap text-gray-700">
+                                {val === 1 ? <span className="text-green-600 font-bold px-2 py-1 bg-green-50 rounded-md">✓ Present</span> : 
+                                 val === 0 ? <span className="text-red-500 font-bold px-2 py-1 bg-red-50 rounded-md">✗ Absent</span> :
+                                 val === null || val === undefined || val === '' ? <span className="text-gray-400 italic">-</span> :
+                                 val}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </div>

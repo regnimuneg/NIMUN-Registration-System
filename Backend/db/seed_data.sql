@@ -38,7 +38,7 @@ BEGIN
         'aaaaaaaa-0000-0000-0000-000000000001',
         'Head of Administration',
         'Executive',
-        '{"admin": true, "super_admin": true, "manage_all": true}',
+        '{"super_admin": true, "manage_all": true}',
         TRUE
     )
     ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, permissions = EXCLUDED.permissions;
@@ -93,8 +93,8 @@ END $$;
 -- Members table entries
 INSERT INTO members (id, user_id, role, committee, permissions, opening_ceremony_attended, opening_ceremony_food) VALUES
 ('EX-01', 'bbbbbbbb-0001-0000-0000-000000000001', 'Secretary General', 'Executive', '{"admin": true, "manage_delegates": true, "manage_members": true}', TRUE, TRUE),
-('EX-02', 'bbbbbbbb-0001-0000-0000-000000000002', 'Deputy Secretary General', 'Executive', '{"admin": true, "manage_delegates": true}', TRUE, TRUE),
-('RG-01', 'bbbbbbbb-0002-0000-0000-000000000001', 'Head Of Registration Affairs', 'Registration Affairs', '{"manage_delegates": true, "check_in": true}', TRUE, TRUE),
+('EX-02', 'bbbbbbbb-0001-0000-0000-000000000002', 'Deputy Secretary General', 'Executive', '{}', TRUE, TRUE),
+('RG-01', 'bbbbbbbb-0002-0000-0000-000000000001', 'Head Of Registration Affairs', 'Registration Affairs', '{"check_in": true}', TRUE, TRUE),
 ('RG-02', 'bbbbbbbb-0002-0000-0000-000000000002', 'Registration Staff', 'Registration Affairs', '{"check_in": true}', TRUE, TRUE),
 ('SO-01', 'bbbbbbbb-0003-0000-0000-000000000001', 'Head Of Socials & Events', 'Socials & Events', '{"manage_events": true, "manage_vouchers": true}', TRUE, TRUE),
 ('SO-02', 'bbbbbbbb-0003-0000-0000-000000000002', 'Social Events Coordinator', 'Socials & Events', '{"manage_events": true}', TRUE, TRUE),

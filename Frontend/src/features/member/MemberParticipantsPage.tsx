@@ -233,7 +233,10 @@ export default function MemberParticipantsPage() {
                                     // Deduplicate timeline entries - group by activity type and title, keep only latest
                                     const seen = new Map<string, any>()
                                     const deduplicated = history.timeline.filter((item: any) => {
-                                        const key = `${item.type || item.activity_type}_${item.activity || item.title}`
+                                        const baseKey = `${item.type || item.activity_type}_${item.activity || item.title}`
+                                        const key = (item.type === 'bus' || item.activity_type === 'bus')
+                                          ? `${baseKey}_${item.details || item.description}`
+                                          : baseKey
                                         const timestamp = new Date(item.timestamp || item.created_at).getTime()
                                         const existing = seen.get(key)
 

@@ -74,6 +74,13 @@ export const api = {
       body: JSON.stringify(data)
     }),
 
+  updateBus: (data: any) =>
+    callApi('/api/bus', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }),
+
   updateFood: (data: any) =>
     callApi('/api/food', {
       method: 'POST',

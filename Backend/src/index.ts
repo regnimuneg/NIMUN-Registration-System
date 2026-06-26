@@ -9,8 +9,8 @@ import attendanceRoutes from './routes/attendance.js'
 import foodRoutes from './routes/food.js'
 import gamesRoutes from './routes/games.js'
 import commentsRoutes from './routes/comments.js'
-// Bus routes commented out - not used for this event
-// import busRoutes from './routes/bus'
+// Bus routes
+import busRoutes from './routes/bus.js'
 import qrRoutes from './routes/qr.js'
 import importRoutes from './routes/import.js'
 import registerRoutes from './routes/register.js'
@@ -93,8 +93,8 @@ app.use('/api/attendance', attendanceRoutes)
 app.use('/api/food', foodRoutes)
 app.use('/api/games', gamesRoutes)
 app.use('/api/comments', commentsRoutes)
-// Bus routes commented out - not used for this event
-// app.use('/api/bus', busRoutes)
+// Bus routes
+app.use('/api/bus', busRoutes)
 app.use('/api/qr', qrRoutes)
 app.use('/api/import', importRoutes)
 app.use('/api/register', registerRoutes)

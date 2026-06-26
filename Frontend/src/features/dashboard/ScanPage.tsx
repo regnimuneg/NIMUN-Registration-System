@@ -22,11 +22,7 @@ const SESSION_OPTIONS: SessionOption[] = [
   { id: 'conference-day3', label: 'Conference Day #3', date: 'July 6th', dayKey: 'conference.day3' }
 ]
 
-const DAY_ACTIVITIES: Record<string, string[]> = {
-  'sessions.day2': ['SPRPRK Subsoccer', 'SPRPRK Foosball'],
-  'sessions.day3': ['SPRPRK Subsoccer', 'SPRPRK Foosball', 'SPRPRK Music Tiles'],
-  'sessions.day4': ['SPRPRK Subsoccer', 'SPRPRK Foosball']
-}
+const DAY_ACTIVITIES: Record<string, string[]> = {}
 
 export default function ScanPage() {
   const [selectedSession, setSelectedSession] = useState<SessionOption | null>(null)
@@ -50,6 +46,8 @@ export default function ScanPage() {
   const [activityStatus, setActivityStatus] = useState<Record<string, boolean>>({})
   const [checkInTime, setCheckInTime] = useState<string | null>(null)
   const [checkOutTime, setCheckOutTime] = useState<string | null>(null)
+  const [busCheckInTime, setBusCheckInTime] = useState<string | null>(null)
+  const [busCheckOutTime, setBusCheckOutTime] = useState<string | null>(null)
   const [comments, setComments] = useState('')
   const [existingComments, setExistingComments] = useState('')
   const [newComment, setNewComment] = useState('')
@@ -104,6 +102,8 @@ export default function ScanPage() {
           setActivityStatus({})
           setCheckInTime(null)
           setCheckOutTime(null)
+          setBusCheckInTime(null)
+          setBusCheckOutTime(null)
           setExistingComments('')
           setComments('')
           setNewComment('')
@@ -116,6 +116,8 @@ export default function ScanPage() {
             setAttendance(dayData.attended || false)
             if (dayData.checkin) setCheckInTime(dayData.checkin)
             if (dayData.checkout) setCheckOutTime(dayData.checkout)
+            if (dayData.busCheckIn) setBusCheckInTime(dayData.busCheckIn)
+            if (dayData.busCheckOut) setBusCheckOutTime(dayData.busCheckOut)
             // Load existing comments for this session
             if (dayData.comments) {
               setExistingComments(dayData.comments)
@@ -151,6 +153,8 @@ export default function ScanPage() {
           setActivityStatus({})
           setCheckInTime(null)
           setCheckOutTime(null)
+          setBusCheckInTime(null)
+          setBusCheckOutTime(null)
           setExistingComments('')
           setComments('')
           setNewComment('')
@@ -232,6 +236,19 @@ export default function ScanPage() {
     setLoading(true)
     setError(null)
     setParticipant(null)
+    // Reset all tracking state before loading new participant
+    setAttendance(false)
+    setBreakfast(false)
+    setLunch(false)
+    setCatering(false)
+    setActivityStatus({})
+    setCheckInTime(null)
+    setCheckOutTime(null)
+    setBusCheckInTime(null)
+    setBusCheckOutTime(null)
+    setExistingComments('')
+    setComments('')
+    setNewComment('')
 
     try {
       const data = await api.getParticipant(searchId, true)
@@ -290,6 +307,8 @@ export default function ScanPage() {
             setAttendance(dayData.attended || false)
             if (dayData.checkin) setCheckInTime(dayData.checkin)
             if (dayData.checkout) setCheckOutTime(dayData.checkout)
+            if (dayData.busCheckIn) setBusCheckInTime(dayData.busCheckIn)
+            if (dayData.busCheckOut) setBusCheckOutTime(dayData.busCheckOut)
             // Load existing comments for this session
             if (dayData.comments) {
               setExistingComments(dayData.comments)
@@ -332,6 +351,8 @@ export default function ScanPage() {
           setActivityStatus({})
           setCheckInTime(null)
           setCheckOutTime(null)
+          setBusCheckInTime(null)
+          setBusCheckOutTime(null)
           setComments('')
           setExistingComments('')
           setNewComment('')
@@ -375,6 +396,8 @@ export default function ScanPage() {
     setActivityStatus({})
     setCheckInTime(null)
     setCheckOutTime(null)
+    setBusCheckInTime(null)
+    setBusCheckOutTime(null)
     setComments('')
     setExistingComments('')
     setNewComment('')
@@ -424,6 +447,44 @@ export default function ScanPage() {
       // Don't change attendance state - they're still marked as present
     } catch (err: any) {
       alert(`Failed to check out: ${err.message}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleBusCheckIn = async () => {
+    if (!participant || !selectedSession) return
+
+    try {
+      setSaving(true)
+      const timestamp = new Date().toISOString()
+      await api.updateBus({
+        participantId: participant.id,
+        dayKey: selectedSession.dayKey,
+        checkIn: true
+      })
+      setBusCheckInTime(timestamp)
+    } catch (err: any) {
+      alert(`Failed to check in to bus: ${err.message}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleBusCheckOut = async () => {
+    if (!participant || !selectedSession) return
+
+    try {
+      setSaving(true)
+      const timestamp = new Date().toISOString()
+      await api.updateBus({
+        participantId: participant.id,
+        dayKey: selectedSession.dayKey,
+        checkOut: true
+      })
+      setBusCheckOutTime(timestamp)
+    } catch (err: any) {
+      alert(`Failed to check out of bus: ${err.message}`)
     } finally {
       setSaving(false)
     }
@@ -578,7 +639,7 @@ export default function ScanPage() {
           </div>
 
           {/* Session Selection */}
-          <div className="card mb-4 sm:mb-6 relative z-30">
+          <div className="card mb-4 sm:mb-6 relative z-20">
             <div className="flex items-center gap-2 mb-4">
               <Calendar className="w-5 h-5 text-[var(--color-primary-blue)]" />
               <h2 className="text-lg sm:text-xl font-black">Select Session</h2>
@@ -824,7 +885,7 @@ export default function ScanPage() {
                   <button
                     onClick={handleCheckIn}
                     disabled={saving || attendance || !!checkOutTime}
-                    className="flex items-center justify-center gap-2 px-4 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:text-white disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
                   >
                     <LogIn className="w-4 h-4" />
                     Check In
@@ -832,7 +893,7 @@ export default function ScanPage() {
                   <button
                     onClick={handleCheckOut}
                     disabled={saving || !attendance || !!checkOutTime}
-                    className="flex items-center justify-center gap-2 px-4 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-400 disabled:text-white disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
                   >
                     <LogOut className="w-4 h-4" />
                     {checkOutTime ? 'Checked Out' : 'Check Out'}
@@ -849,6 +910,40 @@ export default function ScanPage() {
                   <div className="mb-3 text-sm text-gray-600">
                     <Clock className="w-4 h-4 inline mr-1" />
                     Check-out: {new Date(checkOutTime).toLocaleString()}
+                  </div>
+                )}
+
+                {/* Bus Check-in/Check-out */}
+                <h4 className="text-md font-semibold mt-4 mb-2">Bus Tracking</h4>
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <button
+                    onClick={handleBusCheckIn}
+                    disabled={saving || !!busCheckInTime || !!busCheckOutTime}
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:text-white disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
+                  >
+                    <LogIn className="w-4 h-4" />
+                    Bus Check In
+                  </button>
+                  <button
+                    onClick={handleBusCheckOut}
+                    disabled={saving || !busCheckInTime || !!busCheckOutTime}
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 disabled:text-white disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    {busCheckOutTime ? 'Bus Checked Out' : 'Bus Check Out'}
+                  </button>
+                </div>
+
+                {busCheckInTime && (
+                  <div className="mb-3 text-sm text-gray-600">
+                    <Clock className="w-4 h-4 inline mr-1" />
+                    Bus Check-in: {new Date(busCheckInTime).toLocaleString()}
+                  </div>
+                )}
+                {busCheckOutTime && (
+                  <div className="mb-3 text-sm text-gray-600">
+                    <Clock className="w-4 h-4 inline mr-1" />
+                    Bus Check-out: {new Date(busCheckOutTime).toLocaleString()}
                   </div>
                 )}
 
@@ -952,12 +1047,12 @@ export default function ScanPage() {
                         <span className="font-medium">Activity</span>
                       </div>
                       <button
-                        onClick={() => handleToggleActivity('other', !activityStatus['other'])}
+                        onClick={() => handleToggleActivity('Activity', !activityStatus['Activity'])}
                         disabled={saving}
-                        className={`w-12 h-6 rounded-full transition-colors ${activityStatus['other'] ? 'bg-green-500' : 'bg-gray-300'
+                        className={`w-12 h-6 rounded-full transition-colors ${activityStatus['Activity'] ? 'bg-green-500' : 'bg-gray-300'
                           } relative disabled:opacity-50`}
                       >
-                        <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${activityStatus['other'] ? 'translate-x-6' : 'translate-x-0'
+                        <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${activityStatus['Activity'] ? 'translate-x-6' : 'translate-x-0'
                           }`} />
                       </button>
                     </label>

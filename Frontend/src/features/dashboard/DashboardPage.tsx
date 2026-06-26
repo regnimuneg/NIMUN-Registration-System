@@ -9,12 +9,13 @@ interface Analytics {
     members: number
     total: number
   }
-  attendance: Array<{ session_type: string; count: string }>
-  food: Array<{ meal_type: string; count: string }>
+  attendance: { total: number; items: Array<{ session_type: string; count: string }> }
+  food: { total: number; items: Array<{ meal_type: string; count: string }> }
   vouchers: {
     byDelegate: Array<{ delegate_id: string; delegate_name: string; usage_count: number }>
     byVendor: Array<{ vendor_name: string | null; usage_count: number }>
   }
+  bus?: { total: number; items: Array<{ event_date: string; count: string }> }
 }
 
 type ThemeColor = 'blue' | 'green' | 'orange' | 'purple' | 'pink'
@@ -168,7 +169,7 @@ export default function DashboardPage() {
               <div>
                 <p className="text-sm font-black text-[var(--jn-green)] mb-1">Attendance Records</p>
                 <p className="text-5xl font-black text-[var(--jn-green)] leading-none">
-                  {analytics.attendance.reduce((sum, a) => sum + parseInt(a.count || '0', 10), 0)}
+                  {analytics.attendance.total ?? 0}
                 </p>
               </div>
               <div className="jn-icon-tile">
@@ -176,7 +177,7 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="mt-4 text-sm text-gray-500">
-              <p>{analytics.attendance.length} session types</p>
+              <p>{analytics.attendance.items?.length ?? 0} session types</p>
             </div>
           </StickerCard>
 
@@ -185,7 +186,7 @@ export default function DashboardPage() {
               <div>
                 <p className="text-sm font-black text-[var(--jn-orange)] mb-1">Food Claims</p>
                 <p className="text-5xl font-black text-[var(--jn-orange)] leading-none">
-                  {analytics.food.reduce((sum, f) => sum + parseInt(f.count || '0', 10), 0)}
+                  {analytics.food.total ?? 0}
                 </p>
               </div>
               <div className="jn-icon-tile">
@@ -193,7 +194,7 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="mt-4 text-sm text-gray-500">
-              <p>{analytics.food.length} meal types</p>
+              <p>{analytics.food.items?.length ?? 0} meal types</p>
             </div>
           </StickerCard>
 
@@ -214,6 +215,25 @@ export default function DashboardPage() {
             </div>
             <img src="/element_05_x1163_y67_w148_h225.png" alt="" aria-hidden="true" className="jn-sticker -right-5 -top-6 w-14 rotate-12 opacity-95" />
           </StickerCard>
+
+          {analytics.bus && (
+            <StickerCard color="blue" className="lg:col-span-1">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-black text-[var(--jn-blue)] mb-1">Bus Check-ins</p>
+                  <p className="text-5xl font-black text-[var(--jn-blue)] leading-none">
+                    {analytics.bus.total ?? 0}
+                  </p>
+                </div>
+                <div className="jn-icon-tile">
+                  <BarChart3 className="w-8 h-8" />
+                </div>
+              </div>
+              <div className="mt-4 text-sm text-gray-500">
+                <p>{analytics.bus.items?.length ?? 0} active days</p>
+              </div>
+            </StickerCard>
+          )}
         </div>
 
         {/* Quick Actions */}
@@ -274,7 +294,7 @@ export default function DashboardPage() {
         <div>
           <h2 className="jn-section-title mb-3 sm:mb-4">Data Management</h2>
           <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">⚠️ Clear tracking data (use with caution)</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
             <button
               onClick={() => handleClearTracking('attendance')}
               disabled={clearing !== null}
@@ -301,6 +321,15 @@ export default function DashboardPage() {
             >
               <Trash2 className="w-4 h-4" />
               {clearing === 'games' ? 'Clearing...' : 'Clear Games'}
+            </button>
+            <button
+              onClick={() => handleClearTracking('bus')}
+              disabled={clearing !== null}
+              className="jn-sticker-button px-4 py-3"
+              style={buttonStyle('purple')}
+            >
+              <Trash2 className="w-4 h-4" />
+              {clearing === 'bus' ? 'Clearing...' : 'Clear Bus'}
             </button>
             <button
               onClick={() => handleClearTracking('all')}
