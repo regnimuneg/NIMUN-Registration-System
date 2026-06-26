@@ -3,7 +3,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        brand: '#0037c0',
+        brand: '#4e8ecb',
         'background-main': '#e5e5e5',
         'background-elevated': '#ffffff',
         'text-primary': '#000000',

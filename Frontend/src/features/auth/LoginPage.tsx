@@ -134,8 +134,15 @@ export default function LoginPage() {
       <div className="login-right-panel">
         <div className="login-form-container">
           <div className="login-card">
+            <img src="/element_05_x1163_y67_w148_h225.png" alt="" aria-hidden="true" className="login-card-sticker login-card-sticker-star" />
+            <img src="/sticker-dove.png" alt="" aria-hidden="true" className="login-card-sticker login-card-sticker-dove" />
             <h1 className="login-title">Welcome Back</h1>
-            <p className="login-subtitle">Sign in to access the registration system</p>
+
+            {import.meta.env.VITE_ENABLE_MOCK_AUTH === 'true' && (
+              <div className="login-error" style={{ color: '#195f8c', background: '#eaf4fa' }}>
+                Local demo: admin@local.test / admin123
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="login-form">
               <div className="login-input-group">

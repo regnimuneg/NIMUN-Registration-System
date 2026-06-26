@@ -11,14 +11,15 @@ interface SessionOption {
 }
 
 const SESSION_OPTIONS: SessionOption[] = [
-  { id: 'sessions-day1', label: 'Sessions Day 1', date: '25 Jan', dayKey: 'sessions.day1' },
-  { id: 'sessions-day2', label: 'Sessions Day 2', date: '26 Jan', dayKey: 'sessions.day2' },
-  { id: 'sessions-day3', label: 'Sessions Day 3', date: '27 Jan', dayKey: 'sessions.day3' },
-  { id: 'sessions-day4', label: 'Sessions Day 4', date: '28 Jan', dayKey: 'sessions.day4' },
-  { id: 'opening-ceremony', label: 'Opening Ceremony', date: '30 Jan', dayKey: 'openingCeremony' },
-  { id: 'conference-day1', label: 'Conference Day 1', date: '31 Jan', dayKey: 'conference.day1' },
-  { id: 'conference-day2', label: 'Conference Day 2', date: '1 Feb', dayKey: 'conference.day2' },
-  { id: 'conference-day3', label: 'Conference Day 3', date: '2 Feb', dayKey: 'conference.day3' }
+  { id: 'sessions-day1', label: 'Session #1', date: 'June 27th', dayKey: 'sessions.day1' },
+  { id: 'sessions-day2', label: 'Session #2', date: 'June 28th', dayKey: 'sessions.day2' },
+  { id: 'sessions-day3', label: 'Session #3', date: 'June 29th', dayKey: 'sessions.day3' },
+  { id: 'sessions-day4', label: 'Session #4', date: 'June 30th', dayKey: 'sessions.day4' },
+  { id: 'performance-day', label: 'Performance Day', date: 'July 1st', dayKey: 'performanceDay' },
+  { id: 'opening-ceremony', label: 'Opening', date: 'July 3rd', dayKey: 'openingCeremony' },
+  { id: 'conference-day1', label: 'Conference Day #1', date: 'July 4th', dayKey: 'conference.day1' },
+  { id: 'conference-day2', label: 'Conference Day #2', date: 'July 5th', dayKey: 'conference.day2' },
+  { id: 'conference-day3', label: 'Conference Day #3', date: 'July 6th', dayKey: 'conference.day3' }
 ]
 
 const DAY_ACTIVITIES: Record<string, string[]> = {
@@ -75,6 +76,8 @@ export default function ScanPage() {
     } else if (dayKey.startsWith('conference.')) {
       const dayNum = dayKey.replace('conference.', '') // e.g., 'day1'
       return dayTracking.conference?.[dayNum] || null
+    } else if (dayKey === 'performanceDay') {
+      return dayTracking.performanceDay || null
     } else if (dayKey === 'openingCeremony') {
       return dayTracking.openingCeremony || null
     }
@@ -556,6 +559,7 @@ export default function ScanPage() {
       'sessions.day2': 'day2',
       'sessions.day3': 'day3',
       'sessions.day4': 'day4',
+      'performanceDay': 'performance',
       'openingCeremony': 'opening_ceremony',
       'conference.day1': 'conf_day1',
       'conference.day2': 'conf_day2',
@@ -565,26 +569,26 @@ export default function ScanPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f5f5] w-full max-w-full overflow-x-hidden">
-      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 w-full max-w-full overflow-x-hidden">
+    <div className="jn-page">
+      <div className="jn-shell">
         <div className="max-w-4xl mx-auto w-full overflow-x-hidden">
-          <div className="mb-6 sm:mb-8">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">QR Code Scanner</h1>
+          <div className="mb-6 sm:mb-8 relative">
+            <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold mb-2">QR Code Scanner</h1>
             <p className="text-gray-600 text-sm sm:text-base md:text-lg">Select a session, then scan QR code or enter participant ID</p>
           </div>
 
           {/* Session Selection */}
-          <div className="card mb-4 sm:mb-6">
+          <div className="card mb-4 sm:mb-6 relative z-30">
             <div className="flex items-center gap-2 mb-4">
               <Calendar className="w-5 h-5 text-[var(--color-primary-blue)]" />
-              <h2 className="text-lg sm:text-xl font-bold">Select Session</h2>
+              <h2 className="text-lg sm:text-xl font-black">Select Session</h2>
             </div>
             <div className="w-full relative" ref={dropdownRef}>
               {/* Custom Dropdown Button */}
               <button
                 type="button"
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="w-full px-4 py-3.5 rounded-xl border-2 border-gray-200 bg-white hover:border-blue-300 focus:border-[var(--color-primary-blue)] focus:ring-2 focus:ring-blue-100 transition-all duration-200 flex items-center justify-between text-left shadow-sm hover:shadow-md"
+                className="w-full px-4 py-3.5 rounded-2xl border-2 border-[var(--jn-blue)] bg-white hover:border-[var(--jn-pink)] focus:border-[var(--jn-blue)] focus:ring-2 focus:ring-blue-100 transition-all duration-200 flex items-center justify-between text-left shadow-sm hover:shadow-md"
               >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   {selectedSession ? (
@@ -607,12 +611,13 @@ export default function ScanPage() {
 
               {/* Dropdown Menu */}
               {isDropdownOpen && (
-                <div className="absolute z-50 w-full mt-2 bg-white border-2 border-gray-200 rounded-xl shadow-xl overflow-hidden dropdown-menu">
+                <div className="absolute z-50 w-full mt-2 bg-white border-2 border-[var(--jn-blue)] rounded-3xl shadow-xl overflow-hidden dropdown-menu">
                   <div className="max-h-80 overflow-y-auto scrollbar-hide">
                     {SESSION_OPTIONS.map((session) => {
                       const isSelected = selectedSession?.id === session.id
                       const isSessions = session.dayKey.startsWith('sessions.')
                       const isConference = session.dayKey.startsWith('conference.')
+                      const isPerformance = session.dayKey === 'performanceDay'
                       const isOpening = session.dayKey === 'openingCeremony'
 
                       return (
@@ -630,6 +635,7 @@ export default function ScanPage() {
                             <div className="flex items-center gap-3 flex-1 min-w-0">
                               <div className={`flex-shrink-0 w-2 h-2 rounded-full ${isSessions ? 'bg-purple-500' :
                                 isConference ? 'bg-indigo-500' :
+                                  isPerformance ? 'bg-yellow-500' :
                                   isOpening ? 'bg-orange-500' : 'bg-gray-400'
                                 }`}></div>
                               <div className="flex-1 min-w-0">
@@ -665,7 +671,7 @@ export default function ScanPage() {
           {/* Camera Scanner */}
           <div className="card mb-4 sm:mb-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
-              <h2 className="text-lg sm:text-xl font-bold">Camera Scanner</h2>
+              <h2 className="text-lg sm:text-xl font-black">Camera Scanner</h2>
               {!isScanning ? (
                 <button
                   onClick={startScanning}

@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
+import type { CSSProperties } from 'react'
 import { useLocation, useNavigate, Outlet } from 'react-router-dom'
-import { Home, Settings, Smartphone, Search, User, BarChart3, Users, Menu, LogOut, X } from 'lucide-react'
+import { Home, Settings, Smartphone, User, BarChart3, Users, Menu, LogOut, X } from 'lucide-react'
 import { tokenManager, api } from '../lib/api'
 
 export default function PortalLayout() {
@@ -60,6 +61,22 @@ export default function PortalLayout() {
     }
   }, [isMobileMenuOpen])
 
+  const isActive = (paths: string[]) => paths.includes(location.pathname)
+
+  const adminLinks = [
+    { href: '/admin/dashboard', label: 'Dashboard', icon: Home, paths: ['/admin/dashboard', '/admin', '/dashboard'] },
+    { href: '/admin/analytics', label: 'Analytics', icon: BarChart3, paths: ['/admin/analytics', '/analytics'] },
+    { href: '/admin/register', label: 'Register', icon: User, paths: ['/admin/register', '/register'] },
+    { href: '/admin/import', label: 'Import CSV', icon: BarChart3, paths: ['/admin/import', '/import'] },
+    { href: '/admin/participants', label: 'Participants', icon: Users, paths: ['/admin/participants'] },
+    { href: '/member/scanner', label: 'Scanner', icon: Smartphone, paths: ['/member/scanner', '/scan'] }
+  ]
+
+  const memberLinks = [
+    { href: '/member/participants', label: 'Participants', icon: Users, paths: ['/member/participants'] },
+    { href: '/member/scanner', label: 'Scanner', icon: Smartphone, paths: ['/member/scanner', '/scan'] }
+  ]
+
   // Close sidebar when clicking outside
   useEffect(() => {
     if (isMobileMenuOpen) {
@@ -83,7 +100,7 @@ export default function PortalLayout() {
   }, [isMobileMenuOpen])
 
   return (
-    <div className="min-h-screen bg-background-main text-text-primary overflow-x-hidden">
+    <div className="min-h-screen text-text-primary overflow-x-hidden">
       {/* Backdrop overlay for mobile sidebar */}
       {isMobileMenuOpen && (
         <div
@@ -98,19 +115,19 @@ export default function PortalLayout() {
 
       {/* Mobile Sidebar */}
       <aside
-        className={`mobile-sidebar fixed top-0 right-0 h-screen w-80 max-w-[85vw] bg-white shadow-2xl z-50 md:hidden transform transition-transform duration-300 ease-in-out overflow-hidden ${isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
+        className={`mobile-sidebar fixed top-0 right-0 h-screen w-80 max-w-[85vw] bg-white shadow-2xl z-50 md:hidden transform transition-transform duration-300 ease-in-out overflow-hidden border-l-4 border-[var(--jn-pink)] ${isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
           }`}
       >
         <div className="flex flex-col h-full overflow-hidden">
           {/* Sidebar Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-200">
+          <div className="flex items-center justify-between p-4 border-b-2 border-white/30 bg-[var(--jn-blue)] bg-[url('/doodles.png')] bg-[length:420px_auto] text-white">
             <div className="flex items-center">
               <img
-                src="/logo24.png"
+                src="/element_01_x268_y31_w228_h189.png"
                 alt="NIMUN'26 Logo"
-                className="w-10 h-10 object-contain mr-3"
+                className="w-16 h-14 object-contain mr-3 drop-shadow"
               />
-              <span className="text-lg font-semibold text-black">NIMUN'26</span>
+              <span className="text-lg font-black">JNIMUN&apos;26</span>
             </div>
             <button
               onClick={() => {
@@ -118,7 +135,7 @@ export default function PortalLayout() {
                 setMobileAdminOpen(false)
                 setMobileMemberOpen(false)
               }}
-              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              className="p-2 rounded-xl hover:bg-white/15 transition-colors"
               aria-label="Close menu"
             >
               <X className="w-6 h-6" />
@@ -132,7 +149,7 @@ export default function PortalLayout() {
                 <>
                   <a
                     href="/admin/dashboard"
-                    className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                    className="flex items-center px-4 py-3 rounded-2xl text-base font-extrabold text-[var(--jn-blue)] hover:bg-blue-50 transition-colors"
                     onClick={() => {
                       setIsMobileMenuOpen(false)
                       setMobileAdminOpen(false)
@@ -144,7 +161,7 @@ export default function PortalLayout() {
 
                   <div>
                     <button
-                      className="w-full flex items-center justify-between px-4 py-3 rounded-lg text-base font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                      className="w-full flex items-center justify-between px-4 py-3 rounded-2xl text-base font-extrabold text-[var(--jn-blue)] hover:bg-blue-50 transition-colors"
                       onClick={() => setMobileAdminOpen(!mobileAdminOpen)}
                     >
                       <div className="flex items-center">
@@ -163,72 +180,20 @@ export default function PortalLayout() {
 
                     {mobileAdminOpen && (
                       <div className="ml-4 mt-1 space-y-1 animate-in slide-in-from-top-2 duration-200">
-                        <a
-                          href="/admin/dashboard"
-                          className="flex items-center px-4 py-2.5 rounded-lg text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                          onClick={() => {
-                            setIsMobileMenuOpen(false)
-                            setMobileAdminOpen(false)
-                          }}
-                        >
-                          <Home className="w-4 h-4 mr-3" />
-                          Dashboard
-                        </a>
-                        <a
-                          href="/admin/analytics"
-                          className="flex items-center px-4 py-2.5 rounded-lg text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                          onClick={() => {
-                            setIsMobileMenuOpen(false)
-                            setMobileAdminOpen(false)
-                          }}
-                        >
-                          <BarChart3 className="w-4 h-4 mr-3" />
-                          Analytics
-                        </a>
-                        <a
-                          href="/admin/register"
-                          className="flex items-center px-4 py-2.5 rounded-lg text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                          onClick={() => {
-                            setIsMobileMenuOpen(false)
-                            setMobileAdminOpen(false)
-                          }}
-                        >
-                          <User className="w-4 h-4 mr-3" />
-                          Register
-                        </a>
-                        <a
-                          href="/admin/import"
-                          className="flex items-center px-4 py-2.5 rounded-lg text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                          onClick={() => {
-                            setIsMobileMenuOpen(false)
-                            setMobileAdminOpen(false)
-                          }}
-                        >
-                          <BarChart3 className="w-4 h-4 mr-3" />
-                          Import CSV
-                        </a>
-                        <a
-                          href="/admin/participants"
-                          className="flex items-center px-4 py-2.5 rounded-lg text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                          onClick={() => {
-                            setIsMobileMenuOpen(false)
-                            setMobileAdminOpen(false)
-                          }}
-                        >
-                          <Users className="w-4 h-4 mr-3" />
-                          Participants
-                        </a>
-                        <a
-                          href="/member/scanner"
-                          className="flex items-center px-4 py-2.5 rounded-lg text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                          onClick={() => {
-                            setIsMobileMenuOpen(false)
-                            setMobileAdminOpen(false)
-                          }}
-                        >
-                          <Smartphone className="w-4 h-4 mr-3" />
-                          Scanner
-                        </a>
+                        {adminLinks.map(({ href, label, icon: Icon, paths }) => (
+                          <a
+                            key={href}
+                            href={href}
+                            className={`flex items-center px-4 py-2.5 rounded-2xl text-sm font-bold transition-colors ${isActive(paths) ? 'bg-[var(--jn-pink)] text-white' : 'text-gray-700 hover:bg-blue-50 hover:text-[var(--jn-blue)]'}`}
+                            onClick={() => {
+                              setIsMobileMenuOpen(false)
+                              setMobileAdminOpen(false)
+                            }}
+                          >
+                            <Icon className="w-4 h-4 mr-3" />
+                            {label}
+                          </a>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -239,7 +204,7 @@ export default function PortalLayout() {
                 <>
                   <a
                     href="/member/participants"
-                    className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                    className="flex items-center px-4 py-3 rounded-2xl text-base font-extrabold text-[var(--jn-blue)] hover:bg-blue-50 transition-colors"
                     onClick={() => {
                       setIsMobileMenuOpen(false)
                       setMobileMemberOpen(false)
@@ -250,7 +215,7 @@ export default function PortalLayout() {
                   </a>
                   <a
                     href="/member/scanner"
-                    className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                    className="flex items-center px-4 py-3 rounded-2xl text-base font-extrabold text-[var(--jn-blue)] hover:bg-blue-50 transition-colors"
                     onClick={() => {
                       setIsMobileMenuOpen(false)
                       setMobileMemberOpen(false)
@@ -274,7 +239,8 @@ export default function PortalLayout() {
                   setMobileAdminOpen(false)
                   setMobileMemberOpen(false)
                 }}
-                className="w-full flex items-center justify-center px-4 py-3 rounded-lg text-base font-medium text-white bg-red-500 hover:bg-red-600 transition-colors"
+                className="w-full jn-sticker-button px-4 py-3"
+                style={{ '--button-color': 'var(--jn-pink)' } as CSSProperties}
               >
                 <LogOut className="w-5 h-5 mr-2" />
                 Sign Out
@@ -286,28 +252,31 @@ export default function PortalLayout() {
 
       {/* Top Navbar */}
       <header className="w-full">
-        <div className="fixed top-2 md:top-4 left-2 right-2 md:left-1/2 md:right-auto md:transform md:-translate-x-1/2 z-30 md:w-[95%] md:max-w-6xl">
-          <nav className="rounded-full backdrop-blur-md bg-white shadow-lg px-4 py-2 md:px-6 border border-border transition-all duration-200">
+        <div className="fixed top-0 left-0 right-0 z-30">
+          <nav className="bg-[var(--jn-blue)] bg-[url('/doodles.png')] bg-[length:720px_auto] px-4 sm:px-6 lg:px-10 py-3 md:py-4 shadow-[0_8px_24px_rgba(78,142,203,0.28)] transition-all duration-200">
             <div className="flex justify-between items-center">
-              <a href="/admin/dashboard" className="flex items-center">
+              <a href="/admin/dashboard" className="flex items-center min-w-0">
                 <img
-                  src="/logo24.png"
+                  src="/element_01_x268_y31_w228_h189.png"
                   alt="NIMUN'26 Logo"
-                  className="w-10 h-10 md:w-12 md:h-12 object-contain mr-3"
+                  className="w-16 h-14 md:w-20 md:h-16 object-contain mr-3 drop-shadow-lg"
                 />
                 <div className="flex flex-col">
-                  <span className="text-lg font-semibold text-black hidden sm:block">
-                    NIMUN'26 System
+                  <span className="text-lg sm:text-2xl font-black text-white hidden sm:block leading-none">
+                    JNIMUN&apos;<span className="text-[var(--jn-pink)]">26</span> System
                   </span>
-                  <span className="text-base font-semibold text-black block sm:hidden">
-                    NIMUN'26
+                  <span className="text-base font-black text-white block sm:hidden">
+                    JNIMUN&apos;<span className="text-[var(--jn-pink)]">26</span>
                   </span>
                 </div>
               </a>
               <div className="hidden md:flex items-center space-x-2">
                 {isAdmin && (
                   <>
-                    <a href="/admin/dashboard" className="nav-link flex items-center">
+                    <a
+                      href="/admin/dashboard"
+                      className={`nav-link flex items-center border-2 border-white/80 ${isActive(['/admin/dashboard', '/admin', '/dashboard']) ? 'bg-[var(--jn-pink)] shadow-[0_4px_0_rgba(0,0,0,0.18)]' : 'bg-white/0'}`}
+                    >
                       <Home className="w-4 h-4" />
                       <span className="ml-2 hidden lg:inline text-base">Dashboard</span>
                     </a>
@@ -319,53 +288,35 @@ export default function PortalLayout() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                         </svg>
                       </button>
-                      <div className="absolute right-0 w-56 bg-white/95 backdrop-blur-md text-gray-900 rounded-2xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 border border-white/20 mt-2">
-                        <a href="/admin/dashboard" className="flex items-center px-4 py-3 hover:bg-gray-100 rounded-t-2xl text-base font-medium transition-colors">
-                          <Settings className="w-5 h-5 mr-3" />
-                          Admin Dashboard
-                        </a>
-                        <a href="/admin/analytics" className="flex items-center px-4 py-3 hover:bg-gray-100 text-base font-medium transition-colors">
-                          <BarChart3 className="w-5 h-5 mr-3" />
-                          Analytics
-                        </a>
-                        <a href="/admin/register" className="flex items-center px-4 py-3 hover:bg-gray-100 text-base font-medium transition-colors">
-                          <User className="w-5 h-5 mr-3" />
-                          Register
-                        </a>
-                        <a href="/admin/import" className="flex items-center px-4 py-3 hover:bg-gray-100 text-base font-medium transition-colors">
-                          <BarChart3 className="w-5 h-5 mr-3" />
-                          Import CSV
-                        </a>
-                        <a href="/admin/participants" className="flex items-center px-4 py-3 hover:bg-gray-100 text-base font-medium transition-colors">
-                          <Users className="w-5 h-5 mr-3" />
-                          Participants
-                        </a>
-                        <a href="/member/scanner" className="flex items-center px-4 py-3 hover:bg-gray-100 rounded-b-2xl text-base font-medium transition-colors">
-                          <Smartphone className="w-5 h-5 mr-3" />
-                          Scanner
-                        </a>
+                      <div className="absolute right-0 w-60 bg-white/95 backdrop-blur-md text-gray-900 rounded-3xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 border-2 border-[var(--jn-blue)] mt-3 overflow-hidden">
+                        {adminLinks.map(({ href, label, icon: Icon, paths }) => (
+                          <a
+                            key={href}
+                            href={href}
+                            className={`flex items-center px-4 py-3 text-base font-extrabold transition-colors ${isActive(paths) ? 'bg-[var(--jn-pink)] text-white' : 'hover:bg-blue-50 text-gray-800'}`}
+                          >
+                            <Icon className="w-5 h-5 mr-3" />
+                            {label}
+                          </a>
+                        ))}
                       </div>
                     </div>
                   </>
                 )}
                 {isMember && (
-                  <>
-                    <a href="/member/participants" className="nav-link flex items-center">
-                      <Users className="w-4 h-4" />
-                      <span className="ml-2 hidden lg:inline text-base">Participants</span>
+                  memberLinks.map(({ href, label, icon: Icon, paths }) => (
+                    <a key={href} href={href} className={`nav-link flex items-center border-2 border-white/80 ${isActive(paths) ? 'bg-[var(--jn-pink)] shadow-[0_4px_0_rgba(0,0,0,0.18)]' : ''}`}>
+                      <Icon className="w-4 h-4" />
+                      <span className="ml-2 hidden lg:inline text-base">{label}</span>
                     </a>
-                    <a href="/member/scanner" className="nav-link flex items-center">
-                      <Smartphone className="w-4 h-4" />
-                      <span className="ml-2 hidden lg:inline text-base">Scanner</span>
-                    </a>
-                  </>
+                  ))
                 )}
                 {isAuthenticated && (
                   <button
                     onClick={handleSignOut}
-                    className="nav-link flex items-center text-red-600 hover:text-red-700 hover:bg-red-50 ml-2"
+                    className="nav-link flex items-center border-2 border-white/80 ml-2"
                   >
-                    <LogOut className="w-4 h-4" />
+                    <LogOut className="w-4 h-4 text-[var(--jn-pink)]" />
                     <span className="ml-2 hidden lg:inline text-base">Sign Out</span>
                   </button>
                 )}
@@ -374,14 +325,14 @@ export default function PortalLayout() {
                 {isAuthenticated && (
                   <button
                     onClick={handleSignOut}
-                    className="nav-link text-red-600"
+                    className="nav-link border-2 border-white/70"
                     aria-label="Sign out"
                   >
                     <LogOut className="h-5 w-5" />
                   </button>
                 )}
                 <button
-                  className="mobile-menu-toggle nav-link"
+                  className="mobile-menu-toggle nav-link border-2 border-white/70"
                   onClick={toggleMobileMenu}
                   aria-label="Toggle mobile menu"
                 >
@@ -392,8 +343,8 @@ export default function PortalLayout() {
           </nav>
         </div>
       </header>
-      <main className="pt-16 sm:pt-20 md:pt-24 pb-4 sm:pb-8 px-2 sm:px-4 md:px-6 overflow-x-hidden w-full max-w-full">
-        <div className="mx-auto w-full max-w-6xl min-w-0 overflow-x-hidden">
+      <main className="pt-24 sm:pt-28 md:pt-32 pb-4 sm:pb-8 px-2 sm:px-4 md:px-6 overflow-x-hidden w-full max-w-full">
+        <div className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden">
           <Outlet />
         </div>
       </main>

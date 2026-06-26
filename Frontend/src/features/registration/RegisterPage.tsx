@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { CSSProperties } from 'react'
 import { api } from '../../lib/api'
 import { UserPlus, CheckCircle, XCircle, RefreshCw } from 'lucide-react'
 
@@ -73,17 +74,18 @@ export default function RegisterPage() {
   const isDelegate = delegateCouncils.includes(formData.council || formData.position)
 
   return (
-    <div className="min-h-screen bg-[#f5f5f5] w-full max-w-full overflow-x-hidden">
-      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 w-full max-w-full overflow-x-hidden">
+    <div className="jn-page">
+      <div className="jn-shell">
         <div className="max-w-4xl mx-auto w-full overflow-x-hidden">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold mb-2">Register Participant</h1>
+              <h1 className="text-2xl sm:text-4xl font-bold mb-2">Register Participant</h1>
               <p className="text-gray-600 text-sm sm:text-base">Register a new participant to the system</p>
             </div>
           </div>
 
-          <div className="p-4 sm:p-6 mb-4 sm:mb-6">
+          <div className="jn-card p-4 sm:p-6 mb-4 sm:mb-6" style={{ '--card-color': 'var(--jn-blue)' } as CSSProperties}>
+            <img src="/sticker-handshake.png" alt="" aria-hidden="true" className="hidden sm:block jn-sticker -right-6 -top-6 rotate-12" />
             <form onSubmit={handleSingleRegister} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
@@ -173,7 +175,8 @@ export default function RegisterPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full md:w-auto px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                className="jn-sticker-button w-full md:w-auto px-6 py-3 flex items-center gap-2"
+                style={{ '--button-color': 'var(--jn-blue)' } as CSSProperties}
               >
                 {loading ? (
                   <>

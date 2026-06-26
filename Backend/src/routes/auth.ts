@@ -25,6 +25,33 @@ router.post('/login', async (req: Request, res: Response) => {
       })
     }
 
+    // Local development account for exploring the UI without a database.
+    // It is opt-in and cannot be enabled when running in production.
+    const mockAuthEnabled = process.env.NODE_ENV !== 'production' && process.env.MOCK_AUTH_ENABLED === 'true'
+    const mockAdminEmail = process.env.MOCK_ADMIN_EMAIL || 'admin@local.test'
+    const mockAdminPassword = process.env.MOCK_ADMIN_PASSWORD || 'admin123'
+
+    if (mockAuthEnabled && username === mockAdminEmail && password === mockAdminPassword) {
+      const { token, expiresAt } = generateToken()
+
+      return res.json({
+        success: true,
+        token: `mock-${token}`,
+        expiresAt: expiresAt.toISOString(),
+        role: 'admin',
+        user: {
+          id: 'MOCK-ADMIN',
+          userId: 'mock-admin',
+          username: mockAdminEmail,
+          name: 'Local Admin',
+          role: 'admin',
+          email: mockAdminEmail,
+          committee: 'Development',
+          council: null
+        }
+      })
+    }
+
     // Check if user exists in database by email
     // Also check if they're a member (by member ID or email)
     const userCheck = await query(`

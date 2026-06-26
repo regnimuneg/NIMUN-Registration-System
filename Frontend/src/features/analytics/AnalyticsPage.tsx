@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import type { CSSProperties } from 'react'
 import { api } from '../../lib/api'
 import { BarChart3, Users, Store, TrendingUp, RefreshCw, Download, Calendar } from 'lucide-react'
 
@@ -189,13 +190,14 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 w-full max-w-full overflow-x-hidden">
+    <div className="jn-shell">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold">Voucher Analytics</h1>
+        <h1 className="text-2xl sm:text-4xl font-bold">Voucher Analytics</h1>
         <div className="flex gap-2 w-full sm:w-auto">
           <button
             onClick={loadAnalytics}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm sm:text-base flex-1 sm:flex-none justify-center"
+            className="jn-sticker-button flex items-center gap-2 px-4 py-2 text-sm sm:text-base flex-1 sm:flex-none justify-center"
+            style={{ '--button-color': 'var(--jn-blue)' } as CSSProperties}
           >
             <RefreshCw className="w-4 h-4" />
             Refresh
@@ -348,7 +350,7 @@ export default function AnalyticsPage() {
       )}
 
       {/* Tabs */}
-      <div className="bg-white rounded-lg shadow-md mb-6 overflow-hidden">
+      <div className="jn-card mb-6 overflow-hidden" style={{ '--card-color': 'var(--jn-purple)' } as CSSProperties}>
         <div className="border-b border-gray-200 overflow-x-hidden">
           <nav className="flex -mb-px overflow-x-auto overflow-y-hidden scrollbar-hide max-w-full">
             {[

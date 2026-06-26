@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,10 +6,24 @@
 
 :root {
   font-family: Montserrat, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --nimun-blue: #0037c0;
-  --nimun-blue-light: #0048e6;
-  --nimun-blue-dark: #002a99;
-  --nimun-blue-bg: #f0f4ff;
+  --jn-blue: #4e8ecb;
+  --jn-blue-light: #6fb0e0;
+  --jn-blue-dark: #2f6fa7;
+  --jn-pink: #ff3f78;
+  --jn-yellow: #ffd84d;
+  --jn-green: #17b978;
+  --jn-orange: #ff8a1f;
+  --jn-purple: #9b4de8;
+  --jn-cream: #fffdf6;
+  --jn-ink: #111827;
+  --jn-muted: #5b6577;
+  --jn-border: #1d2b53;
+  --jn-shadow: 0 14px 0 rgba(78, 142, 203, 0.1), 0 16px 32px rgba(31, 41, 55, 0.12);
+  --jn-page-doodle-overlay: rgba(255, 253, 246, 0.74);
+  --nimun-blue: var(--jn-blue);
+  --nimun-blue-light: var(--jn-blue-light);
+  --nimun-blue-dark: var(--jn-blue-dark);
+  --nimun-blue-bg: #edf6fd;
 }
 
 * {
@@ -25,8 +39,11 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
-  background-color: #f5f5f5;
-  color: #000000;
+  background-color: var(--jn-cream);
+  background-image: linear-gradient(var(--jn-page-doodle-overlay), var(--jn-page-doodle-overlay)), url('/doodles.png');
+  background-size: auto, 680px auto;
+  background-attachment: fixed;
+  color: var(--jn-ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
@@ -60,28 +77,170 @@ body {
 
 @layer components {
   .nav-link {
-    @apply px-4 py-2 rounded-full transition-all duration-200 font-medium text-black;
+    @apply px-4 py-2 rounded-2xl transition-all duration-200 font-extrabold;
+    color: white;
   }
 
   .nav-link:hover {
-    color: var(--nimun-blue);
-    background-color: rgba(0, 55, 192, 0.08);
+    color: white;
+    background-color: rgba(255, 255, 255, 0.16);
   }
 
   .card {
-    @apply bg-white rounded-xl shadow-md p-6 transition-shadow hover:shadow-lg;
+    @apply bg-white p-6 transition-all;
+    position: relative;
+    border: 2px solid rgba(78, 142, 203, 0.36);
+    border-radius: 1.5rem;
+    box-shadow: var(--jn-shadow);
+    overflow: visible;
+    z-index: 0;
   }
 
   .btn-primary {
-    @apply bg-[#0037c0] text-white px-6 py-3 rounded-lg font-medium transition-all hover:bg-[#0048e6] active:bg-[#002a99];
+    @apply text-white px-6 py-3 font-extrabold transition-all;
+    background: linear-gradient(135deg, var(--jn-blue), var(--jn-blue-light));
+    border: 2px solid white;
+    border-radius: 1rem;
+    box-shadow: 0 4px 0 var(--jn-blue-dark), 0 10px 18px rgba(78, 142, 203, 0.28);
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px) rotate(-0.4deg);
+    box-shadow: 0 6px 0 var(--jn-blue-dark), 0 14px 20px rgba(78, 142, 203, 0.32);
+  }
+
+  .btn-primary:active {
+    transform: translateY(2px);
+    box-shadow: 0 2px 0 var(--jn-blue-dark), 0 8px 14px rgba(78, 142, 203, 0.26);
   }
 
   .btn-secondary {
-    @apply bg-gray-100 text-gray-700 px-6 py-3 rounded-lg font-medium transition-all hover:bg-gray-200;
+    @apply bg-white px-6 py-3 font-extrabold transition-all;
+    color: var(--jn-blue-dark);
+    border: 2px solid var(--jn-blue);
+    border-radius: 1rem;
+    box-shadow: 0 4px 0 rgba(78, 142, 203, 0.22);
+  }
+
+  .btn-secondary:hover {
+    transform: translateY(-2px);
+    background: #eef5ff;
+  }
+
+  .jn-page {
+    @apply w-full max-w-full overflow-x-hidden;
+  }
+
+  .jn-shell {
+    @apply container mx-auto px-3 sm:px-4 py-4 sm:py-8 w-full max-w-full overflow-x-hidden;
+  }
+
+  .jn-title {
+    @apply font-black tracking-tight text-3xl sm:text-4xl md:text-5xl;
+    color: #0a0a0a;
+    line-height: 0.95;
+    text-wrap: balance;
+  }
+
+  .jn-section-title {
+    @apply font-black tracking-tight text-2xl sm:text-3xl;
+    color: #0a0a0a;
+    line-height: 1;
+  }
+
+  .jn-underline {
+    position: relative;
+    display: inline-block;
+  }
+
+  .jn-underline::after {
+    content: '';
+    position: absolute;
+    left: -0.12em;
+    right: -0.12em;
+    bottom: -0.12em;
+    height: 0.16em;
+    border-radius: 999px;
+    background: var(--jn-pink);
+    transform: rotate(-1deg);
+    z-index: -1;
+  }
+
+  .jn-subtitle {
+    @apply mt-3 text-sm sm:text-base md:text-lg;
+    color: var(--jn-muted);
+  }
+
+  .jn-card {
+    @apply bg-white transition-all;
+    position: relative;
+    border: 2px solid var(--card-color, rgba(78, 142, 203, 0.42));
+    border-radius: 1.5rem;
+    box-shadow: var(--jn-shadow);
+    overflow: visible;
+    z-index: 0;
+  }
+
+  .jn-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 16px 0 rgba(78, 142, 203, 0.1), 0 22px 38px rgba(31, 41, 55, 0.15);
+  }
+
+  .jn-card::before {
+    content: none;
+  }
+
+  .jn-icon-tile {
+    @apply inline-flex items-center justify-center;
+    width: 3.75rem;
+    height: 3.75rem;
+    border-radius: 1rem;
+    background: color-mix(in srgb, var(--card-color, var(--jn-blue)) 16%, white);
+    color: var(--card-color, var(--jn-blue));
+  }
+
+  .jn-sticker {
+    position: absolute;
+    width: clamp(3.2rem, 7vw, 4.8rem);
+    height: auto;
+    object-fit: contain;
+    filter: drop-shadow(0 7px 0 rgba(255, 63, 120, 0.22)) drop-shadow(0 10px 14px rgba(17, 24, 39, 0.16));
+    pointer-events: none;
+    user-select: none;
+    z-index: 5;
+  }
+
+  .jn-sticker-button {
+    @apply inline-flex items-center justify-center gap-2 font-extrabold transition-all disabled:opacity-50 disabled:cursor-not-allowed;
+    min-height: 2.85rem;
+    color: white;
+    background: var(--button-color, var(--jn-blue));
+    border: 2px solid white;
+    border-radius: 1rem;
+    box-shadow: 0 4px 0 color-mix(in srgb, var(--button-color, var(--jn-blue)) 68%, black), 0 10px 18px rgba(17, 24, 39, 0.16);
+  }
+
+  .jn-sticker-button:hover:not(:disabled) {
+    transform: translateY(-2px) rotate(-0.35deg);
+  }
+
+  .jn-sticker-button:focus-visible,
+  .btn-primary:focus-visible,
+  .btn-secondary:focus-visible,
+  .nav-link:focus-visible {
+    outline: 3px solid var(--jn-yellow);
+    outline-offset: 3px;
+  }
+
+  .jn-chip {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-extrabold;
+    border: 2px solid currentColor;
+    background: white;
   }
 
   .dropdown-menu {
     animation: dropdownFadeIn 0.2s ease-out;
+    z-index: 80;
   }
 
   @keyframes dropdownFadeIn {
@@ -94,4 +253,209 @@ body {
       transform: translateY(0);
     }
   }
+}
+
+main {
+  position: relative;
+}
+
+main::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: linear-gradient(var(--jn-page-doodle-overlay), var(--jn-page-doodle-overlay)), url('/doodles.png');
+  background-size: auto, 680px auto;
+  background-attachment: fixed;
+}
+
+main h1:not(.unstyled-title) {
+  font-weight: 900;
+  letter-spacing: -0.055em;
+  color: #070707;
+  line-height: 0.98;
+}
+
+main h1:not(.unstyled-title)::after {
+  content: '';
+  display: block;
+  width: min(100%, 18rem);
+  height: 0.32rem;
+  margin-top: 0.45rem;
+  border-radius: 999px;
+  background: var(--jn-pink);
+  transform: rotate(-1.5deg);
+}
+
+main h2:not(.unstyled-title) {
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+main input,
+main select,
+main textarea {
+  border: 2px solid rgba(78, 142, 203, 0.28) !important;
+  border-radius: 1rem !important;
+  background-color: rgba(255, 255, 255, 0.92) !important;
+  box-shadow: 0 3px 0 rgba(78, 142, 203, 0.1);
+}
+
+main input:focus,
+main select:focus,
+main textarea:focus {
+  outline: none !important;
+  border-color: var(--jn-blue) !important;
+  box-shadow: 0 0 0 4px rgba(78, 142, 203, 0.2), 0 3px 0 rgba(78, 142, 203, 0.14) !important;
+}
+
+main label {
+  font-weight: 800 !important;
+  color: #273247 !important;
+}
+
+main [class*="min-h-screen"][class*="bg-white"],
+main [class*="min-h-screen"][class*="bg-[#f5f5f5]"],
+main [class*="min-h-screen"][class*="bg-["] {
+  background: transparent !important;
+  min-height: auto;
+}
+
+main table {
+  background: white;
+}
+
+main thead {
+  background: #eef5ff !important;
+}
+
+main th {
+  color: var(--jn-blue-dark) !important;
+  font-weight: 900 !important;
+}
+
+main tbody tr {
+  transition: background-color 0.18s ease, transform 0.18s ease;
+}
+
+main tbody tr:hover {
+  background: #fff7df !important;
+}
+
+main [class*="bg-white"][class*="rounded-lg"][class*="shadow"],
+main [class*="bg-white"][class*="rounded-xl"][class*="shadow"],
+main [class*="bg-white"][class*="rounded-lg"][class*="border"],
+main [class*="bg-white"][class*="rounded-xl"][class*="border"],
+main [class~="card"] {
+  border: 2px solid rgba(78, 142, 203, 0.28) !important;
+  border-radius: 1.45rem !important;
+  box-shadow: var(--jn-shadow) !important;
+  background-color: rgba(255, 255, 255, 0.94) !important;
+}
+
+main [class*="bg-gray-50"][class*="rounded-lg"],
+main [class*="bg-blue-50"][class*="rounded-lg"],
+main [class*="bg-green-50"][class*="rounded-lg"],
+main [class*="bg-purple-50"][class*="rounded-lg"],
+main [class*="bg-indigo-50"][class*="rounded-lg"],
+main [class*="bg-orange-50"][class*="rounded-lg"] {
+  border: 2px solid rgba(78, 142, 203, 0.18);
+  border-radius: 1.15rem !important;
+  background-image: linear-gradient(rgba(255,255,255,0.72), rgba(255,255,255,0.72)), url('/doodles.png');
+  background-size: auto, 360px auto;
+}
+
+main button[class*="bg-blue-500"],
+main button[class*="bg-green-500"],
+main button[class*="bg-red-500"],
+main button[class*="bg-red-600"],
+main button[class*="bg-gray-200"],
+main a[class*="bg-blue-500"],
+main a[class*="bg-green-500"] {
+  border-radius: 1rem !important;
+  border: 2px solid white !important;
+  font-weight: 800 !important;
+  box-shadow: 0 4px 0 rgba(17, 24, 39, 0.18), 0 10px 18px rgba(17, 24, 39, 0.12) !important;
+}
+
+main button,
+main a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+main .overflow-x-auto {
+  border-radius: 1.25rem;
+}
+
+@media (max-width: 768px) {
+  main::before,
+  body {
+    background-size: auto, 520px auto;
+  }
+
+  main h1:not(.unstyled-title)::after {
+    height: 0.24rem;
+  }
+}
+
+/* Keep legacy Tailwind blue utilities aligned with the JNIMUN blue sample. */
+.text-blue-500,
+.text-blue-600 {
+  color: var(--jn-blue) !important;
+}
+
+.text-blue-700,
+.text-blue-800 {
+  color: var(--jn-blue-dark) !important;
+}
+
+.bg-blue-500,
+.bg-blue-600 {
+  background-color: var(--jn-blue) !important;
+}
+
+.hover\:bg-blue-50:hover,
+.bg-blue-50 {
+  background-color: #edf6fd !important;
+}
+
+.bg-blue-100 {
+  background-color: #dceefa !important;
+}
+
+.bg-blue-200 {
+  background-color: #c5e0f5 !important;
+}
+
+.hover\:bg-blue-600:hover {
+  background-color: var(--jn-blue-dark) !important;
+}
+
+.border-blue-100,
+.border-blue-200,
+.border-blue-300,
+.border-blue-500 {
+  border-color: var(--jn-blue) !important;
+}
+
+.hover\:border-blue-500:hover {
+  border-color: var(--jn-blue) !important;
+}
+
+.border-l-blue-500 {
+  border-left-color: var(--jn-blue) !important;
+}
+
+.focus\:ring-blue-100:focus {
+  --tw-ring-color: rgba(78, 142, 203, 0.22) !important;
+}
+
+.focus\:ring-blue-500:focus {
+  --tw-ring-color: rgba(78, 142, 203, 0.48) !important;
+}
+
+.focus\:border-blue-500:focus,
+.focus\:border-blue-300:focus {
+  border-color: var(--jn-blue) !important;
 }

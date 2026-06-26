@@ -1,6 +1,5 @@
 /* ============================================
-   Login Page - Split Screen Design
-   Matches portal.nimuneg.org exactly
+   Login Page - JNIMUN'26 Sticker Theme
    ============================================ */
 
 /* Allow minimal scrolling on login page */
@@ -18,6 +17,10 @@ body:has(.login-page) {
     min-height: 100vh;
     position: relative;
     overflow-x: hidden;
+    background:
+        linear-gradient(rgba(255, 253, 246, 0.92), rgba(255, 253, 246, 0.92)),
+        url('/doodles.png');
+    background-size: auto, 680px auto;
 }
 
 /* ============================================
@@ -81,8 +84,21 @@ body:has(.login-page) {
     left: 0;
     width: 100%;
     height: 100%;
-    background: #0037c0; /* NIMUN blue overlay */
+    background: linear-gradient(135deg, rgba(78, 142, 203, 0.98), rgba(111, 176, 224, 0.94));
     z-index: 2;
+}
+
+.login-left-overlay::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url('/doodles.png');
+    background-size: 820px auto;
+    background-repeat: repeat;
+    filter: brightness(0);
+    opacity: 0.18;
+    mix-blend-mode: multiply;
+    pointer-events: none;
 }
 
 .login-brand-content {
@@ -143,13 +159,15 @@ body:has(.login-page) {
     word-wrap: break-word;
     overflow-wrap: break-word;
     max-width: 100%;
+    text-shadow: 0 5px 0 rgba(0, 0, 0, 0.16);
 }
 
 .login-logo-year {
     font-size: clamp(1.5rem, 6vw, 3rem);
     font-weight: 700;
-    color: white;
-    opacity: 0.95;
+    color: #ff3f78;
+    opacity: 1;
+    text-shadow: 0 3px 0 rgba(0, 0, 0, 0.16);
     word-wrap: break-word;
     overflow-wrap: break-word;
     max-width: 100%;
@@ -175,7 +193,10 @@ body:has(.login-page) {
     width: 50%;
     height: 100vh;
     max-width: 100%;
-    background: #ffffff;
+    background:
+        linear-gradient(rgba(255, 253, 246, 0.88), rgba(255, 253, 246, 0.88)),
+        url('/doodles.png');
+    background-size: auto, 560px auto;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -196,26 +217,82 @@ body:has(.login-page) {
 
 /* ---- Login Card ---- */
 .login-card {
-    background: white;
-    border-radius: 16px;
-    padding: 2rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    position: relative;
+    background: rgba(255, 255, 255, 0.94);
+    border: 2px solid rgba(78, 142, 203, 0.38);
+    border-radius: 28px;
+    padding: 2.25rem;
+    box-shadow: var(--jn-shadow, 0 16px 32px rgba(31, 41, 55, 0.12));
     text-align: center;
     margin: 0;
+    overflow: visible;
+}
+
+.login-card::before {
+    content: '';
+    position: absolute;
+    left: 2rem;
+    right: 2rem;
+    top: -0.65rem;
+    height: 0.8rem;
+    border-radius: 999px;
+    background: #ffd84d;
+    transform: rotate(-1.5deg);
+    z-index: -1;
+}
+
+.login-card::after {
+    content: none;
+}
+
+.login-card-sticker {
+    position: absolute;
+    width: 4.2rem;
+    height: auto;
+    object-fit: contain;
+    pointer-events: none;
+    filter: drop-shadow(0 6px 0 rgba(255, 63, 120, 0.2)) drop-shadow(0 10px 12px rgba(17, 24, 39, 0.14));
+}
+
+.login-card-sticker-star {
+    top: -2.2rem;
+    right: -1.5rem;
+    transform: rotate(14deg);
+}
+
+.login-card-sticker-dove {
+    width: 5.2rem;
+    bottom: -2.3rem;
+    left: -2rem;
+    transform: rotate(-15deg);
 }
 
 .login-title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin-bottom: 0.25rem;
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 900;
+    line-height: 0.95;
+    letter-spacing: -0.06em;
+    margin-bottom: 0.75rem;
     text-transform: none;
-    color: #1a1a1a;
+    color: #0a0a0a;
+}
+
+.login-title::after {
+    content: '';
+    display: block;
+    width: 11rem;
+    max-width: 75%;
+    height: 0.3rem;
+    margin: 0.55rem auto 0;
+    border-radius: 999px;
+    background: #ff3f78;
+    transform: rotate(-1.2deg);
 }
 
 .login-subtitle {
-    font-size: 0.875rem;
-    color: #6b7280;
-    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+    color: #5b6577;
+    margin-bottom: 1.6rem;
 }
 
 /* ---- Form ---- */
@@ -234,23 +311,24 @@ body:has(.login-page) {
 
 .login-label {
     font-size: 0.875rem;
-    font-weight: 500;
-    color: #374151;
+    font-weight: 800;
+    color: #273247;
 }
 
 .login-input {
     width: 100%;
     padding: 0.75rem 1rem;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
+    border: 2px solid rgba(78, 142, 203, 0.32);
+    border-radius: 16px;
     font-size: 1rem;
     transition: border-color 0.2s, box-shadow 0.2s;
+    box-shadow: 0 3px 0 rgba(78, 142, 203, 0.1);
 }
 
 .login-input:focus {
     outline: none;
-    border-color: #0037c0;
-    box-shadow: 0 0 0 3px rgba(0, 55, 192, 0.1);
+    border-color: #4e8ecb;
+    box-shadow: 0 0 0 4px rgba(78, 142, 203, 0.2), 0 3px 0 rgba(78, 142, 203, 0.14);
 }
 
 .login-error {
@@ -260,29 +338,32 @@ body:has(.login-page) {
     padding: 0.75rem 1rem;
     background: #fef2f2;
     color: #dc2626;
-    border-radius: 8px;
+    border: 2px solid currentColor;
+    border-radius: 16px;
     font-size: 0.875rem;
 }
 
 .login-button {
     width: 100%;
     padding: 0.75rem 1.5rem;
-    background: #0037c0;
+    background: linear-gradient(135deg, #4e8ecb, #6fb0e0);
     color: white;
-    border: none;
-    border-radius: 8px;
+    border: 2px solid white;
+    border-radius: 18px;
     font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: transform 0.2s, box-shadow 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
+    box-shadow: 0 5px 0 #2f6fa7, 0 12px 20px rgba(78, 142, 203, 0.28);
 }
 
 .login-button:hover:not(:disabled) {
-    background: #0048e6;
+    transform: translateY(-2px) rotate(-0.35deg);
+    box-shadow: 0 7px 0 #2f6fa7, 0 16px 24px rgba(78, 142, 203, 0.32);
 }
 
 .login-button:disabled {
@@ -340,7 +421,7 @@ body:has(.login-page) {
 .login-claim-link {
     font-size: 0.875rem;
     font-weight: 600;
-    color: #0037c0;
+    color: #4e8ecb;
     text-decoration: none;
     transition: color 0.2s;
     min-height: 44px;
@@ -371,7 +452,7 @@ body:has(.login-page) {
 }
 
 .login-forgot-link:hover {
-    color: #0037c0;
+    color: #4e8ecb;
     text-decoration: underline;
 }
 
@@ -403,6 +484,7 @@ body:has(.login-page) {
 
     .login-logo-image {
         width: clamp(100px, 18vw, 180px);
+        height: auto;
         flex-shrink: 0;
     }
 

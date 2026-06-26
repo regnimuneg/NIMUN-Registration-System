@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import type { CSSProperties } from 'react'
 import { api } from '../../lib/api'
 import { Users, Search, Eye, RefreshCw, X, Calendar, UtensilsCrossed, Ticket } from 'lucide-react'
 
@@ -308,12 +309,12 @@ export default function MemberParticipantsPage() {
     }
 
     return (
-        <div className="min-h-screen bg-white w-full max-w-full overflow-x-hidden">
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 w-full max-w-full overflow-x-hidden">
+        <div className="jn-page">
+            <div className="jn-shell px-4 sm:px-6 lg:px-8">
                 <div className="max-w-7xl mx-auto w-full overflow-x-hidden">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                         <div>
-                            <h1 className="text-2xl sm:text-3xl font-bold mb-2">Participants</h1>
+                            <h1 className="text-2xl sm:text-4xl font-bold mb-2">Participants</h1>
                             <p className="text-gray-600 text-sm sm:text-base">View delegates and members</p>
                         </div>
                         <div className="flex gap-2 w-full sm:w-auto">
@@ -328,7 +329,7 @@ export default function MemberParticipantsPage() {
                     </div>
 
                     {/* Filters */}
-                    <div className="mb-8">
+                    <div className="jn-card p-4 mb-8" style={{ '--card-color': 'var(--jn-green)' } as CSSProperties}>
                         <div className="flex flex-col sm:flex-row gap-4">
                             <div className="flex-1 relative">
                                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -384,7 +385,7 @@ export default function MemberParticipantsPage() {
                     </div>
 
                     {/* Participants List */}
-                    <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+                    <div className="overflow-x-auto rounded-3xl border-2 border-[var(--jn-blue)] shadow-sm bg-white">
                         <table className="w-full divide-y divide-gray-200 text-sm min-w-[900px] sm:min-w-0">
                             <thead className="bg-gray-50">
                                 <tr>
