@@ -482,6 +482,7 @@ async function getParticipantTrackingData(participantId: string) {
         day2_session_attended, day2_food, day2_comments, day2_checkin, day2_checkout, day2_bus_checkin, day2_bus_checkout,
         day3_session_attended, day3_food, day3_comments, day3_checkin, day3_checkout, day3_bus_checkin, day3_bus_checkout,
         day4_session_attended, day4_food, day4_comments, day4_checkin, day4_checkout, day4_bus_checkin, day4_bus_checkout,
+        performance_day_bus_checkin, performance_day_bus_checkout,
         opening_ceremony_attended, opening_ceremony_food, opening_ceremony_comments, opening_ceremony_checkin, opening_ceremony_checkout, opening_ceremony_bus_checkin, opening_ceremony_bus_checkout,
         conf_day1_attended, conf_day1_breakfast, conf_day1_lunch, conf_day1_comments, conf_day1_checkin, conf_day1_checkout, conf_day1_bus_checkin, conf_day1_bus_checkout,
         conf_day2_attended, conf_day2_breakfast, conf_day2_lunch, conf_day2_comments, conf_day2_checkin, conf_day2_checkout, conf_day2_bus_checkin, conf_day2_bus_checkout,
@@ -499,12 +500,12 @@ async function getParticipantTrackingData(participantId: string) {
           day4: { attended: d.day4_session_attended || false, lunch: d.day4_food || false, comments: d.day4_comments || null, checkin: d.day4_checkin || null, checkout: d.day4_checkout || null, busCheckIn: d.day4_bus_checkin || null, busCheckOut: d.day4_bus_checkout || null }
         },
         openingCeremony: { attended: d.opening_ceremony_attended || false, catering: d.opening_ceremony_food || false, comments: d.opening_ceremony_comments || null, checkin: d.opening_ceremony_checkin || null, checkout: d.opening_ceremony_checkout || null, busCheckIn: d.opening_ceremony_bus_checkin || null, busCheckOut: d.opening_ceremony_bus_checkout || null },
+        performanceDay: { busCheckIn: d.performance_day_bus_checkin || null, busCheckOut: d.performance_day_bus_checkout || null },
         conference: {
           day1: { attended: d.conf_day1_attended || false, breakfast: d.conf_day1_breakfast || false, lunch: d.conf_day1_lunch || false, comments: d.conf_day1_comments || null, checkin: d.conf_day1_checkin || null, checkout: d.conf_day1_checkout || null, busCheckIn: d.conf_day1_bus_checkin || null, busCheckOut: d.conf_day1_bus_checkout || null },
           day2: { attended: d.conf_day2_attended || false, breakfast: d.conf_day2_breakfast || false, lunch: d.conf_day2_lunch || false, comments: d.conf_day2_comments || null, checkin: d.conf_day2_checkin || null, checkout: d.conf_day2_checkout || null, busCheckIn: d.conf_day2_bus_checkin || null, busCheckOut: d.conf_day2_bus_checkout || null },
           day3: { attended: d.conf_day3_attended || false, breakfast: d.conf_day3_breakfast || false, lunch: d.conf_day3_lunch || false, comments: d.conf_day3_comments || null, checkin: d.conf_day3_checkin || null, checkout: d.conf_day3_checkout || null, busCheckIn: d.conf_day3_bus_checkin || null, busCheckOut: d.conf_day3_bus_checkout || null }
         },
-        performanceDay: {}
       }
     }
   } else {
@@ -515,6 +516,7 @@ async function getParticipantTrackingData(participantId: string) {
         day2_session_attended, day2_food, day2_comments, day2_checkin, day2_checkout, day2_bus_checkin, day2_bus_checkout,
         day3_session_attended, day3_food, day3_comments, day3_checkin, day3_checkout, day3_bus_checkin, day3_bus_checkout,
         day4_session_attended, day4_food, day4_comments, day4_checkin, day4_checkout, day4_bus_checkin, day4_bus_checkout,
+        performance_day_bus_checkin, performance_day_bus_checkout,
         opening_ceremony_attended, opening_ceremony_food, opening_ceremony_comments, opening_ceremony_checkin, opening_ceremony_checkout, opening_ceremony_bus_checkin, opening_ceremony_bus_checkout,
         conf_day1_attended, conf_day1_breakfast, conf_day1_lunch, conf_day1_comments, conf_day1_checkin, conf_day1_checkout, conf_day1_bus_checkin, conf_day1_bus_checkout,
         conf_day2_attended, conf_day2_breakfast, conf_day2_lunch, conf_day2_comments, conf_day2_checkin, conf_day2_checkout, conf_day2_bus_checkin, conf_day2_bus_checkout,
@@ -532,12 +534,12 @@ async function getParticipantTrackingData(participantId: string) {
           day4: { attended: m.day4_session_attended || false, lunch: m.day4_food || false, comments: m.day4_comments || null, checkin: m.day4_checkin || null, checkout: m.day4_checkout || null, busCheckIn: m.day4_bus_checkin || null, busCheckOut: m.day4_bus_checkout || null }
         },
         openingCeremony: { attended: m.opening_ceremony_attended || false, catering: m.opening_ceremony_food || false, comments: m.opening_ceremony_comments || null, checkin: m.opening_ceremony_checkin || null, checkout: m.opening_ceremony_checkout || null, busCheckIn: m.opening_ceremony_bus_checkin || null, busCheckOut: m.opening_ceremony_bus_checkout || null },
+        performanceDay: { busCheckIn: m.performance_day_bus_checkin || null, busCheckOut: m.performance_day_bus_checkout || null },
         conference: {
           day1: { attended: m.conf_day1_attended || false, breakfast: m.conf_day1_breakfast || false, lunch: m.conf_day1_lunch || false, comments: m.conf_day1_comments || null, checkin: m.conf_day1_checkin || null, checkout: m.conf_day1_checkout || null, busCheckIn: m.conf_day1_bus_checkin || null, busCheckOut: m.conf_day1_bus_checkout || null },
           day2: { attended: m.conf_day2_attended || false, breakfast: m.conf_day2_breakfast || false, lunch: m.conf_day2_lunch || false, comments: m.conf_day2_comments || null, checkin: m.conf_day2_checkin || null, checkout: m.conf_day2_checkout || null, busCheckIn: m.conf_day2_bus_checkin || null, busCheckOut: m.conf_day2_bus_checkout || null },
           day3: { attended: m.conf_day3_attended || false, breakfast: m.conf_day3_breakfast || false, lunch: m.conf_day3_lunch || false, comments: m.conf_day3_comments || null, checkin: m.conf_day3_checkin || null, checkout: m.conf_day3_checkout || null, busCheckIn: m.conf_day3_bus_checkin || null, busCheckOut: m.conf_day3_bus_checkout || null }
         },
-        performanceDay: {}
       }
     }
   }
@@ -554,7 +556,7 @@ async function getParticipantTrackingData(participantId: string) {
     SELECT activity_type, title, description, metadata, created_at
     FROM activity_timeline
     WHERE user_id = $1
-    AND activity_type IN ('game', 'other')
+    AND activity_type IN ('game', 'other', 'bus')
     ORDER BY created_at
   `, [userId])
 
@@ -567,7 +569,7 @@ async function getParticipantTrackingData(participantId: string) {
     },
     food: formatFoodData(food.rows),
     games: formatGamesData(activities.rows.filter((a: any) => a.activity_type === 'game')),
-    bus: formatBusData(activities.rows.filter((a: any) => a.metadata && (a.metadata as any).type === 'bus'))
+    bus: formatBusData(activities.rows.filter((a: any) => a.activity_type === 'bus' || (a.metadata && (a.metadata as any).type === 'bus')))
   }
 }
 

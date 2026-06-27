@@ -6,7 +6,7 @@ const router = express.Router()
 // Update bus tracking
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { participantId, dayKey, checkIn, checkOut, requesterId } = req.body
+    const { participantId, dayKey, checkIn, checkOut, requesterId, value = true } = req.body
 
     if (!participantId || !dayKey) {
       return res.status(400).json({
@@ -14,9 +14,18 @@ router.post('/', async (req: Request, res: Response) => {
       })
     }
 
-    if (!checkIn && !checkOut) {
+    const isCheckInAction = checkIn === true
+    const isCheckOutAction = checkOut === true
+
+    if (isCheckInAction === isCheckOutAction) {
       return res.status(400).json({
-        error: 'Must specify checkIn or checkOut'
+        error: 'Must specify exactly one of checkIn or checkOut'
+      })
+    }
+
+    if (typeof value !== 'boolean') {
+      return res.status(400).json({
+        error: 'Field value must be a boolean'
       })
     }
 
@@ -43,15 +52,24 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Invalid dayKey' })
     }
 
-    const timestamp = new Date()
+    const timestamp = value ? new Date() : null
 
     // Check if participant is delegate or member
     const delegateCheck = await query('SELECT id FROM delegates WHERE id = $1', [participantId])
     const isDelegate = delegateCheck.rows.length > 0
+    if (!isDelegate) {
+      const memberCheck = await query('SELECT id FROM members WHERE id = $1', [participantId])
+      if (memberCheck.rows.length === 0) {
+        return res.status(404).json({ error: 'Participant not found' })
+      }
+    }
 
-    if (checkIn) {
+    if (isCheckInAction) {
       await updateParticipantBusCheckIn(participantId, sessionType, timestamp, isDelegate)
-    } else if (checkOut) {
+      if (!value) {
+        await updateParticipantBusCheckOut(participantId, sessionType, null, isDelegate)
+      }
+    } else if (isCheckOutAction) {
       await updateParticipantBusCheckOut(participantId, sessionType, timestamp, isDelegate)
     }
 
@@ -67,7 +85,12 @@ router.post('/', async (req: Request, res: Response) => {
       const userId = userResult.rows[0].user_id
       const title = `${dayKey} Bus Tracking`
 
-      const description = checkIn ? 'Checked in to bus' : 'Checked out of bus'
+      const action = isCheckInAction ? 'check-in' : 'check-out'
+      const description = value
+        ? (isCheckInAction ? 'Checked in to bus' : 'Checked out of bus')
+        : (isCheckInAction ? 'Cleared bus check-in' : 'Cleared bus check-out')
+      const activityTimestamp = timestamp ?? new Date()
+      const metadata = JSON.stringify({ type: 'bus', dayKey, action, value })
 
       const recentEntry = await query(`
         SELECT id
@@ -90,8 +113,8 @@ router.post('/', async (req: Request, res: Response) => {
           WHERE id = $4
         `, [
           description,
-          JSON.stringify({ dayKey, checkIn, checkOut }),
-          timestamp,
+          metadata,
+          activityTimestamp,
           recentEntry.rows[0].id
         ])
       } else {
@@ -109,16 +132,16 @@ router.post('/', async (req: Request, res: Response) => {
           'bus',
           title,
           description,
-          JSON.stringify({ dayKey, checkIn, checkOut }),
-          timestamp
+          metadata,
+          activityTimestamp
         ])
       }
     }
 
     res.json({
       success: true,
-      message: `Bus tracking updated for ${participantId}: ${dayKey} (${checkIn ? 'Check In' : 'Check Out'})`,
-      timestamp: timestamp.toISOString()
+      message: `Bus tracking updated for ${participantId}: ${dayKey} (${isCheckInAction ? 'Check In' : 'Check Out'} ${value ? 'set' : 'cleared'})`,
+      timestamp: timestamp?.toISOString() ?? null
     })
   } catch (error) {
     console.error('Bus update error:', error)
@@ -132,7 +155,7 @@ function mapDayKeyToSessionType(dayKey: string): string | null {
     'sessions.day2': 'day2',
     'sessions.day3': 'day3',
     'sessions.day4': 'day4',
-    'performanceDay': 'performance',
+    'performanceDay': 'performance_day',
     'openingCeremony': 'opening_ceremony',
     'conference.day1': 'conf_day1',
     'conference.day2': 'conf_day2',
@@ -144,7 +167,7 @@ function mapDayKeyToSessionType(dayKey: string): string | null {
 async function updateParticipantBusCheckIn(
   participantId: string,
   sessionType: string,
-  timestamp: Date,
+  timestamp: Date | null,
   isDelegate: boolean
 ) {
   const fieldMap: Record<string, string> = {
@@ -152,6 +175,7 @@ async function updateParticipantBusCheckIn(
     'day2': 'day2_bus_checkin',
     'day3': 'day3_bus_checkin',
     'day4': 'day4_bus_checkin',
+    'performance_day': 'performance_day_bus_checkin',
     'opening_ceremony': 'opening_ceremony_bus_checkin',
     'conf_day1': 'conf_day1_bus_checkin',
     'conf_day2': 'conf_day2_bus_checkin',
@@ -171,7 +195,7 @@ async function updateParticipantBusCheckIn(
 async function updateParticipantBusCheckOut(
   participantId: string,
   sessionType: string,
-  timestamp: Date,
+  timestamp: Date | null,
   isDelegate: boolean
 ) {
   const fieldMap: Record<string, string> = {
@@ -179,6 +203,7 @@ async function updateParticipantBusCheckOut(
     'day2': 'day2_bus_checkout',
     'day3': 'day3_bus_checkout',
     'day4': 'day4_bus_checkout',
+    'performance_day': 'performance_day_bus_checkout',
     'opening_ceremony': 'opening_ceremony_bus_checkout',
     'conf_day1': 'conf_day1_bus_checkout',
     'conf_day2': 'conf_day2_bus_checkout',

@@ -24,6 +24,30 @@ const SESSION_OPTIONS: SessionOption[] = [
 
 const DAY_ACTIVITIES: Record<string, string[]> = {}
 
+interface ToggleSwitchProps {
+  checked: boolean
+  disabled?: boolean
+  label: string
+  onChange: (checked: boolean) => void
+}
+
+function ToggleSwitch({ checked, disabled = false, label, onChange }: ToggleSwitchProps) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={checked}
+      onClick={() => onChange(!checked)}
+      disabled={disabled}
+      className={`inline-flex h-6 w-12 flex-shrink-0 items-center rounded-full p-1 transition-colors ${checked ? 'bg-green-500' : 'bg-gray-300'
+        } disabled:cursor-not-allowed disabled:opacity-50`}
+    >
+      <span className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${checked ? 'translate-x-6' : 'translate-x-0'
+        }`} />
+    </button>
+  )
+}
+
 export default function ScanPage() {
   const [selectedSession, setSelectedSession] = useState<SessionOption | null>(null)
   const [scannedId, setScannedId] = useState<string>('')
@@ -452,7 +476,7 @@ export default function ScanPage() {
     }
   }
 
-  const handleBusCheckIn = async () => {
+  const handleToggleBusCheckIn = async (value: boolean) => {
     if (!participant || !selectedSession) return
 
     try {
@@ -461,17 +485,21 @@ export default function ScanPage() {
       await api.updateBus({
         participantId: participant.id,
         dayKey: selectedSession.dayKey,
-        checkIn: true
+        checkIn: true,
+        value
       })
-      setBusCheckInTime(timestamp)
+      setBusCheckInTime(value ? timestamp : null)
+      if (!value) {
+        setBusCheckOutTime(null)
+      }
     } catch (err: any) {
-      alert(`Failed to check in to bus: ${err.message}`)
+      alert(`Failed to update bus check-in: ${err.message}`)
     } finally {
       setSaving(false)
     }
   }
 
-  const handleBusCheckOut = async () => {
+  const handleToggleBusCheckOut = async (value: boolean) => {
     if (!participant || !selectedSession) return
 
     try {
@@ -480,11 +508,12 @@ export default function ScanPage() {
       await api.updateBus({
         participantId: participant.id,
         dayKey: selectedSession.dayKey,
-        checkOut: true
+        checkOut: true,
+        value
       })
-      setBusCheckOutTime(timestamp)
+      setBusCheckOutTime(value ? timestamp : null)
     } catch (err: any) {
-      alert(`Failed to check out of bus: ${err.message}`)
+      alert(`Failed to update bus check-out: ${err.message}`)
     } finally {
       setSaving(false)
     }
@@ -915,23 +944,33 @@ export default function ScanPage() {
 
                 {/* Bus Check-in/Check-out */}
                 <h4 className="text-md font-semibold mt-4 mb-2">Bus Tracking</h4>
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  <button
-                    onClick={handleBusCheckIn}
-                    disabled={saving || !!busCheckInTime || !!busCheckOutTime}
-                    className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:text-white disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
-                  >
-                    <LogIn className="w-4 h-4" />
-                    Bus Check In
-                  </button>
-                  <button
-                    onClick={handleBusCheckOut}
-                    disabled={saving || !busCheckInTime || !!busCheckOutTime}
-                    className="flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 disabled:text-white disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    {busCheckOutTime ? 'Bus Checked Out' : 'Bus Check Out'}
-                  </button>
+                <div className="space-y-3 mb-4">
+                  <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <LogIn className="w-5 h-5 text-blue-500" />
+                      <span className="font-medium">Bus Check In</span>
+                    </div>
+                    <ToggleSwitch
+                      checked={!!busCheckInTime}
+                      disabled={saving}
+                      label="Toggle bus check in"
+                      onChange={handleToggleBusCheckIn}
+                    />
+                  </label>
+
+                  <label className={`flex items-center justify-between p-3 bg-gray-50 rounded-lg transition-colors ${busCheckInTime ? 'cursor-pointer hover:bg-gray-100' : 'cursor-not-allowed opacity-60'
+                    }`}>
+                    <div className="flex items-center gap-3">
+                      <LogOut className="w-5 h-5 text-indigo-500" />
+                      <span className="font-medium">Bus Check Out</span>
+                    </div>
+                    <ToggleSwitch
+                      checked={!!busCheckOutTime}
+                      disabled={saving || !busCheckInTime}
+                      label="Toggle bus check out"
+                      onChange={handleToggleBusCheckOut}
+                    />
+                  </label>
                 </div>
 
                 {busCheckInTime && (
@@ -954,15 +993,12 @@ export default function ScanPage() {
                       <Calendar className="w-5 h-5 text-blue-500" />
                       <span className="font-medium">Attendance</span>
                     </div>
-                    <button
-                      onClick={() => handleToggleAttendance(!attendance)}
+                    <ToggleSwitch
+                      checked={attendance}
                       disabled={saving}
-                      className={`w-12 h-6 rounded-full transition-colors ${attendance ? 'bg-green-500' : 'bg-gray-300'
-                        } relative disabled:opacity-50`}
-                    >
-                      <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${attendance ? 'translate-x-6' : 'translate-x-0'
-                        }`} />
-                    </button>
+                      label="Toggle attendance"
+                      onChange={handleToggleAttendance}
+                    />
                   </label>
 
                   {/* Show breakfast only for conference days */}
@@ -972,15 +1008,12 @@ export default function ScanPage() {
                         <UtensilsCrossed className="w-5 h-5 text-orange-500" />
                         <span className="font-medium">Breakfast</span>
                       </div>
-                      <button
-                        onClick={() => handleToggleBreakfast(!breakfast)}
+                      <ToggleSwitch
+                        checked={breakfast}
                         disabled={saving}
-                        className={`w-12 h-6 rounded-full transition-colors ${breakfast ? 'bg-green-500' : 'bg-gray-300'
-                          } relative disabled:opacity-50`}
-                      >
-                        <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${breakfast ? 'translate-x-6' : 'translate-x-0'
-                          }`} />
-                      </button>
+                        label="Toggle breakfast"
+                        onChange={handleToggleBreakfast}
+                      />
                     </label>
                   )}
 
@@ -991,15 +1024,12 @@ export default function ScanPage() {
                         <UtensilsCrossed className="w-5 h-5 text-orange-500" />
                         <span className="font-medium">Lunch</span>
                       </div>
-                      <button
-                        onClick={() => handleToggleLunch(!lunch)}
+                      <ToggleSwitch
+                        checked={lunch}
                         disabled={saving}
-                        className={`w-12 h-6 rounded-full transition-colors ${lunch ? 'bg-green-500' : 'bg-gray-300'
-                          } relative disabled:opacity-50`}
-                      >
-                        <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${lunch ? 'translate-x-6' : 'translate-x-0'
-                          }`} />
-                      </button>
+                        label="Toggle lunch"
+                        onChange={handleToggleLunch}
+                      />
                     </label>
                   )}
 
@@ -1010,15 +1040,12 @@ export default function ScanPage() {
                         <UtensilsCrossed className="w-5 h-5 text-orange-500" />
                         <span className="font-medium">Catering</span>
                       </div>
-                      <button
-                        onClick={() => handleToggleCatering(!catering)}
+                      <ToggleSwitch
+                        checked={catering}
                         disabled={saving}
-                        className={`w-12 h-6 rounded-full transition-colors ${catering ? 'bg-green-500' : 'bg-gray-300'
-                          } relative disabled:opacity-50`}
-                      >
-                        <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${catering ? 'translate-x-6' : 'translate-x-0'
-                          }`} />
-                      </button>
+                        label="Toggle catering"
+                        onChange={handleToggleCatering}
+                      />
                     </label>
                   )}
 
@@ -1029,15 +1056,12 @@ export default function ScanPage() {
                           <CheckSquare className="w-5 h-5 text-purple-500" />
                           <span className="font-medium">{activityName}</span>
                         </div>
-                        <button
-                          onClick={() => handleToggleActivity(activityName, !activityStatus[activityName])}
+                        <ToggleSwitch
+                          checked={!!activityStatus[activityName]}
                           disabled={saving}
-                          className={`w-12 h-6 rounded-full transition-colors ${activityStatus[activityName] ? 'bg-green-500' : 'bg-gray-300'
-                            } relative disabled:opacity-50`}
-                        >
-                          <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${activityStatus[activityName] ? 'translate-x-6' : 'translate-x-0'
-                            }`} />
-                        </button>
+                          label={`Toggle ${activityName}`}
+                          onChange={(value) => handleToggleActivity(activityName, value)}
+                        />
                       </label>
                     ))
                   ) : (
@@ -1046,15 +1070,12 @@ export default function ScanPage() {
                         <CheckSquare className="w-5 h-5 text-purple-500" />
                         <span className="font-medium">Activity</span>
                       </div>
-                      <button
-                        onClick={() => handleToggleActivity('Activity', !activityStatus['Activity'])}
+                      <ToggleSwitch
+                        checked={!!activityStatus['Activity']}
                         disabled={saving}
-                        className={`w-12 h-6 rounded-full transition-colors ${activityStatus['Activity'] ? 'bg-green-500' : 'bg-gray-300'
-                          } relative disabled:opacity-50`}
-                      >
-                        <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${activityStatus['Activity'] ? 'translate-x-6' : 'translate-x-0'
-                          }`} />
-                      </button>
+                        label="Toggle activity"
+                        onChange={(value) => handleToggleActivity('Activity', value)}
+                      />
                     </label>
                   )}
                 </div>

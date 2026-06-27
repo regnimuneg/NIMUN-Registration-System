@@ -132,6 +132,10 @@ CREATE TABLE public.delegates (
     day4_session_attended BOOLEAN DEFAULT FALSE,
     day4_food BOOLEAN DEFAULT FALSE,
 
+    -- Performance Day bus tracking
+    performance_day_bus_checkin TIMESTAMP WITH TIME ZONE,
+    performance_day_bus_checkout TIMESTAMP WITH TIME ZONE,
+
     conf_day1_checkin TIMESTAMP WITH TIME ZONE,
     conf_day1_checkout TIMESTAMP WITH TIME ZONE,
     conf_day1_bus_checkin TIMESTAMP WITH TIME ZONE,
@@ -235,6 +239,10 @@ CREATE TABLE public.members (
     day4_comments TEXT,
     day4_session_attended BOOLEAN DEFAULT FALSE,
     day4_food BOOLEAN DEFAULT FALSE,
+
+    -- Performance Day bus tracking
+    performance_day_bus_checkin TIMESTAMP WITH TIME ZONE,
+    performance_day_bus_checkout TIMESTAMP WITH TIME ZONE,
 
     conf_day1_checkin TIMESTAMP WITH TIME ZONE,
     conf_day1_checkout TIMESTAMP WITH TIME ZONE,
@@ -406,7 +414,8 @@ CREATE TABLE public.activity_timeline (
             'voucher',
             'game',
             'award',
-            'other'
+            'other',
+            'bus'
         )
     ),
     title VARCHAR NOT NULL,

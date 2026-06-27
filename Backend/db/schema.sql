@@ -123,6 +123,10 @@ CREATE TABLE IF NOT EXISTS delegates (
     day4_food BOOLEAN DEFAULT FALSE,
     day4_activities TEXT,
     day4_comments TEXT,
+
+    -- Performance Day bus tracking
+    performance_day_bus_checkin TIMESTAMP WITH TIME ZONE,
+    performance_day_bus_checkout TIMESTAMP WITH TIME ZONE,
     
     -- Conference Days (conf d1-d3) - Breakfast and Lunch
     conf_day1_attended BOOLEAN DEFAULT FALSE,
@@ -235,6 +239,10 @@ CREATE TABLE IF NOT EXISTS members (
     day4_food BOOLEAN DEFAULT FALSE,
     day4_activities TEXT,
     day4_comments TEXT,
+
+    -- Performance Day bus tracking
+    performance_day_bus_checkin TIMESTAMP WITH TIME ZONE,
+    performance_day_bus_checkout TIMESTAMP WITH TIME ZONE,
     
     conf_day1_attended BOOLEAN DEFAULT FALSE,
     conf_day1_checkin TIMESTAMP WITH TIME ZONE,
@@ -375,7 +383,7 @@ CREATE TABLE IF NOT EXISTS food_history (
 CREATE TABLE IF NOT EXISTS activity_timeline (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    activity_type VARCHAR(50) NOT NULL CHECK (activity_type IN ('attendance', 'food', 'voucher', 'game', 'award', 'other')),
+    activity_type VARCHAR(50) NOT NULL CHECK (activity_type IN ('attendance', 'food', 'voucher', 'game', 'award', 'other', 'bus')),
     title VARCHAR(200) NOT NULL,
     description TEXT,
     points INTEGER DEFAULT 0,
