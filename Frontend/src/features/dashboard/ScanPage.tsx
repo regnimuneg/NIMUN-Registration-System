@@ -60,6 +60,8 @@ export default function ScanPage() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const scannerRef = useRef<Html5Qrcode | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const scanInFlightRef = useRef(false)
+  const loadedTrackingKeyRef = useRef<string | null>(null)
   const qrCodeRegionId = 'qr-reader'
 
   // Activity tracking state
@@ -110,10 +112,14 @@ export default function ScanPage() {
   useEffect(() => {
     const loadSessionData = async () => {
       if (!participant || !selectedSession) return
+      const trackingKey = `${participant.id}:${selectedSession.dayKey}`
+
+      if (loadedTrackingKeyRef.current === trackingKey) return
 
       try {
         setLoading(true)
         const data = await api.getParticipant(participant.id, true)
+        loadedTrackingKeyRef.current = trackingKey
 
         if (data.tracking) {
           const tracking = data.tracking
@@ -223,9 +229,10 @@ export default function ScanPage() {
           qrbox: { width: 250, height: 250 }
         },
         (decodedText) => {
-          // Successfully scanned
-          handleScan(decodedText)
-          stopScanning()
+          if (scanInFlightRef.current) return
+          scanInFlightRef.current = true
+          void stopScanning()
+          void handleScan(decodedText, true)
         },
         (errorMessage) => {
           // Ignore scanning errors (they're frequent while scanning)
@@ -251,15 +258,25 @@ export default function ScanPage() {
     setIsScanning(false)
   }
 
-  const handleScan = async (participantId: string) => {
-    if (!participantId.trim() || !selectedSession) return
+  const handleScan = async (participantId: string, lockAlreadyHeld = false) => {
+    if (!participantId.trim() || !selectedSession) {
+      if (lockAlreadyHeld) scanInFlightRef.current = false
+      return
+    }
+
+    if (!lockAlreadyHeld) {
+      if (scanInFlightRef.current) return
+      scanInFlightRef.current = true
+    }
 
     // Make case-insensitive - convert to uppercase for search
     const searchId = participantId.trim().toUpperCase()
+    const trackingKey = `${searchId}:${selectedSession.dayKey}`
 
     setLoading(true)
     setError(null)
     setParticipant(null)
+    loadedTrackingKeyRef.current = null
     // Reset all tracking state before loading new participant
     setAttendance(false)
     setBreakfast(false)
@@ -315,7 +332,7 @@ export default function ScanPage() {
           normalizedParticipant.council = null // Members/invitations don't have councils
         }
 
-        console.log('Normalized participant:', normalizedParticipant)
+        loadedTrackingKeyRef.current = trackingKey
         setParticipant(normalizedParticipant)
         setScannedId(searchId)
 
@@ -395,6 +412,7 @@ export default function ScanPage() {
       setParticipant(null)
     } finally {
       setLoading(false)
+      scanInFlightRef.current = false
     }
   }
 
@@ -413,6 +431,7 @@ export default function ScanPage() {
   const clearScan = () => {
     setScannedId('')
     setParticipant(null)
+    loadedTrackingKeyRef.current = null
     setError(null)
     setAttendance(false)
     setBreakfast(false)

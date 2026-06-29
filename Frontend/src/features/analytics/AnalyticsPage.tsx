@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import type { CSSProperties } from 'react'
 import { api } from '../../lib/api'
-import { BarChart3, Users, Store, TrendingUp, RefreshCw, Download, Calendar } from 'lucide-react'
+import { BarChart3, Users, Store, TrendingUp, RefreshCw, Download, Calendar, CheckCircle, UserCheck, UserX } from 'lucide-react'
 
 interface VoucherAnalytics {
   byDelegate: Array<{
@@ -72,6 +72,55 @@ interface GeneralAnalytics {
   }
 }
 
+type AttendanceParticipantType = 'delegates' | 'members' | 'all' | ''
+
+type AttendanceFilters = {
+  day: string
+  council: string
+  committee: string
+  dayType: string
+  participantType: AttendanceParticipantType
+}
+
+type AttendanceRow = {
+  id: string
+  name: string
+  council?: string
+  committee?: string
+  role?: string
+  type: string
+  [key: string]: any
+}
+
+type AttendanceGroup = {
+  key: string
+  name: string
+  category: string
+  total: number
+  attended: number
+  absent: number
+  rows: AttendanceRow[]
+  attendedRows: AttendanceRow[]
+  absentRows: AttendanceRow[]
+}
+
+type AttendanceTotals = {
+  total: number
+  attended: number
+  absent: number
+}
+
+const attendanceDayOptions = [
+  { key: 'day1', label: 'Day 1', type: 'sessions' },
+  { key: 'day2', label: 'Day 2', type: 'sessions' },
+  { key: 'day3', label: 'Day 3', type: 'sessions' },
+  { key: 'day4', label: 'Day 4', type: 'sessions' },
+  { key: 'opening_ceremony', label: 'Opening Ceremony', type: 'opening' },
+  { key: 'conf_day1', label: 'Conference Day 1', type: 'conf' },
+  { key: 'conf_day2', label: 'Conference Day 2', type: 'conf' },
+  { key: 'conf_day3', label: 'Conference Day 3', type: 'conf' }
+]
+
 export default function AnalyticsPage() {
   const [data, setData] = useState<VoucherAnalytics | null>(null)
   const [generalAnalytics, setGeneralAnalytics] = useState<GeneralAnalytics | null>(null)
@@ -80,20 +129,15 @@ export default function AnalyticsPage() {
   const [activeTab, setActiveTab] = useState<'delegates' | 'vendors' | 'types' | 'recent' | 'attendance'>('delegates')
 
   // Attendance export state
-  const [attendanceFilters, setAttendanceFilters] = useState<{
-    day: string
-    council: string
-    committee: string
-    dayType: string
-    participantType: 'delegates' | 'members' | ''
-  }>({
+  const [attendanceFilters, setAttendanceFilters] = useState<AttendanceFilters>({
     day: '',
     council: '',
     committee: '',
     dayType: '',
     participantType: 'delegates'
   })
-  const [attendanceData, setAttendanceData] = useState<any[]>([])
+  const [attendanceData, setAttendanceData] = useState<AttendanceRow[]>([])
+  const [selectedAttendanceGroup, setSelectedAttendanceGroup] = useState<string>('')
   const [loadingAttendance, setLoadingAttendance] = useState(false)
 
   useEffect(() => {
@@ -141,13 +185,140 @@ export default function AnalyticsPage() {
     window.URL.revokeObjectURL(url)
   }
 
+  const isAllPeopleAttendance = attendanceFilters.participantType === 'all'
+  const attendanceGroupLabel = attendanceFilters.participantType === 'members'
+    ? 'Committee'
+    : isAllPeopleAttendance
+      ? 'Council / Committee'
+      : 'Council'
+  const attendancePersonLabel = attendanceFilters.participantType === 'members'
+    ? 'members'
+    : isAllPeopleAttendance
+      ? 'people'
+      : 'delegates'
+
+  const selectedAttendanceDays = useMemo(() => {
+    if (attendanceFilters.day) {
+      const selectedDay = attendanceDayOptions.find(option => option.key === attendanceFilters.day)
+      return selectedDay ? [selectedDay] : []
+    }
+
+    return attendanceDayOptions.filter(option => !attendanceFilters.dayType || option.type === attendanceFilters.dayType)
+  }, [attendanceFilters.day, attendanceFilters.dayType])
+
+  const attendanceDayLabel = selectedAttendanceDays.length === 1
+    ? selectedAttendanceDays[0].label
+    : `${selectedAttendanceDays.length} selected days`
+
+  const hasAttendedSelectedDays = (row: AttendanceRow) => {
+    if (selectedAttendanceDays.length === 0) return false
+    return selectedAttendanceDays.some(day => row[day.key] === 1 || row[day.key] === '1' || row[day.key] === true)
+  }
+
+  const attendanceGroups = useMemo<AttendanceGroup[]>(() => {
+    const grouped = new Map<string, AttendanceRow[]>()
+
+    attendanceData.forEach(row => {
+      const isMember = row.type === 'Member'
+      const category = isMember ? 'Committee' : 'Council'
+      const groupName = String(isMember ? row.committee || 'Unassigned' : row.council || 'Unassigned')
+      const groupKey = isAllPeopleAttendance ? `${category}:${groupName}` : groupName
+
+      if (!grouped.has(groupKey)) grouped.set(groupKey, [])
+      grouped.get(groupKey)?.push(row)
+    })
+
+    return Array.from(grouped.entries())
+      .map(([key, rows]) => {
+        const attendedRows = rows.filter(hasAttendedSelectedDays)
+        const absentRows = rows.filter(row => !hasAttendedSelectedDays(row))
+        const firstRow = rows[0]
+        const category = firstRow?.type === 'Member' ? 'Committee' : 'Council'
+        const name = String(firstRow?.type === 'Member' ? firstRow.committee || 'Unassigned' : firstRow?.council || 'Unassigned')
+
+        return {
+          key,
+          name,
+          category,
+          total: rows.length,
+          attended: attendedRows.length,
+          absent: absentRows.length,
+          rows,
+          attendedRows,
+          absentRows
+        }
+      })
+      .sort((a, b) => `${a.category} ${a.name}`.localeCompare(`${b.category} ${b.name}`))
+  }, [attendanceData, isAllPeopleAttendance, selectedAttendanceDays])
+
+  const selectedAttendanceSummary = attendanceGroups.find(group => group.key === selectedAttendanceGroup) || attendanceGroups[0]
+  const attendanceTotals = attendanceGroups.reduce<AttendanceTotals>(
+    (totals, group) => ({
+      total: totals.total + group.total,
+      attended: totals.attended + group.attended,
+      absent: totals.absent + group.absent
+    }),
+    { total: 0, attended: 0, absent: 0 }
+  )
+
+  const attendanceBreakdown = useMemo(() => {
+    const emptyTotals = (): AttendanceTotals => ({ total: 0, attended: 0, absent: 0 })
+    const breakdown = {
+      delegates: emptyTotals(),
+      members: emptyTotals(),
+      all: emptyTotals()
+    }
+
+    attendanceData.forEach(row => {
+      const bucket = row.type === 'Member' ? breakdown.members : breakdown.delegates
+      const attended = hasAttendedSelectedDays(row)
+
+      bucket.total += 1
+      breakdown.all.total += 1
+
+      if (attended) {
+        bucket.attended += 1
+        breakdown.all.attended += 1
+      } else {
+        bucket.absent += 1
+        breakdown.all.absent += 1
+      }
+    })
+
+    return breakdown
+  }, [attendanceData, selectedAttendanceDays])
+
+  const getAttendancePercent = (attended: number, total: number) => {
+    if (total === 0) return 0
+    return Math.round((attended / total) * 100)
+  }
+
   const handleLoadAttendance = async () => {
     try {
       setLoadingAttendance(true)
-      const result = await api.exportAttendance(attendanceFilters)
-      setAttendanceData(result.data || [])
+      let rows: AttendanceRow[] = []
 
-      if (!result.data || result.data.length === 0) {
+      if (attendanceFilters.participantType === 'all') {
+        const [delegatesResult, membersResult] = await Promise.all([
+          api.exportAttendance({ ...attendanceFilters, participantType: 'delegates', council: '', committee: '' }),
+          api.exportAttendance({ ...attendanceFilters, participantType: 'members', council: '', committee: '' })
+        ])
+
+        rows = [...(delegatesResult.data || []), ...(membersResult.data || [])]
+      } else {
+        const result = await api.exportAttendance(attendanceFilters)
+        rows = result.data || []
+      }
+
+      setAttendanceData(rows)
+
+      const firstRow = rows[0]
+      const firstCategory = firstRow?.type === 'Member' ? 'Committee' : 'Council'
+      const firstGroup = firstRow?.type === 'Member' ? firstRow?.committee : firstRow?.council
+      setSelectedAttendanceGroup(firstGroup ? (attendanceFilters.participantType === 'all' ? `${firstCategory}:${firstGroup}` : firstGroup) : '')
+
+      if (rows.length === 0) {
+        setSelectedAttendanceGroup('')
         alert('No attendance data found with the selected filters.')
       }
     } catch (err: any) {
@@ -606,8 +777,8 @@ export default function AnalyticsPage() {
 
                 {/* Participant Type Selection */}
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Export For</label>
-                  <div className="flex gap-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">View Attendance For</label>
+                  <div className="flex flex-wrap gap-3">
                     <button
                       onClick={() => setAttendanceFilters({ ...attendanceFilters, council: '', committee: '', participantType: 'delegates' })}
                       className={`px-4 py-2 rounded-lg border-2 transition-colors ${attendanceFilters.participantType === 'delegates' || (!attendanceFilters.participantType && !attendanceFilters.committee)
@@ -615,7 +786,7 @@ export default function AnalyticsPage() {
                         : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
                         }`}
                     >
-                      👥 Delegates (Councils)
+                      All Councils
                     </button>
                     <button
                       onClick={() => setAttendanceFilters({ ...attendanceFilters, council: '', committee: '', participantType: 'members' })}
@@ -624,7 +795,16 @@ export default function AnalyticsPage() {
                         : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
                         }`}
                     >
-                      🎯 Members (Committees)
+                      All Committees
+                    </button>
+                    <button
+                      onClick={() => setAttendanceFilters({ ...attendanceFilters, council: '', committee: '', participantType: 'all' })}
+                      className={`px-4 py-2 rounded-lg border-2 transition-colors ${attendanceFilters.participantType === 'all'
+                        ? 'border-green-500 bg-green-50 text-green-700'
+                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                        }`}
+                    >
+                      All People
                     </button>
                   </div>
                 </div>
@@ -718,9 +898,11 @@ export default function AnalyticsPage() {
                 <p className="text-sm text-gray-500 mb-4">
                   {attendanceFilters.participantType === 'members'
                     ? attendanceFilters.committee === 'Executive'
-                      ? '📋 Exporting Executive and High Board attendance'
-                      : '📋 Exporting member/staff attendance from selected committee(s)'
-                    : '📋 Exporting delegate attendance from selected council(s)'}
+                      ? 'Viewing Executive and High Board attendance'
+                      : 'Viewing member/staff attendance from selected committee(s)'
+                    : attendanceFilters.participantType === 'all'
+                      ? 'Viewing delegates and members together, with separate and combined totals'
+                      : 'Viewing delegate attendance from selected council(s)'}
                 </p>
 
                 <button
@@ -758,6 +940,213 @@ export default function AnalyticsPage() {
                       Download CSV
                     </button>
                   </div>
+
+                  {isAllPeopleAttendance ? (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+                      {[
+                        {
+                          label: 'All People',
+                          totals: attendanceBreakdown.all,
+                          cardClass: 'bg-blue-50 border-blue-100',
+                          labelClass: 'text-blue-800',
+                          valueClass: 'text-blue-700',
+                          iconClass: 'text-blue-600'
+                        },
+                        {
+                          label: 'Delegates',
+                          totals: attendanceBreakdown.delegates,
+                          cardClass: 'bg-green-50 border-green-100',
+                          labelClass: 'text-green-800',
+                          valueClass: 'text-green-700',
+                          iconClass: 'text-green-600'
+                        },
+                        {
+                          label: 'Members',
+                          totals: attendanceBreakdown.members,
+                          cardClass: 'bg-purple-50 border-purple-100',
+                          labelClass: 'text-purple-800',
+                          valueClass: 'text-purple-700',
+                          iconClass: 'text-purple-600'
+                        }
+                      ].map(item => (
+                        <div key={item.label} className={`${item.cardClass} rounded-lg border p-4`}>
+                          <div className="flex items-center justify-between gap-3 mb-4">
+                            <div>
+                              <p className={`text-sm ${item.labelClass}`}>{item.label}</p>
+                              <p className={`text-3xl font-bold ${item.valueClass}`}>{item.totals.total}</p>
+                            </div>
+                            <Users className={`w-9 h-9 ${item.iconClass}`} />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div className="bg-white rounded-lg px-3 py-2">
+                              <p className="font-bold text-green-700">{item.totals.attended}</p>
+                              <p className="text-xs text-green-700">Attended</p>
+                            </div>
+                            <div className="bg-white rounded-lg px-3 py-2">
+                              <p className="font-bold text-red-700">{item.totals.absent}</p>
+                              <p className="text-xs text-red-700">Absent</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                      <div className="bg-blue-50 rounded-lg border border-blue-100 p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm text-blue-800">Total {attendancePersonLabel}</p>
+                            <p className="text-3xl font-bold text-blue-700">{attendanceTotals.total}</p>
+                          </div>
+                          <Users className="w-9 h-9 text-blue-600" />
+                        </div>
+                      </div>
+                      <div className="bg-green-50 rounded-lg border border-green-100 p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm text-green-800">Attended {attendanceDayLabel}</p>
+                            <p className="text-3xl font-bold text-green-700">{attendanceTotals.attended}</p>
+                          </div>
+                          <UserCheck className="w-9 h-9 text-green-600" />
+                        </div>
+                      </div>
+                      <div className="bg-red-50 rounded-lg border border-red-100 p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm text-red-800">Did not attend</p>
+                            <p className="text-3xl font-bold text-red-700">{attendanceTotals.absent}</p>
+                          </div>
+                          <UserX className="w-9 h-9 text-red-600" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mb-6">
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                      <h3 className="text-lg font-semibold text-gray-900">{attendanceGroupLabel} Summary</h3>
+                      <span className="text-xs font-semibold text-gray-500 uppercase">{attendanceDayLabel}</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                      {attendanceGroups.map(group => {
+                        const percent = getAttendancePercent(group.attended, group.total)
+                        const selected = selectedAttendanceSummary?.key === group.key
+
+                        return (
+                          <button
+                            key={group.key}
+                            type="button"
+                            onClick={() => setSelectedAttendanceGroup(group.key)}
+                            className={`text-left bg-white rounded-lg border-2 p-4 transition-all hover:border-blue-400 hover:bg-blue-50 ${selected ? 'border-blue-500 ring-4 ring-blue-100' : 'border-gray-200'
+                              }`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="font-bold text-gray-900 truncate">{group.name}</p>
+                                <p className="text-xs text-gray-500 mt-1">{group.total} total {attendancePersonLabel}</p>
+                              </div>
+                              <span className="text-sm font-bold text-blue-700">{percent}%</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 mt-4 text-sm">
+                              <div className="bg-green-50 rounded-lg px-3 py-2">
+                                <p className="text-green-700 font-bold">{group.attended}</p>
+                                <p className="text-green-700 text-xs">Attended</p>
+                              </div>
+                              <div className="bg-red-50 rounded-lg px-3 py-2">
+                                <p className="text-red-700 font-bold">{group.absent}</p>
+                                <p className="text-red-700 text-xs">Absent</p>
+                              </div>
+                            </div>
+                            <div className="mt-3 h-2 bg-gray-100 rounded-full overflow-hidden">
+                              <div className="h-full bg-green-500 rounded-full" style={{ width: `${percent}%` }}></div>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {selectedAttendanceSummary && (
+                    <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5 mb-6">
+                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5">
+                        <div>
+                          <p className="text-sm font-semibold text-blue-700">{attendanceGroupLabel}</p>
+                          <h3 className="text-2xl font-bold text-gray-900">{selectedAttendanceSummary.name}</h3>
+                          <p className="text-sm text-gray-500 mt-1">
+                            {selectedAttendanceSummary.attended} attended, {selectedAttendanceSummary.absent} absent out of {selectedAttendanceSummary.total} {attendancePersonLabel}.
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 min-w-full lg:min-w-[22rem]">
+                          <div className="bg-blue-50 rounded-lg p-3 text-center">
+                            <p className="text-xl font-bold text-blue-700">{selectedAttendanceSummary.total}</p>
+                            <p className="text-xs text-blue-700">Total</p>
+                          </div>
+                          <div className="bg-green-50 rounded-lg p-3 text-center">
+                            <p className="text-xl font-bold text-green-700">{selectedAttendanceSummary.attended}</p>
+                            <p className="text-xs text-green-700">Attended</p>
+                          </div>
+                          <div className="bg-red-50 rounded-lg p-3 text-center">
+                            <p className="text-xl font-bold text-red-700">{selectedAttendanceSummary.absent}</p>
+                            <p className="text-xs text-red-700">Absent</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                        <div>
+                          <div className="flex items-center gap-2 mb-3">
+                            <UserX className="w-5 h-5 text-red-600" />
+                            <h4 className="font-bold text-gray-900">Did not attend</h4>
+                          </div>
+                          <div className="border border-red-100 rounded-lg overflow-hidden">
+                            {selectedAttendanceSummary.absentRows.length === 0 ? (
+                              <p className="p-4 text-sm text-gray-500 bg-red-50">Everyone in this {attendanceGroupLabel.toLowerCase()} attended.</p>
+                            ) : (
+                              <div className="max-h-96 overflow-y-auto divide-y divide-red-100">
+                                {selectedAttendanceSummary.absentRows.map(row => (
+                                  <div key={row.id} className="p-3 bg-white hover:bg-red-50">
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="min-w-0">
+                                        <p className="font-semibold text-gray-900 truncate">{row.name}</p>
+                                        <p className="text-xs text-gray-500">{row.id}{row.role ? ` - ${row.role}` : ''}</p>
+                                      </div>
+                                      <span className="text-xs font-bold text-red-700 bg-red-50 px-2 py-1 rounded-full">Absent</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex items-center gap-2 mb-3">
+                            <CheckCircle className="w-5 h-5 text-green-600" />
+                            <h4 className="font-bold text-gray-900">Attended</h4>
+                          </div>
+                          <div className="border border-green-100 rounded-lg overflow-hidden">
+                            {selectedAttendanceSummary.attendedRows.length === 0 ? (
+                              <p className="p-4 text-sm text-gray-500 bg-green-50">No one in this {attendanceGroupLabel.toLowerCase()} attended {attendanceDayLabel.toLowerCase()}.</p>
+                            ) : (
+                              <div className="max-h-96 overflow-y-auto divide-y divide-green-100">
+                                {selectedAttendanceSummary.attendedRows.map(row => (
+                                  <div key={row.id} className="p-3 bg-white hover:bg-green-50">
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="min-w-0">
+                                        <p className="font-semibold text-gray-900 truncate">{row.name}</p>
+                                        <p className="text-xs text-gray-500">{row.id}{row.role ? ` - ${row.role}` : ''}</p>
+                                      </div>
+                                      <span className="text-xs font-bold text-green-700 bg-green-50 px-2 py-1 rounded-full">Present</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   
                   <div className="overflow-x-auto border border-gray-200 rounded-lg">
                     <table className="min-w-full divide-y divide-gray-200">
@@ -775,8 +1164,8 @@ export default function AnalyticsPage() {
                           <tr key={i} className="hover:bg-gray-50 transition-colors">
                             {Object.values(row).map((val: any, j) => (
                               <td key={j} className="px-3 py-3 whitespace-nowrap text-gray-700">
-                                {val === 1 ? <span className="text-green-600 font-bold px-2 py-1 bg-green-50 rounded-md">✓ Present</span> : 
-                                 val === 0 ? <span className="text-red-500 font-bold px-2 py-1 bg-red-50 rounded-md">✗ Absent</span> :
+                                {val === 1 ? <span className="text-green-600 font-bold px-2 py-1 bg-green-50 rounded-md">Present</span> : 
+                                 val === 0 ? <span className="text-red-500 font-bold px-2 py-1 bg-red-50 rounded-md">Absent</span> :
                                  val === null || val === undefined || val === '' ? <span className="text-gray-400 italic">-</span> :
                                  val}
                               </td>

@@ -1,12 +1,16 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+const API_BASE_URL = import.meta.env.VITE_API_URL || (
+  typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+    ? `http://${window.location.hostname}:3001`
+    : 'http://localhost:3001'
+)
 
 async function callApi(endpoint: string, options?: RequestInit) {
   try {
     const url = `${API_BASE_URL}${endpoint}`
-    console.log(`[API] ${options?.method || 'GET'} ${url}`) // Debug log
 
     const response = await fetch(url, {
       ...options,
+      cache: 'no-store',
       headers: {
         'Content-Type': 'application/json',
         ...options?.headers,

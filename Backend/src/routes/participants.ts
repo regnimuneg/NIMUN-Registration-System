@@ -1,7 +1,30 @@
 import express, { type Request, type Response } from 'express'
+import type { QueryResultRow } from 'pg'
 import { query } from '../config/index.js'
 
 const router = express.Router()
+
+type ParticipantSource = 'delegate' | 'member' | 'invitation'
+
+interface ParticipantLookupRow extends QueryResultRow {
+  id: string
+  name: string | null
+  position: string | null
+  council: string | null
+  committee: string | null
+  role: string | null
+  qrUrl: string | null
+  email: string | null
+  phoneNumber: string | null
+  phonenumber?: string | null
+  phone_number?: string | null
+  gender: string | null
+  busRoute: string | null
+  busStop: string | null
+  userId: string | null
+  sourceType: ParticipantSource
+  sortOrder?: number
+}
 
 // Get all participants (delegates and members)
 router.get('/', async (_req: Request, res: Response) => {
@@ -86,29 +109,31 @@ router.get('/:id', async (req: Request, res: Response) => {
     const { id } = req.params
     const includeTracking = req.query.include === 'tracking'
 
-    // Try delegates first
-    let participant = await query(`
-      SELECT 
-        d.id,
-        CONCAT(u.first_name, ' ', u.last_name) as name,
-        d.council as position,
-        d.council,
-        NULL::text as committee,
-        'Delegate' as role,
-        d.qr_code as "qrUrl",
-        u.email,
-        u.phone_number as "phoneNumber",
-        'Male' as gender,
-        NULL::text as "busRoute",
-        NULL::text as "busStop"
-      FROM delegates d
-      LEFT JOIN users u ON d.user_id = u.id
-      WHERE d.id = $1
-    `, [id])
+    const participant = await query<ParticipantLookupRow>(`
+      SELECT *
+      FROM (
+        SELECT 
+          d.id,
+          CONCAT(u.first_name, ' ', u.last_name) as name,
+          d.council as position,
+          d.council,
+          NULL::text as committee,
+          'Delegate' as role,
+          d.qr_code as "qrUrl",
+          u.email,
+          u.phone_number as "phoneNumber",
+          'Male' as gender,
+          NULL::text as "busRoute",
+          NULL::text as "busStop",
+          d.user_id as "userId",
+          'delegate' as "sourceType",
+          1 as "sortOrder"
+        FROM delegates d
+        LEFT JOIN users u ON d.user_id = u.id
+        WHERE d.id = $1
 
-    // If not found, try members
-    if (participant.rows.length === 0) {
-      participant = await query(`
+        UNION ALL
+
         SELECT 
           m.id,
           CONCAT(u.first_name, ' ', u.last_name) as name,
@@ -121,26 +146,16 @@ router.get('/:id', async (req: Request, res: Response) => {
           u.phone_number as "phoneNumber",
           'Male' as gender,
           NULL::text as "busRoute",
-          NULL::text as "busStop"
+          NULL::text as "busStop",
+          m.user_id as "userId",
+          'member' as "sourceType",
+          2 as "sortOrder"
         FROM members m
         LEFT JOIN users u ON m.user_id = u.id
         WHERE m.id = $1
-      `, [id])
 
-      // Debug logging
-      if (participant.rows.length > 0) {
-        console.log(`[DEBUG] Member ${id} data:`, {
-          phoneNumber: participant.rows[0].phoneNumber,
-          committee: participant.rows[0].committee,
-          role: participant.rows[0].role,
-          email: participant.rows[0].email
-        })
-      }
-    }
+        UNION ALL
 
-    // If not found, try invitations
-    if (participant.rows.length === 0) {
-      participant = await query(`
         SELECT 
           i.id,
           CONCAT(u.first_name, ' ', u.last_name) as name,
@@ -148,17 +163,22 @@ router.get('/:id', async (req: Request, res: Response) => {
           NULL::text as council,
           i.committee,
           i.role,
-          NULL::text as qrUrl,
+          NULL::text as "qrUrl",
           u.email,
           u.phone_number as "phoneNumber",
           'Male' as gender,
-          NULL::text as busRoute,
-          NULL::text as busStop
+          NULL::text as "busRoute",
+          NULL::text as "busStop",
+          i.user_id as "userId",
+          'invitation' as "sourceType",
+          3 as "sortOrder"
         FROM invitations i
         LEFT JOIN users u ON i.user_id = u.id
         WHERE i.id = $1
-      `, [id])
-    }
+      ) participant_matches
+      ORDER BY "sortOrder"
+      LIMIT 1
+    `, [id])
 
     if (participant.rows.length === 0) {
       return res.status(404).json({ error: 'Participant not found' })
@@ -181,6 +201,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       // Ensure position is available
       position: participantData.position || null
     }
+    delete normalizedData.sortOrder
 
     // Determine if this is a delegate:
     // - Delegates have council in position field (like "PRESS", "DISEC", etc.)
@@ -217,21 +238,15 @@ router.get('/:id', async (req: Request, res: Response) => {
     if (normalizedData.role === '') normalizedData.role = null
     if (normalizedData.council === '') normalizedData.council = null
 
-    console.log(`[DEBUG] Normalized participant data for ${id}:`, {
-      phoneNumber: normalizedData.phoneNumber,
-      committee: normalizedData.committee,
-      role: normalizedData.role,
-      council: normalizedData.council,
-      position: normalizedData.position
-    })
-
     const result: any = {
       participant: normalizedData
     }
 
     if (includeTracking) {
-      // Get tracking data
-      const tracking = await getParticipantTrackingData(id)
+      const tracking = await getParticipantTrackingData(id, {
+        userId: participantData.userId,
+        isDelegate: participantData.sourceType === 'delegate'
+      })
       result.tracking = tracking
     }
 
@@ -438,24 +453,24 @@ router.delete('/', async (_req: Request, res: Response) => {
 })
 
 // Helper function to get tracking data
-async function getParticipantTrackingData(participantId: string) {
-  // Check if participant is delegate or member and get user_id
-  let userId: string | null = null
-  let isDelegate = false
+async function getParticipantTrackingData(
+  participantId: string,
+  lookup?: { userId?: string | null; isDelegate?: boolean }
+) {
+  let userId: string | null = lookup?.userId ?? null
+  let isDelegate = lookup?.isDelegate ?? false
 
-  const delegateCheck = await query(`
-    SELECT user_id FROM delegates WHERE id = $1
-  `, [participantId])
-
-  if (delegateCheck.rows.length > 0) {
-    userId = delegateCheck.rows[0].user_id
-    isDelegate = true
-  } else {
-    const memberCheck = await query(`
-      SELECT user_id FROM members WHERE id = $1
+  if (!userId) {
+    const participantCheck = await query(`
+      SELECT user_id, true as is_delegate FROM delegates WHERE id = $1
+      UNION ALL
+      SELECT user_id, false as is_delegate FROM members WHERE id = $1
+      LIMIT 1
     `, [participantId])
-    if (memberCheck.rows.length > 0) {
-      userId = memberCheck.rows[0].user_id
+
+    if (participantCheck.rows.length > 0) {
+      userId = participantCheck.rows[0].user_id
+      isDelegate = participantCheck.rows[0].is_delegate
     }
   }
 
@@ -544,21 +559,21 @@ async function getParticipantTrackingData(participantId: string) {
     }
   }
 
-  // Get food history (only for delegates as per schema)
-  const food = isDelegate ? await query(`
+  const foodPromise = isDelegate ? query(`
     SELECT meal_type, meal_day FROM food_history 
     WHERE delegate_id = $1
     ORDER BY claimed_at
-  `, [participantId]) : { rows: [] }
+  `, [participantId]) : Promise.resolve({ rows: [] })
 
-  // Get activity timeline for games and bus
-  const activities = await query(`
+  const activitiesPromise = query(`
     SELECT activity_type, title, description, metadata, created_at
     FROM activity_timeline
     WHERE user_id = $1
     AND activity_type IN ('game', 'other', 'bus')
     ORDER BY created_at
   `, [userId])
+
+  const [food, activities] = await Promise.all([foodPromise, activitiesPromise])
 
   return {
     dayTracking: attendanceData.sessions ? attendanceData : {
