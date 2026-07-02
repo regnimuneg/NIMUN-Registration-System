@@ -279,6 +279,8 @@ router.get('/:id/history', async (req: Request, res: Response) => {
       SELECT user_id FROM delegates WHERE id = $1
       UNION ALL
       SELECT user_id FROM members WHERE id = $1
+      UNION ALL
+      SELECT user_id FROM invitations WHERE id = $1
       LIMIT 1
     `, [id])
 
@@ -363,15 +365,19 @@ router.put('/:id', async (req: Request, res: Response) => {
     const { id } = req.params
     const { name, phoneNumber, council, committee, role, gender, email } = req.body
 
-    // Check if participant is delegate or member
+    // Check if participant is delegate, member, or invitation
     const delegateCheck = await query('SELECT id FROM delegates WHERE id = $1', [id])
     const isDelegate = delegateCheck.rows.length > 0
+    const invitationCheck = await query('SELECT id FROM invitations WHERE id = $1', [id])
+    const isInvitation = invitationCheck.rows.length > 0
 
     // Get user_id first
     const userResult = await query(`
       SELECT user_id FROM delegates WHERE id = $1
       UNION ALL
       SELECT user_id FROM members WHERE id = $1
+      UNION ALL
+      SELECT user_id FROM invitations WHERE id = $1
       LIMIT 1
     `, [id])
 
@@ -403,10 +409,17 @@ router.put('/:id', async (req: Request, res: Response) => {
       await query('UPDATE users SET password_hash = $1 WHERE id = $2', [hashedPassword, userId])
     }
 
-    // Update delegate or member specific fields
+    // Update delegate, member, or invitation specific fields
     if (isDelegate) {
       if (council) {
         await query('UPDATE delegates SET council = $1 WHERE id = $2', [council, id])
+      }
+    } else if (isInvitation) {
+      if (committee) {
+        await query('UPDATE invitations SET committee = $1 WHERE id = $2', [committee, id])
+      }
+      if (role) {
+        await query('UPDATE invitations SET role = $1 WHERE id = $2', [role, id])
       }
     } else {
       if (committee) {
@@ -429,9 +442,10 @@ router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params
 
-    // Delete from delegates or members
+    // Delete from delegates, members, or invitations
     await query('DELETE FROM delegates WHERE id = $1', [id])
     await query('DELETE FROM members WHERE id = $1', [id])
+    await query('DELETE FROM invitations WHERE id = $1', [id])
 
     res.json({ success: true, message: `Participant ${id} deleted successfully` })
   } catch (error) {
@@ -445,6 +459,7 @@ router.delete('/', async (_req: Request, res: Response) => {
   try {
     await query('DELETE FROM delegates')
     await query('DELETE FROM members')
+    await query('DELETE FROM invitations')
     res.json({ success: true, message: 'All participants deleted successfully' })
   } catch (error) {
     console.error('Error deleting all participants:', error)
@@ -459,18 +474,30 @@ async function getParticipantTrackingData(
 ) {
   let userId: string | null = lookup?.userId ?? null
   let isDelegate = lookup?.isDelegate ?? false
+  let isInvitation = false
 
   if (!userId) {
     const participantCheck = await query(`
-      SELECT user_id, true as is_delegate FROM delegates WHERE id = $1
+      SELECT user_id, true as is_delegate, false as is_invitation FROM delegates WHERE id = $1
       UNION ALL
-      SELECT user_id, false as is_delegate FROM members WHERE id = $1
+      SELECT user_id, false as is_delegate, false as is_invitation FROM members WHERE id = $1
+      UNION ALL
+      SELECT user_id, false as is_delegate, true as is_invitation FROM invitations WHERE id = $1
       LIMIT 1
     `, [participantId])
 
     if (participantCheck.rows.length > 0) {
       userId = participantCheck.rows[0].user_id
       isDelegate = participantCheck.rows[0].is_delegate
+      isInvitation = participantCheck.rows[0].is_invitation
+    }
+  } else {
+    // If lookup provided userId, check which table it is in
+    const delegateCheck = await query('SELECT id FROM delegates WHERE id = $1', [participantId])
+    isDelegate = delegateCheck.rows.length > 0
+    if (!isDelegate) {
+      const invitationCheck = await query('SELECT id FROM invitations WHERE id = $1', [participantId])
+      isInvitation = invitationCheck.rows.length > 0
     }
   }
 
@@ -488,7 +515,7 @@ async function getParticipantTrackingData(
     }
   }
 
-  // Get attendance from delegates/members table directly (more reliable)
+  // Get attendance from delegates/members/invitations table directly (more reliable)
   let attendanceData: any = {}
   if (isDelegate) {
     const delegateData = await query(`
@@ -498,7 +525,7 @@ async function getParticipantTrackingData(
         day3_session_attended, day3_food, day3_comments, day3_checkin, day3_checkout, day3_bus_checkin, day3_bus_checkout,
         day4_session_attended, day4_food, day4_comments, day4_checkin, day4_checkout, day4_bus_checkin, day4_bus_checkout,
         performance_day_bus_checkin, performance_day_bus_checkout,
-        opening_ceremony_attended, opening_ceremony_food, opening_ceremony_comments, opening_ceremony_checkin, opening_ceremony_checkout, opening_ceremony_bus_checkin, opening_ceremony_bus_checkout,
+        opening_ceremony_attended, opening_ceremony_food, opening_ceremony_bar, opening_ceremony_comments, opening_ceremony_checkin, opening_ceremony_checkout, opening_ceremony_bus_checkin, opening_ceremony_bus_checkout,
         conf_day1_attended, conf_day1_breakfast, conf_day1_lunch, conf_day1_comments, conf_day1_checkin, conf_day1_checkout, conf_day1_bus_checkin, conf_day1_bus_checkout,
         conf_day2_attended, conf_day2_breakfast, conf_day2_lunch, conf_day2_comments, conf_day2_checkin, conf_day2_checkout, conf_day2_bus_checkin, conf_day2_bus_checkout,
         conf_day3_attended, conf_day3_breakfast, conf_day3_lunch, conf_day3_comments, conf_day3_checkin, conf_day3_checkout, conf_day3_bus_checkin, conf_day3_bus_checkout
@@ -514,12 +541,36 @@ async function getParticipantTrackingData(
           day3: { attended: d.day3_session_attended || false, lunch: d.day3_food || false, comments: d.day3_comments || null, checkin: d.day3_checkin || null, checkout: d.day3_checkout || null, busCheckIn: d.day3_bus_checkin || null, busCheckOut: d.day3_bus_checkout || null },
           day4: { attended: d.day4_session_attended || false, lunch: d.day4_food || false, comments: d.day4_comments || null, checkin: d.day4_checkin || null, checkout: d.day4_checkout || null, busCheckIn: d.day4_bus_checkin || null, busCheckOut: d.day4_bus_checkout || null }
         },
-        openingCeremony: { attended: d.opening_ceremony_attended || false, catering: d.opening_ceremony_food || false, comments: d.opening_ceremony_comments || null, checkin: d.opening_ceremony_checkin || null, checkout: d.opening_ceremony_checkout || null, busCheckIn: d.opening_ceremony_bus_checkin || null, busCheckOut: d.opening_ceremony_bus_checkout || null },
+        openingCeremony: { attended: d.opening_ceremony_attended || false, catering: d.opening_ceremony_food || false, bar: d.opening_ceremony_bar || false, comments: d.opening_ceremony_comments || null, checkin: d.opening_ceremony_checkin || null, checkout: d.opening_ceremony_checkout || null, busCheckIn: d.opening_ceremony_bus_checkin || null, busCheckOut: d.opening_ceremony_bus_checkout || null },
         performanceDay: { busCheckIn: d.performance_day_bus_checkin || null, busCheckOut: d.performance_day_bus_checkout || null },
         conference: {
           day1: { attended: d.conf_day1_attended || false, breakfast: d.conf_day1_breakfast || false, lunch: d.conf_day1_lunch || false, comments: d.conf_day1_comments || null, checkin: d.conf_day1_checkin || null, checkout: d.conf_day1_checkout || null, busCheckIn: d.conf_day1_bus_checkin || null, busCheckOut: d.conf_day1_bus_checkout || null },
           day2: { attended: d.conf_day2_attended || false, breakfast: d.conf_day2_breakfast || false, lunch: d.conf_day2_lunch || false, comments: d.conf_day2_comments || null, checkin: d.conf_day2_checkin || null, checkout: d.conf_day2_checkout || null, busCheckIn: d.conf_day2_bus_checkin || null, busCheckOut: d.conf_day2_bus_checkout || null },
           day3: { attended: d.conf_day3_attended || false, breakfast: d.conf_day3_breakfast || false, lunch: d.conf_day3_lunch || false, comments: d.conf_day3_comments || null, checkin: d.conf_day3_checkin || null, checkout: d.conf_day3_checkout || null, busCheckIn: d.conf_day3_bus_checkin || null, busCheckOut: d.conf_day3_bus_checkout || null }
+        },
+      }
+    }
+  } else if (isInvitation) {
+    const invitationData = await query(`
+      SELECT 
+        conf_day1_attended, conf_day1_breakfast, conf_day1_lunch, conf_day1_checkin, conf_day1_checkout,
+        conf_day2_attended, conf_day2_breakfast, conf_day2_lunch, conf_day2_checkin, conf_day2_checkout,
+        conf_day3_attended, conf_day3_breakfast, conf_day3_lunch, conf_day3_checkin, conf_day3_checkout
+      FROM invitations WHERE id = $1
+    `, [participantId])
+
+    if (invitationData.rows.length > 0) {
+      const inv = invitationData.rows[0]
+      attendanceData = {
+        sessions: {
+          day1: {}, day2: {}, day3: {}, day4: {}
+        },
+        openingCeremony: {},
+        performanceDay: {},
+        conference: {
+          day1: { attended: inv.conf_day1_attended || false, breakfast: inv.conf_day1_breakfast || false, lunch: inv.conf_day1_lunch || false, comments: null, checkin: inv.conf_day1_checkin || null, checkout: inv.conf_day1_checkout || null, busCheckIn: null, busCheckOut: null },
+          day2: { attended: inv.conf_day2_attended || false, breakfast: inv.conf_day2_breakfast || false, lunch: inv.conf_day2_lunch || false, comments: null, checkin: inv.conf_day2_checkin || null, checkout: inv.conf_day2_checkout || null, busCheckIn: null, busCheckOut: null },
+          day3: { attended: inv.conf_day3_attended || false, breakfast: inv.conf_day3_breakfast || false, lunch: inv.conf_day3_lunch || false, comments: null, checkin: inv.conf_day3_checkin || null, checkout: inv.conf_day3_checkout || null, busCheckIn: null, busCheckOut: null }
         },
       }
     }
@@ -532,7 +583,7 @@ async function getParticipantTrackingData(
         day3_session_attended, day3_food, day3_comments, day3_checkin, day3_checkout, day3_bus_checkin, day3_bus_checkout,
         day4_session_attended, day4_food, day4_comments, day4_checkin, day4_checkout, day4_bus_checkin, day4_bus_checkout,
         performance_day_bus_checkin, performance_day_bus_checkout,
-        opening_ceremony_attended, opening_ceremony_food, opening_ceremony_comments, opening_ceremony_checkin, opening_ceremony_checkout, opening_ceremony_bus_checkin, opening_ceremony_bus_checkout,
+        opening_ceremony_attended, opening_ceremony_food, opening_ceremony_bar, opening_ceremony_comments, opening_ceremony_checkin, opening_ceremony_checkout, opening_ceremony_bus_checkin, opening_ceremony_bus_checkout,
         conf_day1_attended, conf_day1_breakfast, conf_day1_lunch, conf_day1_comments, conf_day1_checkin, conf_day1_checkout, conf_day1_bus_checkin, conf_day1_bus_checkout,
         conf_day2_attended, conf_day2_breakfast, conf_day2_lunch, conf_day2_comments, conf_day2_checkin, conf_day2_checkout, conf_day2_bus_checkin, conf_day2_bus_checkout,
         conf_day3_attended, conf_day3_breakfast, conf_day3_lunch, conf_day3_comments, conf_day3_checkin, conf_day3_checkout, conf_day3_bus_checkin, conf_day3_bus_checkout
@@ -548,7 +599,7 @@ async function getParticipantTrackingData(
           day3: { attended: m.day3_session_attended || false, lunch: m.day3_food || false, comments: m.day3_comments || null, checkin: m.day3_checkin || null, checkout: m.day3_checkout || null, busCheckIn: m.day3_bus_checkin || null, busCheckOut: m.day3_bus_checkout || null },
           day4: { attended: m.day4_session_attended || false, lunch: m.day4_food || false, comments: m.day4_comments || null, checkin: m.day4_checkin || null, checkout: m.day4_checkout || null, busCheckIn: m.day4_bus_checkin || null, busCheckOut: m.day4_bus_checkout || null }
         },
-        openingCeremony: { attended: m.opening_ceremony_attended || false, catering: m.opening_ceremony_food || false, comments: m.opening_ceremony_comments || null, checkin: m.opening_ceremony_checkin || null, checkout: m.opening_ceremony_checkout || null, busCheckIn: m.opening_ceremony_bus_checkin || null, busCheckOut: m.opening_ceremony_bus_checkout || null },
+        openingCeremony: { attended: m.opening_ceremony_attended || false, catering: m.opening_ceremony_food || false, bar: m.opening_ceremony_bar || false, comments: m.opening_ceremony_comments || null, checkin: m.opening_ceremony_checkin || null, checkout: m.opening_ceremony_checkout || null, busCheckIn: m.opening_ceremony_bus_checkin || null, busCheckOut: m.opening_ceremony_bus_checkout || null },
         performanceDay: { busCheckIn: m.performance_day_bus_checkin || null, busCheckOut: m.performance_day_bus_checkout || null },
         conference: {
           day1: { attended: m.conf_day1_attended || false, breakfast: m.conf_day1_breakfast || false, lunch: m.conf_day1_lunch || false, comments: m.conf_day1_comments || null, checkin: m.conf_day1_checkin || null, checkout: m.conf_day1_checkout || null, busCheckIn: m.conf_day1_bus_checkin || null, busCheckOut: m.conf_day1_bus_checkout || null },

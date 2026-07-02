@@ -54,23 +54,36 @@ router.post('/', async (req: Request, res: Response) => {
 
     const timestamp = value ? new Date() : null
 
-    // Check if participant is delegate or member
+    // Check if participant is delegate, member, or invitation
     const delegateCheck = await query('SELECT id FROM delegates WHERE id = $1', [participantId])
     const isDelegate = delegateCheck.rows.length > 0
+    let isMember = false
+    let isInvitation = false
     if (!isDelegate) {
       const memberCheck = await query('SELECT id FROM members WHERE id = $1', [participantId])
-      if (memberCheck.rows.length === 0) {
-        return res.status(404).json({ error: 'Participant not found' })
+      isMember = memberCheck.rows.length > 0
+      if (!isMember) {
+        const invitationCheck = await query('SELECT id FROM invitations WHERE id = $1', [participantId])
+        isInvitation = invitationCheck.rows.length > 0
+        if (!isInvitation) {
+          return res.status(404).json({ error: 'Participant not found' })
+        }
       }
     }
 
     if (isCheckInAction) {
-      await updateParticipantBusCheckIn(participantId, sessionType, timestamp, isDelegate)
+      if (!isInvitation) {
+        await updateParticipantBusCheckIn(participantId, sessionType, timestamp, isDelegate)
+      }
       if (!value) {
-        await updateParticipantBusCheckOut(participantId, sessionType, null, isDelegate)
+        if (!isInvitation) {
+          await updateParticipantBusCheckOut(participantId, sessionType, null, isDelegate)
+        }
       }
     } else if (isCheckOutAction) {
-      await updateParticipantBusCheckOut(participantId, sessionType, timestamp, isDelegate)
+      if (!isInvitation) {
+        await updateParticipantBusCheckOut(participantId, sessionType, timestamp, isDelegate)
+      }
     }
 
     // Get user_id for activity timeline
@@ -78,6 +91,8 @@ router.post('/', async (req: Request, res: Response) => {
       SELECT user_id FROM delegates WHERE id = $1
       UNION ALL
       SELECT user_id FROM members WHERE id = $1
+      UNION ALL
+      SELECT user_id FROM invitations WHERE id = $1
       LIMIT 1
     `, [participantId])
 

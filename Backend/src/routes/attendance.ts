@@ -43,9 +43,11 @@ router.post('/', async (req: Request, res: Response) => {
 
     const timestamp = new Date()
 
-    // Check if participant is delegate or member
+    // Check if participant is delegate, member, or invitation
     const delegateCheck = await query('SELECT id FROM delegates WHERE id = $1', [participantId])
     const isDelegate = delegateCheck.rows.length > 0
+    const invitationCheck = await query('SELECT id FROM invitations WHERE id = $1', [participantId])
+    const isInvitation = invitationCheck.rows.length > 0
 
     if (checkIn) {
       // Handle check-in
@@ -68,9 +70,9 @@ router.post('/', async (req: Request, res: Response) => {
         ])
       }
 
-      // Update delegates/members table check-in time
-      await updateParticipantCheckIn(participantId, sessionType, timestamp, isDelegate)
-      await updateParticipantAttendanceField(participantId, sessionType, true, isDelegate)
+      // Update delegates/members/invitations table check-in time
+      await updateParticipantCheckIn(participantId, sessionType, timestamp, isDelegate, isInvitation)
+      await updateParticipantAttendanceField(participantId, sessionType, true, isDelegate, isInvitation)
     } else if (checkOut) {
       // Handle check-out - checkout does NOT mean absent, they were present and left
       if (isDelegate) {
@@ -81,9 +83,9 @@ router.post('/', async (req: Request, res: Response) => {
         `, [timestamp, participantId, sessionType])
       }
 
-      // Update delegates/members table check-out time
+      // Update delegates/members/invitations table check-out time
       // Note: We do NOT change attendance status - they were present, they just checked out
-      await updateParticipantCheckOut(participantId, sessionType, timestamp, isDelegate)
+      await updateParticipantCheckOut(participantId, sessionType, timestamp, isDelegate, isInvitation)
     } else if (value) {
       // Toggle attendance on
       if (isDelegate) {
@@ -105,7 +107,7 @@ router.post('/', async (req: Request, res: Response) => {
         ])
       }
 
-      await updateParticipantAttendanceField(participantId, sessionType, true, isDelegate)
+      await updateParticipantAttendanceField(participantId, sessionType, true, isDelegate, isInvitation)
     } else {
       // Toggle attendance off
       if (isDelegate) {
@@ -116,7 +118,7 @@ router.post('/', async (req: Request, res: Response) => {
         `, [timestamp, participantId, sessionType])
       }
 
-      await updateParticipantAttendanceField(participantId, sessionType, false, isDelegate)
+      await updateParticipantAttendanceField(participantId, sessionType, false, isDelegate, isInvitation)
     }
 
     // Get user_id for activity timeline
@@ -124,6 +126,8 @@ router.post('/', async (req: Request, res: Response) => {
       SELECT user_id FROM delegates WHERE id = $1
       UNION ALL
       SELECT user_id FROM members WHERE id = $1
+      UNION ALL
+      SELECT user_id FROM invitations WHERE id = $1
       LIMIT 1
     `, [participantId])
 
@@ -221,7 +225,8 @@ async function updateParticipantAttendanceField(
   participantId: string,
   sessionType: string,
   value: boolean,
-  isDelegate: boolean
+  isDelegate: boolean,
+  isInvitation: boolean
 ) {
   const fieldMap: Record<string, string> = {
     'day1': 'day1_session_attended',
@@ -244,6 +249,12 @@ async function updateParticipantAttendanceField(
       SET ${field} = $1 
       WHERE id = $2
     `, [value, participantId])
+  } else if (isInvitation) {
+    await query(`
+      UPDATE invitations 
+      SET ${field} = $1 
+      WHERE id = $2
+    `, [value, participantId])
   } else {
     await query(`
       UPDATE members 
@@ -257,7 +268,8 @@ async function updateParticipantCheckIn(
   participantId: string,
   sessionType: string,
   timestamp: Date,
-  isDelegate: boolean
+  isDelegate: boolean,
+  isInvitation: boolean
 ) {
   const fieldMap: Record<string, string> = {
     'day1': 'day1_checkin',
@@ -275,6 +287,8 @@ async function updateParticipantCheckIn(
 
   if (isDelegate) {
     await query(`UPDATE delegates SET ${field} = $1 WHERE id = $2`, [timestamp, participantId])
+  } else if (isInvitation) {
+    await query(`UPDATE invitations SET ${field} = $1 WHERE id = $2`, [timestamp, participantId])
   } else {
     await query(`UPDATE members SET ${field} = $1 WHERE id = $2`, [timestamp, participantId])
   }
@@ -283,8 +297,9 @@ async function updateParticipantCheckIn(
 async function updateParticipantCheckOut(
   participantId: string,
   sessionType: string,
-  timestamp: Date,
-  isDelegate: boolean
+  timestamp: Date | null,
+  isDelegate: boolean,
+  isInvitation: boolean
 ) {
   const fieldMap: Record<string, string> = {
     'day1': 'day1_checkout',
@@ -302,6 +317,8 @@ async function updateParticipantCheckOut(
 
   if (isDelegate) {
     await query(`UPDATE delegates SET ${field} = $1 WHERE id = $2`, [timestamp, participantId])
+  } else if (isInvitation) {
+    await query(`UPDATE invitations SET ${field} = $1 WHERE id = $2`, [timestamp, participantId])
   } else {
     await query(`UPDATE members SET ${field} = $1 WHERE id = $2`, [timestamp, participantId])
   }

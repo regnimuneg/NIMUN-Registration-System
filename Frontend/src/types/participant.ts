@@ -18,7 +18,7 @@ export interface TrackingData {
       day4: { attended: boolean; lunch?: boolean }
     }
     performanceDay: { attended: boolean; breakfast?: boolean; lunch?: boolean }
-    openingCeremony: { attended: boolean; catering?: boolean }
+    openingCeremony: { attended: boolean; catering?: boolean; bar?: boolean }
     conference: {
       day1: { attended: boolean; breakfast?: boolean; lunch?: boolean }
       day2: { attended: boolean; breakfast?: boolean; lunch?: boolean }

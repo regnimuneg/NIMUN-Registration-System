@@ -18,19 +18,20 @@ router.post('/generate', async (req: Request, res: Response) => {
     // QR code will be generated on-the-fly from the ID
     const qrCodeValue = participantId
 
-    // Check if participant is delegate or member
+    // Check if participant is delegate, member, or invitation
     const delegateCheck = await query('SELECT id FROM delegates WHERE id = $1', [participantId])
     const memberCheck = await query('SELECT id FROM members WHERE id = $1', [participantId])
+    const invitationCheck = await query('SELECT id FROM invitations WHERE id = $1', [participantId])
 
     if (delegateCheck.rows.length > 0) {
       // Update QR code in delegates table (store ID, not data URL)
       await query(`
         UPDATE delegates SET qr_code = $1 WHERE id = $2
       `, [qrCodeValue, participantId])
-    } else if (memberCheck.rows.length > 0) {
-      // Members don't have qr_code field in schema, but we can still generate QR codes
+    } else if (memberCheck.rows.length > 0 || invitationCheck.rows.length > 0) {
+      // Members and invitations don't have qr_code field in schema, but we can still generate QR codes
       // The QR code will be generated and returned, just not stored in the database
-      console.log(`[QR] Generated QR code for member: ${participantId}`)
+      console.log(`[QR] Generated QR code for participant: ${participantId}`)
     } else {
       return res.status(404).json({ error: 'Participant not found' })
     }
@@ -111,18 +112,19 @@ router.post('/bulk', async (req: Request, res: Response) => {
     const results = []
     for (const participantId of participantIds) {
       try {
-        // Check if delegate or member
+        // Check if delegate, member, or invitation
         const delegateCheck = await query('SELECT id FROM delegates WHERE id = $1', [participantId])
         const memberCheck = await query('SELECT id FROM members WHERE id = $1', [participantId])
+        const invitationCheck = await query('SELECT id FROM invitations WHERE id = $1', [participantId])
 
         if (delegateCheck.rows.length > 0) {
           // Store just the ID (schema limitation) for delegates
           await query(`
             UPDATE delegates SET qr_code = $1 WHERE id = $2
           `, [participantId, participantId])
-        } else if (memberCheck.rows.length > 0) {
-          // Members don't have qr_code field, but we can still generate QR codes
-          console.log(`[QR] Generated QR code for member: ${participantId}`)
+        } else if (memberCheck.rows.length > 0 || invitationCheck.rows.length > 0) {
+          // Members and invitations don't have qr_code field, but we can still generate QR codes
+          console.log(`[QR] Generated QR code for participant: ${participantId}`)
         } else {
           results.push({ participantId, success: false, error: 'Participant not found' })
           continue

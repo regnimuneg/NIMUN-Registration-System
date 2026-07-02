@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Html5Qrcode } from 'html5-qrcode'
 import { api } from '../../lib/api'
-import { QrCode, Search, CheckCircle, XCircle, RefreshCw, User, Camera, CameraOff, Calendar, UtensilsCrossed, Clock, LogIn, LogOut, MessageSquare, CheckSquare, Square, ChevronDown, Check } from 'lucide-react'
+import { QrCode, Search, CheckCircle, XCircle, RefreshCw, User, Camera, CameraOff, Calendar, UtensilsCrossed, Clock, LogIn, LogOut, MessageSquare, CheckSquare, Square, ChevronDown, Check, GlassWater, AlertTriangle } from 'lucide-react'
 
 interface SessionOption {
   id: string
@@ -49,7 +49,25 @@ function ToggleSwitch({ checked, disabled = false, label, onChange }: ToggleSwit
 }
 
 export default function ScanPage() {
-  const [selectedSession, setSelectedSession] = useState<SessionOption | null>(null)
+  const [selectedSession, setSelectedSession] = useState<SessionOption | null>(() => {
+    const now = new Date()
+    const month = now.toLocaleString('en-US', { month: 'long' })
+    const day = now.getDate()
+
+    if (month === 'June') {
+      if (day === 27) return SESSION_OPTIONS[0]
+      if (day === 28) return SESSION_OPTIONS[1]
+      if (day === 29) return SESSION_OPTIONS[2]
+      if (day === 30) return SESSION_OPTIONS[3]
+    } else if (month === 'July') {
+      if (day === 1) return SESSION_OPTIONS[4]
+      if (day === 3) return SESSION_OPTIONS[5]
+      if (day === 4) return SESSION_OPTIONS[6]
+      if (day === 5) return SESSION_OPTIONS[7]
+      if (day >= 6) return SESSION_OPTIONS[8]
+    }
+    return SESSION_OPTIONS[0]
+  })
   const [scannedId, setScannedId] = useState<string>('')
   const [participant, setParticipant] = useState<any>(null)
   const [loading, setLoading] = useState(false)
@@ -58,8 +76,11 @@ export default function ScanPage() {
   const [isScanning, setIsScanning] = useState(false)
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [isScanModeDropdownOpen, setIsScanModeDropdownOpen] = useState(false)
   const scannerRef = useRef<Html5Qrcode | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const scanModeDropdownRef = useRef<HTMLDivElement>(null)
+  const manualInputRef = useRef<HTMLInputElement>(null)
   const scanInFlightRef = useRef(false)
   const loadedTrackingKeyRef = useRef<string | null>(null)
   const qrCodeRegionId = 'qr-reader'
@@ -69,6 +90,7 @@ export default function ScanPage() {
   const [breakfast, setBreakfast] = useState(false)
   const [lunch, setLunch] = useState(false)
   const [catering, setCatering] = useState(false)
+  const [bar, setBar] = useState(false)
   const [activityStatus, setActivityStatus] = useState<Record<string, boolean>>({})
   const [checkInTime, setCheckInTime] = useState<string | null>(null)
   const [checkOutTime, setCheckOutTime] = useState<string | null>(null)
@@ -78,6 +100,13 @@ export default function ScanPage() {
   const [existingComments, setExistingComments] = useState('')
   const [newComment, setNewComment] = useState('')
   const [saving, setSaving] = useState(false)
+  const [scanMode, setScanMode] = useState<string>('view')
+  const [quickScanStatus, setQuickScanStatus] = useState<{ type: 'success' | 'warning' | 'error'; message: string; name?: string } | null>(null)
+
+  useEffect(() => {
+    setScanMode('view')
+    setQuickScanStatus(null)
+  }, [selectedSession])
 
   useEffect(() => {
     // Cleanup on unmount
@@ -129,6 +158,7 @@ export default function ScanPage() {
           setBreakfast(false)
           setLunch(false)
           setCatering(false)
+          setBar(false)
           setActivityStatus({})
           setCheckInTime(null)
           setCheckOutTime(null)
@@ -157,6 +187,7 @@ export default function ScanPage() {
             if (dayData.lunch) setLunch(true)
             if (dayData.breakfast) setBreakfast(true)
             if (dayData.catering) setCatering(true)
+            if (dayData.bar) setBar(true)
           }
 
           // Set activity status from games history
@@ -175,12 +206,13 @@ export default function ScanPage() {
             setActivityStatus(newActivityStatus)
           }
         } else {
-          // Reset all tracking state if no tracking data
-          setAttendance(false)
-          setBreakfast(false)
-          setLunch(false)
-          setCatering(false)
-          setActivityStatus({})
+           // Reset all tracking state if no tracking data
+           setAttendance(false)
+           setBreakfast(false)
+           setLunch(false)
+           setCatering(false)
+           setBar(false)
+           setActivityStatus({})
           setCheckInTime(null)
           setCheckOutTime(null)
           setBusCheckInTime(null)
@@ -215,6 +247,22 @@ export default function ScanPage() {
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [isDropdownOpen])
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (scanModeDropdownRef.current && !scanModeDropdownRef.current.contains(event.target as Node)) {
+        setIsScanModeDropdownOpen(false)
+      }
+    }
+
+    if (isScanModeDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isScanModeDropdownOpen])
 
   const startScanning = async () => {
     try {
@@ -282,6 +330,7 @@ export default function ScanPage() {
     setBreakfast(false)
     setLunch(false)
     setCatering(false)
+    setBar(false)
     setActivityStatus({})
     setCheckInTime(null)
     setCheckOutTime(null)
@@ -293,8 +342,148 @@ export default function ScanPage() {
 
     try {
       const data = await api.getParticipant(searchId, true)
-
+ 
       if (data.participant) {
+        // Execute quick-action auto scan check-ins if scanMode is active
+        if (scanMode !== 'view') {
+          const participantName = data.participant.name
+          const dayData = data.tracking ? getDayDataFromTracking(data.tracking.dayTracking, selectedSession.dayKey) : null
+
+          let isAlreadyChecked = false
+          let checkMessage = ''
+
+          if (dayData) {
+            if (scanMode === 'attendance' && dayData.attended) {
+              isAlreadyChecked = true
+              checkMessage = `${participantName} is already checked in for attendance in ${selectedSession.label}`
+            } else if (scanMode === 'attendance_out' && dayData.checkout) {
+              isAlreadyChecked = true
+              checkMessage = `${participantName} is already checked out for attendance in ${selectedSession.label}`
+            } else if (scanMode === 'catering' && dayData.catering) {
+              isAlreadyChecked = true
+              checkMessage = `${participantName} has already claimed Catering for ${selectedSession.label}`
+            } else if (scanMode === 'bar' && dayData.bar) {
+              isAlreadyChecked = true
+              checkMessage = `${participantName} has already claimed Bar for ${selectedSession.label}`
+            } else if (scanMode === 'breakfast' && dayData.breakfast) {
+              isAlreadyChecked = true
+              checkMessage = `${participantName} has already claimed Breakfast for ${selectedSession.label}`
+            } else if (scanMode === 'lunch' && dayData.lunch) {
+              isAlreadyChecked = true
+              checkMessage = `${participantName} has already claimed Lunch for ${selectedSession.label}`
+            } else if (scanMode === 'bus_in' && dayData.busCheckIn) {
+              isAlreadyChecked = true
+              checkMessage = `${participantName} is already checked in for Bus in ${selectedSession.label}`
+            } else if (scanMode === 'bus_out' && dayData.busCheckOut) {
+              isAlreadyChecked = true
+              checkMessage = `${participantName} is already checked out for Bus in ${selectedSession.label}`
+            }
+          }
+
+          if (isAlreadyChecked) {
+            setQuickScanStatus({ type: 'warning', message: checkMessage, name: participantName })
+            // Loop restart scan automatically so operator scanner doesn't freeze
+            setTimeout(() => {
+              setQuickScanStatus(null)
+              if (lockAlreadyHeld) {
+                if (scannerRef.current === null) {
+                  startScanning().catch(() => {})
+                }
+              } else {
+                setScannedId('')
+                if (manualInputRef.current) {
+                  manualInputRef.current.focus()
+                }
+              }
+            }, 1800)
+          } else {
+            try {
+              if (scanMode === 'attendance') {
+                await api.updateAttendance({
+                  participantId: searchId,
+                  dayKey: selectedSession.dayKey,
+                  field: 'attended',
+                  value: true,
+                  checkIn: true
+                })
+                setQuickScanStatus({ type: 'success', message: 'Checked In Successfully!', name: participantName })
+              } else if (scanMode === 'attendance_out') {
+                await api.updateAttendance({
+                  participantId: searchId,
+                  dayKey: selectedSession.dayKey,
+                  field: 'attended',
+                  value: true,
+                  checkOut: true
+                })
+                setQuickScanStatus({ type: 'success', message: 'Checked Out Successfully!', name: participantName })
+              } else if (scanMode === 'catering') {
+                await api.updateFood({
+                  participantId: searchId,
+                  dayKey: selectedSession.dayKey,
+                  meal: 'catering',
+                  value: true
+                })
+                setQuickScanStatus({ type: 'success', message: 'Catering Logged!', name: participantName })
+              } else if (scanMode === 'bar') {
+                await api.updateFood({
+                  participantId: searchId,
+                  dayKey: selectedSession.dayKey,
+                  meal: 'bar',
+                  value: true
+                })
+                setQuickScanStatus({ type: 'success', message: 'Bar Logged!', name: participantName })
+              } else if (scanMode === 'breakfast') {
+                await api.updateFood({
+                  participantId: searchId,
+                  dayKey: selectedSession.dayKey,
+                  meal: 'breakfast',
+                  value: true
+                })
+                setQuickScanStatus({ type: 'success', message: 'Breakfast Logged!', name: participantName })
+              } else if (scanMode === 'lunch') {
+                await api.updateFood({
+                  participantId: searchId,
+                  dayKey: selectedSession.dayKey,
+                  meal: 'lunch',
+                  value: true
+                })
+                setQuickScanStatus({ type: 'success', message: 'Lunch Logged!', name: participantName })
+              } else if (scanMode === 'bus_in') {
+                await api.updateBus({
+                  participantId: searchId,
+                  dayKey: selectedSession.dayKey,
+                  checkIn: true,
+                  value: true
+                })
+                setQuickScanStatus({ type: 'success', message: 'Bus Check-In Logged!', name: participantName })
+              } else if (scanMode === 'bus_out') {
+                await api.updateBus({
+                  participantId: searchId,
+                  dayKey: selectedSession.dayKey,
+                  checkOut: true,
+                  value: true
+                })
+                setQuickScanStatus({ type: 'success', message: 'Bus Check-Out Logged!', name: participantName })
+              }
+
+              // Fetch fresh tracking details to update UI toggles instantly
+              const freshData = await api.getParticipant(searchId, true)
+              if (freshData.tracking) {
+                data.tracking = freshData.tracking
+              }
+            } catch (actionErr: any) {
+              console.error('Quick scan action error:', actionErr)
+              setQuickScanStatus({ 
+                type: 'error', 
+                message: actionErr.message || 'Action failed!', 
+                name: participantName 
+              })
+              setLoading(false)
+              if (lockAlreadyHeld) scanInFlightRef.current = false
+              return
+            }
+          }
+        }
         // Normalize field names - PostgreSQL might return lowercase
         const normalizedParticipant = {
           ...data.participant,
@@ -359,10 +548,10 @@ export default function ScanPage() {
               setComments('')
             }
             // Set food from dayData (lunch for sessions, breakfast/lunch for conference)
-            if (dayData.lunch) setLunch(true)
-            if (dayData.breakfast) setBreakfast(true)
-            if (dayData.catering) setCatering(true)
-            if (dayData.catering) setCatering(true)
+             if (dayData.lunch) setLunch(true)
+             if (dayData.breakfast) setBreakfast(true)
+             if (dayData.catering) setCatering(true)
+             if (dayData.bar) setBar(true)
           } else {
             setExistingComments('')
             setComments('')
@@ -384,11 +573,12 @@ export default function ScanPage() {
             setActivityStatus(newActivityStatus)
           }
         } else {
-          // Reset activity tracking state if no tracking data
-          setAttendance(false)
-          setBreakfast(false)
-          setLunch(false)
-          setCatering(false)
+           // Reset activity tracking state if no tracking data
+           setAttendance(false)
+           setBreakfast(false)
+           setLunch(false)
+           setCatering(false)
+           setBar(false)
           setActivityStatus({})
           setCheckInTime(null)
           setCheckOutTime(null)
@@ -404,11 +594,30 @@ export default function ScanPage() {
           { id: searchId, name: data.participant.name, time: new Date().toLocaleTimeString() },
           ...prev.slice(0, 9) // Keep last 10 scans
         ])
+
+        // If we did a quick scan action, setup the auto-restart or focus loop
+        if (scanMode !== 'view') {
+          setTimeout(() => {
+            setQuickScanStatus(null)
+            if (lockAlreadyHeld) {
+              if (scannerRef.current === null) {
+                startScanning().catch(() => {})
+              }
+            } else {
+              setScannedId('')
+              if (manualInputRef.current) {
+                manualInputRef.current.focus()
+              }
+            }
+          }, 1500)
+        }
       } else {
         setError('Participant not found')
       }
     } catch (err: any) {
       setError(err.message || 'Failed to fetch participant')
+      // If error occurs, show quickScanStatus as error
+      setQuickScanStatus({ type: 'error', message: err.message || 'Failed to scan participant' })
       setParticipant(null)
     } finally {
       setLoading(false)
@@ -617,6 +826,25 @@ export default function ScanPage() {
     }
   }
 
+  const handleToggleBar = async (value: boolean) => {
+    if (!participant || !selectedSession) return
+
+    try {
+      setSaving(true)
+      await api.updateFood({
+        participantId: participant.id,
+        dayKey: selectedSession.dayKey,
+        meal: 'bar',
+        value
+      })
+      setBar(value)
+    } catch (err: any) {
+      alert(`Failed to update bar: ${err.message}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const handleToggleActivity = async (activityName: string, value: boolean) => {
     if (!participant || !selectedSession) return
 
@@ -677,6 +905,40 @@ export default function ScanPage() {
     return mapping[dayKey] || null
   }
 
+  const getAvailableScanModes = () => {
+    if (!selectedSession) return []
+    const dayKey = selectedSession.dayKey
+    const modes = [
+      { value: 'view', label: 'Manual / View Details' }
+    ]
+
+    // Attendance Check-in is available for all sessions except performance day
+    if (dayKey !== 'performanceDay') {
+      modes.push({ value: 'attendance', label: 'Auto Attendance Check-in' })
+      modes.push({ value: 'attendance_out', label: 'Auto Attendance Check-out' })
+    }
+
+    if (dayKey === 'openingCeremony') {
+      modes.push({ value: 'catering', label: 'Auto Catering Checkout' })
+      modes.push({ value: 'bar', label: 'Auto Bar Checkout' })
+    }
+
+    if (dayKey.startsWith('conference.')) {
+      modes.push({ value: 'breakfast', label: 'Auto Breakfast Checkout' })
+      modes.push({ value: 'lunch', label: 'Auto Lunch Checkout' })
+    } else if (dayKey.startsWith('sessions.')) {
+      modes.push({ value: 'lunch', label: 'Auto Lunch Checkout' })
+    }
+
+    // Bus is available for all sessions
+    modes.push({ value: 'bus_in', label: 'Auto Bus Check-in' })
+    modes.push({ value: 'bus_out', label: 'Auto Bus Check-out' })
+
+    return modes
+  }
+
+  const activeMode = getAvailableScanModes().find(m => m.value === scanMode) || { value: 'view', label: 'Manual / View Details' }
+
   return (
     <div className="jn-page">
       <div className="jn-shell">
@@ -688,87 +950,163 @@ export default function ScanPage() {
 
           {/* Session Selection */}
           <div className="card mb-4 sm:mb-6 relative z-20">
-            <div className="flex items-center gap-2 mb-4">
-              <Calendar className="w-5 h-5 text-[var(--color-primary-blue)]" />
-              <h2 className="text-lg sm:text-xl font-black">Select Session</h2>
-            </div>
-            <div className="w-full relative" ref={dropdownRef}>
-              {/* Custom Dropdown Button */}
-              <button
-                type="button"
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="w-full px-4 py-3.5 rounded-2xl border-2 border-[var(--jn-blue)] bg-white hover:border-[var(--jn-pink)] focus:border-[var(--jn-blue)] focus:ring-2 focus:ring-blue-100 transition-all duration-200 flex items-center justify-between text-left shadow-sm hover:shadow-md"
-              >
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  {selectedSession ? (
-                    <>
-                      <div className="flex-shrink-0 w-2 h-2 rounded-full bg-green-500"></div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-gray-900 truncate">{selectedSession.label}</div>
-                        <div className="text-sm text-gray-500">{selectedSession.date}</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Session Selection */}
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <Calendar className="w-5 h-5 text-[var(--color-primary-blue)]" />
+                  <h2 className="text-lg sm:text-xl font-black">Select Session</h2>
+                </div>
+                <div className="w-full relative" ref={dropdownRef}>
+                  {/* Custom Dropdown Button */}
+                  <button
+                    type="button"
+                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                    className="w-full px-4 py-3.5 rounded-2xl border-2 border-[var(--jn-blue)] bg-white hover:border-[var(--jn-pink)] focus:border-[var(--jn-blue)] focus:ring-2 focus:ring-blue-100 transition-all duration-200 flex items-center justify-between text-left shadow-sm hover:shadow-md"
+                  >
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      {selectedSession ? (
+                        <>
+                          <div className="flex-shrink-0 w-2 h-2 rounded-full bg-green-500"></div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-gray-900 truncate">{selectedSession.label}</div>
+                            <div className="text-sm text-gray-500">{selectedSession.date}</div>
+                          </div>
+                        </>
+                      ) : (
+                        <span className="text-gray-500 font-medium">Select a session...</span>
+                      )}
+                    </div>
+                    <ChevronDown
+                      className={`w-5 h-5 text-gray-400 flex-shrink-0 transition-transform duration-200 ${isDropdownOpen ? 'transform rotate-180' : ''
+                        }`}
+                    />
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {isDropdownOpen && (
+                    <div className="absolute z-50 w-full mt-2 bg-white border-2 border-[var(--jn-blue)] rounded-3xl shadow-xl overflow-hidden dropdown-menu">
+                      <div className="max-h-80 overflow-y-auto scrollbar-hide">
+                        {SESSION_OPTIONS.map((session) => {
+                          const isSelected = selectedSession?.id === session.id
+                          const isSessions = session.dayKey.startsWith('sessions.')
+                          const isConference = session.dayKey.startsWith('conference.')
+                          const isPerformance = session.dayKey === 'performanceDay'
+                          const isOpening = session.dayKey === 'openingCeremony'
+
+                          return (
+                            <button
+                              key={session.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedSession(session)
+                                setIsDropdownOpen(false)
+                              }}
+                              className={`w-full px-4 py-3.5 text-left hover:bg-blue-50 transition-colors duration-150 border-b border-gray-100 last:border-b-0 ${isSelected ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
+                                }`}
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                  <div className={`flex-shrink-0 w-2 h-2 rounded-full ${isSessions ? 'bg-purple-500' :
+                                    isConference ? 'bg-indigo-500' :
+                                      isPerformance ? 'bg-yellow-500' :
+                                      isOpening ? 'bg-orange-500' : 'bg-gray-400'
+                                    }`}></div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className={`font-semibold truncate ${isSelected ? 'text-blue-700' : 'text-gray-900'
+                                      }`}>
+                                      {session.label}
+                                    </div>
+                                    <div className={`text-sm mt-0.5 ${isSelected ? 'text-blue-600' : 'text-gray-500'
+                                      }`}>
+                                      {session.date}
+                                    </div>
+                                  </div>
+                                </div>
+                                {isSelected && (
+                                  <Check className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                                )}
+                              </div>
+                            </button>
+                          )
+                        })}
                       </div>
-                    </>
-                  ) : (
-                    <span className="text-gray-500 font-medium">Select a session...</span>
+                    </div>
                   )}
                 </div>
-                <ChevronDown
-                  className={`w-5 h-5 text-gray-400 flex-shrink-0 transition-transform duration-200 ${isDropdownOpen ? 'transform rotate-180' : ''
-                    }`}
-                />
-              </button>
+              </div>
 
-              {/* Dropdown Menu */}
-              {isDropdownOpen && (
-                <div className="absolute z-50 w-full mt-2 bg-white border-2 border-[var(--jn-blue)] rounded-3xl shadow-xl overflow-hidden dropdown-menu">
-                  <div className="max-h-80 overflow-y-auto scrollbar-hide">
-                    {SESSION_OPTIONS.map((session) => {
-                      const isSelected = selectedSession?.id === session.id
-                      const isSessions = session.dayKey.startsWith('sessions.')
-                      const isConference = session.dayKey.startsWith('conference.')
-                      const isPerformance = session.dayKey === 'performanceDay'
-                      const isOpening = session.dayKey === 'openingCeremony'
-
-                      return (
-                        <button
-                          key={session.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedSession(session)
-                            setIsDropdownOpen(false)
-                          }}
-                          className={`w-full px-4 py-3.5 text-left hover:bg-blue-50 transition-colors duration-150 border-b border-gray-100 last:border-b-0 ${isSelected ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
-                            }`}
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-3 flex-1 min-w-0">
-                              <div className={`flex-shrink-0 w-2 h-2 rounded-full ${isSessions ? 'bg-purple-500' :
-                                isConference ? 'bg-indigo-500' :
-                                  isPerformance ? 'bg-yellow-500' :
-                                  isOpening ? 'bg-orange-500' : 'bg-gray-400'
-                                }`}></div>
-                              <div className="flex-1 min-w-0">
-                                <div className={`font-semibold truncate ${isSelected ? 'text-blue-700' : 'text-gray-900'
-                                  }`}>
-                                  {session.label}
-                                </div>
-                                <div className={`text-sm mt-0.5 ${isSelected ? 'text-blue-600' : 'text-gray-500'
-                                  }`}>
-                                  {session.date}
-                                </div>
-                              </div>
-                            </div>
-                            {isSelected && (
-                              <Check className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                            )}
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
+              {/* Scan Mode Selection */}
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <QrCode className="w-5 h-5 text-[var(--color-primary-blue)]" />
+                  <h2 className="text-lg sm:text-xl font-black">Scan Mode</h2>
                 </div>
-              )}
+                <div className="w-full relative" ref={scanModeDropdownRef}>
+                  {/* Custom Dropdown Button */}
+                  <button
+                    type="button"
+                    disabled={!selectedSession}
+                    onClick={() => setIsScanModeDropdownOpen(!isScanModeDropdownOpen)}
+                    className="w-full px-4 py-3.5 rounded-2xl border-2 border-[var(--jn-blue)] bg-white hover:border-[var(--jn-pink)] focus:border-[var(--jn-blue)] focus:ring-2 focus:ring-blue-100 transition-all duration-200 flex items-center justify-between text-left shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      {selectedSession ? (
+                        <>
+                          <div className="flex-shrink-0 w-2 h-2 rounded-full bg-blue-500"></div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-gray-900 truncate">{activeMode.label}</div>
+                          </div>
+                        </>
+                      ) : (
+                        <span className="text-gray-500 font-medium">Select a session first...</span>
+                      )}
+                    </div>
+                    <ChevronDown
+                      className={`w-5 h-5 text-gray-400 flex-shrink-0 transition-transform duration-200 ${isScanModeDropdownOpen ? 'transform rotate-180' : ''
+                        }`}
+                    />
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {isScanModeDropdownOpen && selectedSession && (
+                    <div className="absolute z-50 w-full mt-2 bg-white border-2 border-[var(--jn-blue)] rounded-3xl shadow-xl overflow-hidden dropdown-menu">
+                      <div className="max-h-80 overflow-y-auto scrollbar-hide">
+                        {getAvailableScanModes().map((mode) => {
+                          const isSelected = scanMode === mode.value
+
+                          return (
+                            <button
+                              key={mode.value}
+                              type="button"
+                              onClick={() => {
+                                setScanMode(mode.value)
+                                setIsScanModeDropdownOpen(false)
+                              }}
+                              className={`w-full px-4 py-3.5 text-left hover:bg-blue-50 transition-colors duration-150 border-b border-gray-100 last:border-b-0 ${isSelected ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
+                                }`}
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                  <div className={`font-semibold truncate ${isSelected ? 'text-blue-700' : 'text-gray-900'
+                                    }`}>
+                                    {mode.label}
+                                  </div>
+                                </div>
+                                {isSelected && (
+                                  <Check className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                                )}
+                              </div>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
+
             {!selectedSession && (
               <p className="mt-4 text-sm text-orange-600 flex items-center gap-2">
                 <XCircle className="w-4 h-4" />
@@ -779,6 +1117,31 @@ export default function ScanPage() {
 
           {/* Camera Scanner */}
           <div className="card mb-4 sm:mb-6">
+            {quickScanStatus && (
+              <div className={`mb-4 p-4 rounded-2xl border-2 shadow-lg flex items-center justify-between transition-all duration-300 animate-pulse ${
+                quickScanStatus.type === 'success'
+                  ? 'bg-green-50 border-green-500 text-green-800'
+                  : quickScanStatus.type === 'warning'
+                  ? 'bg-yellow-50 border-yellow-500 text-yellow-800'
+                  : 'bg-red-50 border-red-500 text-red-800'
+              }`}>
+                <div className="flex items-center gap-3">
+                  {quickScanStatus.type === 'success' ? (
+                    <CheckCircle className="w-8 h-8 text-green-500 flex-shrink-0" />
+                  ) : quickScanStatus.type === 'warning' ? (
+                    <AlertTriangle className="w-8 h-8 text-yellow-500 flex-shrink-0" />
+                  ) : (
+                    <XCircle className="w-8 h-8 text-red-500 flex-shrink-0" />
+                  )}
+                  <div>
+                    <h3 className="font-bold text-lg">{quickScanStatus.message}</h3>
+                    {quickScanStatus.name && (
+                      <p className="text-sm opacity-90 font-medium">Participant: {quickScanStatus.name}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
               <h2 className="text-lg sm:text-xl font-black">Camera Scanner</h2>
               {!isScanning ? (
@@ -821,6 +1184,7 @@ export default function ScanPage() {
                 <div className="relative">
                   <QrCode className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
+                    ref={manualInputRef}
                     type="text"
                     value={scannedId}
                     onChange={handleInputChange}
@@ -1052,20 +1416,34 @@ export default function ScanPage() {
                     </label>
                   )}
 
-                  {/* Show catering for opening ceremony */}
+                  {/* Show catering and bar for opening ceremony */}
                   {selectedSession && selectedSession.dayKey === 'openingCeremony' && (
-                    <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <UtensilsCrossed className="w-5 h-5 text-orange-500" />
-                        <span className="font-medium">Catering</span>
-                      </div>
-                      <ToggleSwitch
-                        checked={catering}
-                        disabled={saving}
-                        label="Toggle catering"
-                        onChange={handleToggleCatering}
-                      />
-                    </label>
+                    <div className="space-y-3">
+                      <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <UtensilsCrossed className="w-5 h-5 text-orange-500" />
+                          <span className="font-medium">Catering</span>
+                        </div>
+                        <ToggleSwitch
+                          checked={catering}
+                          disabled={saving}
+                          label="Toggle catering"
+                          onChange={handleToggleCatering}
+                        />
+                      </label>
+                      <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <GlassWater className="w-5 h-5 text-blue-500" />
+                          <span className="font-medium">Bar</span>
+                        </div>
+                        <ToggleSwitch
+                          checked={bar}
+                          disabled={saving}
+                          label="Toggle bar"
+                          onChange={handleToggleBar}
+                        />
+                      </label>
+                    </div>
                   )}
 
                   {selectedSession && DAY_ACTIVITIES[selectedSession.dayKey] ? (

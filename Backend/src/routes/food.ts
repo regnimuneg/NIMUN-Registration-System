@@ -37,11 +37,13 @@ router.post('/', async (req: Request, res: Response) => {
 
     const timestamp = new Date()
 
-    // Get user_id for this participant (delegate or member)
+    // Get user_id for this participant (delegate, member, or invitation)
     const participantCheck = await query(`
       SELECT user_id FROM delegates WHERE id = $1
       UNION ALL
       SELECT user_id FROM members WHERE id = $1
+      UNION ALL
+      SELECT user_id FROM invitations WHERE id = $1
       LIMIT 1
     `, [participantId])
 
@@ -51,9 +53,11 @@ router.post('/', async (req: Request, res: Response) => {
 
     const userId = participantCheck.rows[0].user_id
 
-    // Check if participant is delegate (food_history table only supports delegates)
+    // Check if participant is delegate or invitation
     const delegateCheck = await query('SELECT id FROM delegates WHERE id = $1', [participantId])
     const isDelegate = delegateCheck.rows.length > 0
+    const invitationCheck = await query('SELECT id FROM invitations WHERE id = $1', [participantId])
+    const isInvitation = invitationCheck.rows.length > 0
 
     if (value) {
       // Insert food history record (only for delegates - schema limitation)
@@ -71,21 +75,23 @@ router.post('/', async (req: Request, res: Response) => {
         `, [participantId, mealTypeForDB, dayKey, timestamp])
       }
 
-      // Update delegates/members table food fields (both have same structure)
-      await updateParticipantFoodField(participantId, dayKey, meal, true, isDelegate)
+      // Update delegates/members/invitations table food fields
+      await updateParticipantFoodField(participantId, dayKey, meal, true, isDelegate, isInvitation)
     } else {
       // Remove food record (only for delegates)
       if (isDelegate) {
+        // Map 'catering' to 'snack' for food_history table
+        const mealTypeForDB = meal === 'catering' ? 'snack' : meal
         await query(`
           DELETE FROM food_history
           WHERE delegate_id = $1 AND meal_type = $2 AND meal_day = $3
-        `, [participantId, meal, dayKey])
+        `, [participantId, mealTypeForDB, dayKey])
       }
 
-      await updateParticipantFoodField(participantId, dayKey, meal, false, isDelegate)
+      await updateParticipantFoodField(participantId, dayKey, meal, false, isDelegate, isInvitation)
     }
 
-    // Add to activity timeline (for both delegates and members)
+    // Add to activity timeline (for all participant types)
     await query(`
       INSERT INTO activity_timeline (
         user_id,
@@ -118,7 +124,8 @@ async function updateParticipantFoodField(
   dayKey: string,
   meal: string,
   value: boolean,
-  isDelegate: boolean
+  isDelegate: boolean,
+  isInvitation: boolean
 ) {
   // Map dayKey.meal to actual database fields (whitelist to prevent SQL injection)
   const fieldMap: Record<string, string> = {
@@ -127,6 +134,7 @@ async function updateParticipantFoodField(
     'sessions.day3.lunch': 'day3_food',
     'sessions.day4.lunch': 'day4_food',
     'openingCeremony.catering': 'opening_ceremony_food',
+    'openingCeremony.bar': 'opening_ceremony_bar',
     'conference.day1.breakfast': 'conf_day1_breakfast',
     'conference.day1.lunch': 'conf_day1_lunch',
     'conference.day2.breakfast': 'conf_day2_breakfast',
@@ -141,11 +149,15 @@ async function updateParticipantFoodField(
     return
   }
 
-  // Update delegates or members table (both have same food tracking fields)
+  // Update delegates, invitations, or members table
   // Using explicit field name from whitelist to prevent SQL injection
   if (isDelegate) {
     await query(`
       UPDATE delegates SET ${field} = $1 WHERE id = $2
+    `, [value, participantId])
+  } else if (isInvitation) {
+    await query(`
+      UPDATE invitations SET ${field} = $1 WHERE id = $2
     `, [value, participantId])
   } else {
     await query(`

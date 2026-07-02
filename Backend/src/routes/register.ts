@@ -7,10 +7,10 @@ const router = express.Router()
 // Register new participant
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { name, phoneNumber, position, gender, busRoute, busStop, email, council } = req.body
+    const { name, phoneNumber, position, gender, busRoute, busStop, email, council, manualId, category, committee } = req.body
 
     // Validate required fields
-    if (!name || !phoneNumber || !position || !gender) {
+    if (!name || !phoneNumber || !gender) {
       return res.status(400).json({ error: 'Missing required fields' })
     }
 
@@ -18,11 +18,46 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Gender must be Male or Female' })
     }
 
-    // Generate participant ID based on position/council
-    const participantId = await generateParticipantId(position, council)
+    const resolvedCategory = category || (council ? 'delegate' : 'member')
+
+    if (resolvedCategory !== 'invitation' && !position && !council) {
+      return res.status(400).json({ error: 'Position or council is required for delegates and members' })
+    }
+
+    // Determine participant ID
+    let participantId: string
+    if (manualId && manualId.trim()) {
+      const trimmedId = manualId.trim()
+      // Check if duplicate
+      const duplicateCheck = await query(`
+        SELECT id FROM delegates WHERE id = $1
+        UNION ALL
+        SELECT id FROM members WHERE id = $1
+        UNION ALL
+        SELECT id FROM invitations WHERE id = $1
+        LIMIT 1
+      `, [trimmedId])
+      if (duplicateCheck.rows.length > 0) {
+        return res.status(400).json({ error: 'Participant ID already exists' })
+      }
+      participantId = trimmedId
+    } else {
+      // Generate participant ID based on category/position/council
+      if (resolvedCategory === 'invitation') {
+        participantId = await generateInvitationId(committee || position || 'General Invitation')
+      } else {
+        participantId = await generateParticipantId(position || '', council)
+      }
+    }
 
     // Create user first (single source of truth for name, email, phone)
-    const userType = council ? 'delegate' : 'member'
+    let userType = 'member'
+    if (resolvedCategory === 'delegate') {
+      userType = 'delegate'
+    } else if (resolvedCategory === 'invitation') {
+      userType = 'invitation'
+    }
+
     const firstName = name.split(' ')[0] || name
     const lastName = name.split(' ').slice(1).join(' ') || ''
     const userResult = await query(`
@@ -46,14 +81,22 @@ router.post('/', async (req: Request, res: Response) => {
       margin: 1
     })
 
-    // Create delegate or member
-    if (council) {
+    // Create delegate, member, or invitation
+    if (resolvedCategory === 'delegate') {
       // Create delegate - store participant ID in qr_code (schema has VARCHAR(100) limit)
       // Note: name is stored in users table, not delegates table
       await query(`
         INSERT INTO delegates (id, user_id, council, qr_code, status)
         VALUES ($1, $2, $3, $4, 'active')
-      `, [participantId, userId, council, participantId])
+      `, [participantId, userId, council || position, participantId])
+    } else if (resolvedCategory === 'invitation') {
+      // Create invitation
+      const resolvedRole = position || 'Invitation'
+      const resolvedCommittee = committee || 'General Invitation'
+      await query(`
+        INSERT INTO invitations (id, user_id, role, committee, status)
+        VALUES ($1, $2, $3, $4, 'active')
+      `, [participantId, userId, resolvedRole, resolvedCommittee])
     } else {
       // Validate committee for members (schema has CHECK constraint)
       const validCommittees = [
@@ -62,10 +105,11 @@ router.post('/', async (req: Request, res: Response) => {
         'Socials & Events',
         'Public Relations',
         'Media & Design',
-        'Operations & Logistics'
+        'Operations & Logistics',
+        'High Board'
       ]
 
-      const committee = validCommittees.find(c =>
+      const committeeName = validCommittees.find(c =>
         position.toLowerCase().includes(c.toLowerCase().split(' ')[0])
       ) || position
 
@@ -74,7 +118,7 @@ router.post('/', async (req: Request, res: Response) => {
       await query(`
         INSERT INTO members (id, user_id, role, committee)
         VALUES ($1, $2, $3, $4)
-      `, [participantId, userId, position, committee])
+      `, [participantId, userId, position, committeeName])
     }
 
     res.json({
@@ -83,7 +127,7 @@ router.post('/', async (req: Request, res: Response) => {
         id: participantId,
         name,
         phoneNumber,
-        position: council || position,
+        position: council || committee || position,
         gender,
         qrUrl: qrData,
         busRoute: busRoute || null,
@@ -95,6 +139,34 @@ router.post('/', async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to register participant' })
   }
 })
+
+async function generateInvitationId(committeeName: string): Promise<string> {
+  const prefixMap: Record<string, string> = {
+    'Executive Invitation': 'EX-INV',
+    'Executives\' Invitation': 'EX-INV',
+    'General Invitation': 'INV',
+    'Alumni Invitation': 'AL-INV',
+    'Alumni': 'AL-INV'
+  }
+
+  const prefix = prefixMap[committeeName] || 'INV'
+
+  // Get next sequential number for this prefix
+  const result = await query(`
+    SELECT id FROM invitations WHERE id LIKE $1
+    ORDER BY id DESC
+    LIMIT 1
+  `, [`${prefix}-%`])
+
+  let nextNum = 1
+  if (result.rows.length > 0) {
+    const lastId = result.rows[0].id
+    const lastNum = parseInt(lastId.split('-').slice(-1)[0] || '0', 10)
+    nextNum = isNaN(lastNum) ? 1 : lastNum + 1
+  }
+
+  return `${prefix}-${String(nextNum).padStart(2, '0')}`
+}
 
 async function generateParticipantId(position: string, council?: string): Promise<string> {
   // Get the prefix based on position/council (matching schema)

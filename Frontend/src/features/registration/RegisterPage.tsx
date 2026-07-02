@@ -17,7 +17,11 @@ export default function RegisterPage() {
     email: '',
     council: '',
     busRoute: '',
-    busStop: ''
+    busStop: '',
+    category: 'delegate', // 'delegate' | 'member' | 'invitation'
+    idMode: 'auto', // 'auto' | 'manual'
+    manualId: '',
+    committee: ''
   })
 
   const handleSingleRegister = async (e: React.FormEvent) => {
@@ -27,10 +31,27 @@ export default function RegisterPage() {
     setSuccess(null)
 
     try {
-      const result = await api.registerParticipant({
-        ...formData,
-        position: formData.council || formData.position
-      })
+      const payload: any = {
+        name: formData.name,
+        phoneNumber: formData.phoneNumber,
+        gender: formData.gender,
+        email: formData.email,
+        category: formData.category,
+        manualId: formData.idMode === 'manual' ? formData.manualId : undefined
+      }
+
+      if (formData.category === 'delegate') {
+        payload.council = formData.council
+        payload.position = formData.council
+      } else if (formData.category === 'member') {
+        payload.committee = formData.committee
+        payload.position = formData.position
+      } else if (formData.category === 'invitation') {
+        payload.committee = formData.committee
+        payload.position = formData.position
+      }
+
+      const result = await api.registerParticipant(payload)
 
       setSuccess(`Participant ${result.participant?.id} registered successfully!`)
       // Reset form
@@ -42,7 +63,11 @@ export default function RegisterPage() {
         email: '',
         council: '',
         busRoute: '',
-        busStop: ''
+        busStop: '',
+        category: 'delegate',
+        idMode: 'auto',
+        manualId: '',
+        committee: ''
       })
     } catch (err: any) {
       setError(err.message || 'Failed to register participant')
@@ -51,27 +76,28 @@ export default function RegisterPage() {
     }
   }
 
-
   const memberCommittees = [
     'Executive',
-    'Operations',
     'Registration Affairs',
+    'Socials & Events',
     'Public Relations',
     'Media & Design',
-    'Socials'
+    'Operations & Logistics',
+    'High Board'
   ]
 
   const delegateCouncils = [
     'ICJ',
-    'UNOOSA',
     'DISEC',
     'PRESS',
-    'UNHRC',
-    'UN Women',
-    'UNODC'
+    'HRC'
   ]
 
-  const isDelegate = delegateCouncils.includes(formData.council || formData.position)
+  const invitationTypes = [
+    'Executive Invitation',
+    'General Invitation',
+    'Alumni Invitation'
+  ]
 
   return (
     <div className="jn-page">
@@ -116,36 +142,6 @@ export default function RegisterPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {isDelegate ? 'Council *' : 'Committee/Position *'}
-                  </label>
-                  <select
-                    required
-                    value={formData.council || formData.position}
-                    onChange={(e) => {
-                      if (delegateCouncils.includes(e.target.value)) {
-                        setFormData({ ...formData, council: e.target.value, position: '' })
-                      } else {
-                        setFormData({ ...formData, position: e.target.value, council: '' })
-                      }
-                    }}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select...</option>
-                    <optgroup label="Member Committees">
-                      {memberCommittees.map(committee => (
-                        <option key={committee} value={committee}>{committee}</option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="Delegate Councils">
-                      {delegateCouncils.map(council => (
-                        <option key={council} value={council}>{council}</option>
-                      ))}
-                    </optgroup>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Gender *
                   </label>
                   <select
@@ -170,6 +166,145 @@ export default function RegisterPage() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Category *
+                  </label>
+                  <select
+                    required
+                    value={formData.category}
+                    onChange={(e) => setFormData({ 
+                      ...formData, 
+                      category: e.target.value,
+                      council: '',
+                      committee: '',
+                      position: ''
+                    })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="delegate">Delegate</option>
+                    <option value="member">Member</option>
+                    <option value="invitation">Invitation</option>
+                  </select>
+                </div>
+
+                {formData.category === 'delegate' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Council *
+                    </label>
+                    <select
+                      required
+                      value={formData.council}
+                      onChange={(e) => setFormData({ ...formData, council: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select Council...</option>
+                      {delegateCouncils.map(council => (
+                        <option key={council} value={council}>{council}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {formData.category === 'member' && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Committee *
+                      </label>
+                      <select
+                        required
+                        value={formData.committee}
+                        onChange={(e) => setFormData({ ...formData, committee: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Select Committee...</option>
+                        {memberCommittees.map(committee => (
+                          <option key={committee} value={committee}>{committee}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Role / Position *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.position}
+                        onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                        placeholder="e.g. Member, Head, Chair"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {formData.category === 'invitation' && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Invitation Type *
+                      </label>
+                      <select
+                        required
+                        value={formData.committee}
+                        onChange={(e) => setFormData({ ...formData, committee: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Select Sub-category...</option>
+                        {invitationTypes.map(type => (
+                          <option key={type} value={type}>{type}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Role / Position
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.position}
+                        onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                        placeholder="e.g. VIP (defaults to 'Invitation')"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    ID Assignment Mode *
+                  </label>
+                  <select
+                    required
+                    value={formData.idMode}
+                    onChange={(e) => setFormData({ ...formData, idMode: e.target.value, manualId: '' })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="auto">Automatic (System Generated)</option>
+                    <option value="manual">Manual Assignment</option>
+                  </select>
+                </div>
+
+                {formData.idMode === 'manual' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Custom Participant ID *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.manualId}
+                      onChange={(e) => setFormData({ ...formData, manualId: e.target.value.trim() })}
+                      placeholder="e.g. EX-INV-01, EX-10, PRS-02"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
               </div>
 
               <button

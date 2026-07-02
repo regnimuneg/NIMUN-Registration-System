@@ -27,7 +27,7 @@ router.post('/', async (req: Request, res: Response) => {
             day3_session_attended = FALSE, day3_food = FALSE, day3_bus_checkin = NULL, day3_bus_checkout = NULL,
             day4_session_attended = FALSE, day4_food = FALSE, day4_bus_checkin = NULL, day4_bus_checkout = NULL,
             performance_day_bus_checkin = NULL, performance_day_bus_checkout = NULL,
-            opening_ceremony_attended = FALSE, opening_ceremony_food = FALSE, opening_ceremony_bus_checkin = NULL, opening_ceremony_bus_checkout = NULL,
+            opening_ceremony_attended = FALSE, opening_ceremony_food = FALSE, opening_ceremony_bar = FALSE, opening_ceremony_bus_checkin = NULL, opening_ceremony_bus_checkout = NULL,
             conf_day1_attended = FALSE, conf_day1_breakfast = FALSE, conf_day1_lunch = FALSE, conf_day1_bus_checkin = NULL, conf_day1_bus_checkout = NULL,
             conf_day2_attended = FALSE, conf_day2_breakfast = FALSE, conf_day2_lunch = FALSE, conf_day2_bus_checkin = NULL, conf_day2_bus_checkout = NULL,
             conf_day3_attended = FALSE, conf_day3_breakfast = FALSE, conf_day3_lunch = FALSE, conf_day3_bus_checkin = NULL, conf_day3_bus_checkout = NULL
@@ -39,10 +39,16 @@ router.post('/', async (req: Request, res: Response) => {
             day3_session_attended = FALSE, day3_food = FALSE, day3_bus_checkin = NULL, day3_bus_checkout = NULL,
             day4_session_attended = FALSE, day4_food = FALSE, day4_bus_checkin = NULL, day4_bus_checkout = NULL,
             performance_day_bus_checkin = NULL, performance_day_bus_checkout = NULL,
-            opening_ceremony_attended = FALSE, opening_ceremony_food = FALSE, opening_ceremony_bus_checkin = NULL, opening_ceremony_bus_checkout = NULL,
+            opening_ceremony_attended = FALSE, opening_ceremony_food = FALSE, opening_ceremony_bar = FALSE, opening_ceremony_bus_checkin = NULL, opening_ceremony_bus_checkout = NULL,
             conf_day1_attended = FALSE, conf_day1_breakfast = FALSE, conf_day1_lunch = FALSE, conf_day1_bus_checkin = NULL, conf_day1_bus_checkout = NULL,
             conf_day2_attended = FALSE, conf_day2_breakfast = FALSE, conf_day2_lunch = FALSE, conf_day2_bus_checkin = NULL, conf_day2_bus_checkout = NULL,
             conf_day3_attended = FALSE, conf_day3_breakfast = FALSE, conf_day3_lunch = FALSE, conf_day3_bus_checkin = NULL, conf_day3_bus_checkout = NULL
+        `)
+        await query(`
+          UPDATE invitations SET
+            conf_day1_attended = FALSE, conf_day1_breakfast = FALSE, conf_day1_lunch = FALSE,
+            conf_day2_attended = FALSE, conf_day2_breakfast = FALSE, conf_day2_lunch = FALSE,
+            conf_day3_attended = FALSE, conf_day3_breakfast = FALSE, conf_day3_lunch = FALSE
         `)
         break
 
@@ -62,6 +68,10 @@ router.post('/', async (req: Request, res: Response) => {
             opening_ceremony_attended = FALSE,
             conf_day1_attended = FALSE, conf_day2_attended = FALSE, conf_day3_attended = FALSE
         `)
+        await query(`
+          UPDATE invitations SET
+            conf_day1_attended = FALSE, conf_day2_attended = FALSE, conf_day3_attended = FALSE
+        `)
         break
 
       case 'food':
@@ -69,7 +79,7 @@ router.post('/', async (req: Request, res: Response) => {
         await query(`
           UPDATE delegates SET
             day1_food = FALSE, day2_food = FALSE, day3_food = FALSE, day4_food = FALSE,
-            opening_ceremony_food = FALSE,
+            opening_ceremony_food = FALSE, opening_ceremony_bar = FALSE,
             conf_day1_breakfast = FALSE, conf_day1_lunch = FALSE,
             conf_day2_breakfast = FALSE, conf_day2_lunch = FALSE,
             conf_day3_breakfast = FALSE, conf_day3_lunch = FALSE
@@ -77,7 +87,13 @@ router.post('/', async (req: Request, res: Response) => {
         await query(`
           UPDATE members SET
             day1_food = FALSE, day2_food = FALSE, day3_food = FALSE, day4_food = FALSE,
-            opening_ceremony_food = FALSE,
+            opening_ceremony_food = FALSE, opening_ceremony_bar = FALSE,
+            conf_day1_breakfast = FALSE, conf_day1_lunch = FALSE,
+            conf_day2_breakfast = FALSE, conf_day2_lunch = FALSE,
+            conf_day3_breakfast = FALSE, conf_day3_lunch = FALSE
+        `)
+        await query(`
+          UPDATE invitations SET
             conf_day1_breakfast = FALSE, conf_day1_lunch = FALSE,
             conf_day2_breakfast = FALSE, conf_day2_lunch = FALSE,
             conf_day3_breakfast = FALSE, conf_day3_lunch = FALSE
