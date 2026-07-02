@@ -22,6 +22,69 @@ const SESSION_OPTIONS: SessionOption[] = [
   { id: 'conference-day3', label: 'Conference Day #3', date: 'July 6th', dayKey: 'conference.day3' }
 ]
 
+const playAudioFeedback = (type: 'success' | 'warning' | 'error') => {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
+    if (!AudioContextClass) return
+
+    const ctx = new AudioContextClass()
+    
+    if (type === 'success') {
+      // Play a short high-pitch success beep (880Hz, 0.1s)
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(880, ctx.currentTime)
+      gain.gain.setValueAtTime(0.1, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start()
+      osc.stop(ctx.currentTime + 0.1)
+    } else if (type === 'warning') {
+      // Play a double low-pitch warning beep (330Hz, 0.08s x 2)
+      const osc1 = ctx.createOscillator()
+      const gain1 = ctx.createGain()
+      osc1.frequency.setValueAtTime(330, ctx.currentTime)
+      gain1.gain.setValueAtTime(0.15, ctx.currentTime)
+      gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08)
+      osc1.connect(gain1)
+      gain1.connect(ctx.destination)
+      osc1.start()
+      osc1.stop(ctx.currentTime + 0.08)
+
+      setTimeout(() => {
+        try {
+          const ctx2 = new AudioContextClass()
+          const osc2 = ctx2.createOscillator()
+          const gain2 = ctx2.createGain()
+          osc2.frequency.setValueAtTime(330, ctx2.currentTime)
+          gain2.gain.setValueAtTime(0.15, ctx2.currentTime)
+          gain2.gain.exponentialRampToValueAtTime(0.01, ctx2.currentTime + 0.08)
+          osc2.connect(gain2)
+          gain2.connect(ctx2.destination)
+          osc2.start()
+          osc2.stop(ctx2.currentTime + 0.08)
+        } catch {}
+      }, 120)
+    } else if (type === 'error') {
+      // Play a low buzzer error sound (180Hz, 0.3s)
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sawtooth'
+      osc.frequency.setValueAtTime(180, ctx.currentTime)
+      gain.gain.setValueAtTime(0.1, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start()
+      osc.stop(ctx.currentTime + 0.3)
+    }
+  } catch (e) {
+    console.error('Audio feedback failed to play:', e)
+  }
+}
+
 const DAY_ACTIVITIES: Record<string, string[]> = {}
 
 interface ToggleSwitchProps {
@@ -381,6 +444,7 @@ export default function ScanPage() {
           }
 
           if (isAlreadyChecked) {
+            playAudioFeedback('warning')
             setQuickScanStatus({ type: 'warning', message: checkMessage, name: participantName })
             // Loop restart scan automatically so operator scanner doesn't freeze
             setTimeout(() => {
@@ -407,6 +471,7 @@ export default function ScanPage() {
                   checkIn: true
                 })
                 setQuickScanStatus({ type: 'success', message: 'Checked In Successfully!', name: participantName })
+                playAudioFeedback('success')
               } else if (scanMode === 'attendance_out') {
                 await api.updateAttendance({
                   participantId: searchId,
@@ -416,6 +481,7 @@ export default function ScanPage() {
                   checkOut: true
                 })
                 setQuickScanStatus({ type: 'success', message: 'Checked Out Successfully!', name: participantName })
+                playAudioFeedback('success')
               } else if (scanMode === 'catering') {
                 await api.updateFood({
                   participantId: searchId,
@@ -424,6 +490,7 @@ export default function ScanPage() {
                   value: true
                 })
                 setQuickScanStatus({ type: 'success', message: 'Catering Logged!', name: participantName })
+                playAudioFeedback('success')
               } else if (scanMode === 'bar') {
                 await api.updateFood({
                   participantId: searchId,
@@ -432,6 +499,7 @@ export default function ScanPage() {
                   value: true
                 })
                 setQuickScanStatus({ type: 'success', message: 'Bar Logged!', name: participantName })
+                playAudioFeedback('success')
               } else if (scanMode === 'breakfast') {
                 await api.updateFood({
                   participantId: searchId,
@@ -440,6 +508,7 @@ export default function ScanPage() {
                   value: true
                 })
                 setQuickScanStatus({ type: 'success', message: 'Breakfast Logged!', name: participantName })
+                playAudioFeedback('success')
               } else if (scanMode === 'lunch') {
                 await api.updateFood({
                   participantId: searchId,
@@ -448,6 +517,7 @@ export default function ScanPage() {
                   value: true
                 })
                 setQuickScanStatus({ type: 'success', message: 'Lunch Logged!', name: participantName })
+                playAudioFeedback('success')
               } else if (scanMode === 'bus_in') {
                 await api.updateBus({
                   participantId: searchId,
@@ -456,6 +526,7 @@ export default function ScanPage() {
                   value: true
                 })
                 setQuickScanStatus({ type: 'success', message: 'Bus Check-In Logged!', name: participantName })
+                playAudioFeedback('success')
               } else if (scanMode === 'bus_out') {
                 await api.updateBus({
                   participantId: searchId,
@@ -464,6 +535,7 @@ export default function ScanPage() {
                   value: true
                 })
                 setQuickScanStatus({ type: 'success', message: 'Bus Check-Out Logged!', name: participantName })
+                playAudioFeedback('success')
               }
 
               // Fetch fresh tracking details to update UI toggles instantly
@@ -473,6 +545,7 @@ export default function ScanPage() {
               }
             } catch (actionErr: any) {
               console.error('Quick scan action error:', actionErr)
+              playAudioFeedback('error')
               setQuickScanStatus({ 
                 type: 'error', 
                 message: actionErr.message || 'Action failed!', 
@@ -617,6 +690,7 @@ export default function ScanPage() {
     } catch (err: any) {
       setError(err.message || 'Failed to fetch participant')
       // If error occurs, show quickScanStatus as error
+      playAudioFeedback('error')
       setQuickScanStatus({ type: 'error', message: err.message || 'Failed to scan participant' })
       setParticipant(null)
     } finally {
