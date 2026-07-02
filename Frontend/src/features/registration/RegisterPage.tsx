@@ -129,11 +129,11 @@ export default function RegisterPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Phone Number *
+                    Phone Number {formData.category !== 'invitation' && '*'}
                   </label>
                   <input
                     type="tel"
-                    required
+                    required={formData.category !== 'invitation'}
                     value={formData.phoneNumber}
                     onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"

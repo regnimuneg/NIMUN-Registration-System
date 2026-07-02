@@ -60,16 +60,20 @@ router.post('/', async (req: Request, res: Response) => {
 
     const firstName = name.split(' ')[0] || name
     const lastName = name.split(' ').slice(1).join(' ') || ''
+    
+    const resolvedPhone = phoneNumber && phoneNumber.trim() ? phoneNumber.trim() : null
+    const resolvedEmail = email && email.trim() ? email.trim() : (resolvedPhone ? `${resolvedPhone}@temp.nimun` : `${participantId}@temp.nimun`)
+
     const userResult = await query(`
       INSERT INTO users (email, password_hash, first_name, last_name, phone_number, user_type)
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id
     `, [
-      email || `${phoneNumber}@temp.nimun`, // Use phone as email if no email provided
+      resolvedEmail,
       'temp_password_hash', // Should be properly hashed in production
       firstName,
       lastName,
-      phoneNumber,
+      resolvedPhone,
       userType
     ])
 
