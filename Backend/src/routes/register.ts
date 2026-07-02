@@ -9,16 +9,20 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const { name, phoneNumber, position, gender, busRoute, busStop, email, council, manualId, category, committee } = req.body
 
+    const resolvedCategory = category || (council ? 'delegate' : 'member')
+
     // Validate required fields
-    if (!name || !phoneNumber || !gender) {
+    if (!name || !gender) {
       return res.status(400).json({ error: 'Missing required fields' })
+    }
+
+    if (resolvedCategory !== 'invitation' && !phoneNumber) {
+      return res.status(400).json({ error: 'Phone number is required for delegates and members' })
     }
 
     if (gender !== 'Male' && gender !== 'Female') {
       return res.status(400).json({ error: 'Gender must be Male or Female' })
     }
-
-    const resolvedCategory = category || (council ? 'delegate' : 'member')
 
     if (resolvedCategory !== 'invitation' && !position && !council) {
       return res.status(400).json({ error: 'Position or council is required for delegates and members' })
