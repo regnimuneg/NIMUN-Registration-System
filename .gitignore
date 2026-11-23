@@ -55,3 +55,7 @@ admin_creds.txt
 # OC27: keep participant spreadsheets out of git
 *.csv
 *.xlsx
+
+# OC27: private participant files and generated QR codes
+Backend/private/
+private/

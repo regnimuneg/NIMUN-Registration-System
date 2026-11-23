@@ -678,4 +678,9 @@ ON activity_timeline(user_id, activity_type, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_activity_user_type_title_created
 ON activity_timeline(user_id, activity_type, title, created_at DESC);
 
+-- Used by the app (food.ts, participants.ts, clear-tracking.ts) but missing
+-- from reset_schema_for_reseed.sql; the live '26 database has it.
+ALTER TABLE public.delegates ADD COLUMN IF NOT EXISTS opening_ceremony_bar BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS opening_ceremony_bar BOOLEAN DEFAULT FALSE;
+
 COMMIT;
