@@ -10,16 +10,12 @@ interface SessionOption {
   dayKey: string
 }
 
+// OC Conference '27 days (24-27 November 2026)
 const SESSION_OPTIONS: SessionOption[] = [
-  { id: 'sessions-day1', label: 'Session #1', date: 'June 27th', dayKey: 'sessions.day1' },
-  { id: 'sessions-day2', label: 'Session #2', date: 'June 28th', dayKey: 'sessions.day2' },
-  { id: 'sessions-day3', label: 'Session #3', date: 'June 29th', dayKey: 'sessions.day3' },
-  { id: 'sessions-day4', label: 'Session #4', date: 'June 30th', dayKey: 'sessions.day4' },
-  { id: 'performance-day', label: 'Performance Day', date: 'July 1st', dayKey: 'performanceDay' },
-  { id: 'opening-ceremony', label: 'Opening', date: 'July 3rd', dayKey: 'openingCeremony' },
-  { id: 'conference-day1', label: 'Conference Day #1', date: 'July 4th', dayKey: 'conference.day1' },
-  { id: 'conference-day2', label: 'Conference Day #2', date: 'July 5th', dayKey: 'conference.day2' },
-  { id: 'conference-day3', label: 'Conference Day #3', date: 'July 6th', dayKey: 'conference.day3' }
+  { id: 'sessions-day1', label: 'Session Day One', date: 'November 24th', dayKey: 'sessions.day1' },
+  { id: 'sessions-day2', label: 'Session Day Two', date: 'November 25th', dayKey: 'sessions.day2' },
+  { id: 'sessions-day3', label: 'Session Day Three', date: 'November 26th', dayKey: 'sessions.day3' },
+  { id: 'conference-day1', label: 'Conference Day', date: 'November 27th', dayKey: 'conference.day1' }
 ]
 
 const playAudioFeedback = (type: 'success' | 'warning' | 'error') => {
@@ -114,20 +110,11 @@ function ToggleSwitch({ checked, disabled = false, label, onChange }: ToggleSwit
 export default function ScanPage() {
   const [selectedSession, setSelectedSession] = useState<SessionOption | null>(() => {
     const now = new Date()
-    const month = now.toLocaleString('en-US', { month: 'long' })
-    const day = now.getDate()
-
-    if (month === 'June') {
-      if (day === 27) return SESSION_OPTIONS[0]
-      if (day === 28) return SESSION_OPTIONS[1]
-      if (day === 29) return SESSION_OPTIONS[2]
-      if (day === 30) return SESSION_OPTIONS[3]
-    } else if (month === 'July') {
-      if (day === 1) return SESSION_OPTIONS[4]
-      if (day === 3) return SESSION_OPTIONS[5]
-      if (day === 4) return SESSION_OPTIONS[6]
-      if (day === 5) return SESSION_OPTIONS[7]
-      if (day >= 6) return SESSION_OPTIONS[8]
+    if (now.getMonth() === 10) { // November
+      const day = now.getDate()
+      if (day === 25) return SESSION_OPTIONS[1]
+      if (day === 26) return SESSION_OPTIONS[2]
+      if (day >= 27) return SESSION_OPTIONS[3]
     }
     return SESSION_OPTIONS[0]
   })
@@ -163,11 +150,11 @@ export default function ScanPage() {
   const [existingComments, setExistingComments] = useState('')
   const [newComment, setNewComment] = useState('')
   const [saving, setSaving] = useState(false)
-  const [scanMode, setScanMode] = useState<string>('view')
+  const [scanMode, setScanMode] = useState<string>('attendance')
   const [quickScanStatus, setQuickScanStatus] = useState<{ type: 'success' | 'warning' | 'error'; message: string; name?: string } | null>(null)
 
   useEffect(() => {
-    setScanMode('view')
+    setScanMode('attendance')
     setQuickScanStatus(null)
   }, [selectedSession])
 
@@ -433,7 +420,7 @@ export default function ScanPage() {
               checkMessage = `${participantName} has already claimed Breakfast for ${selectedSession.label}`
             } else if (scanMode === 'lunch' && dayData.lunch) {
               isAlreadyChecked = true
-              checkMessage = `${participantName} has already claimed Lunch for ${selectedSession.label}`
+              checkMessage = `${participantName} has already claimed Food for ${selectedSession.label}`
             } else if (scanMode === 'bus_in' && dayData.busCheckIn) {
               isAlreadyChecked = true
               checkMessage = `${participantName} is already checked in for Bus in ${selectedSession.label}`
@@ -516,7 +503,7 @@ export default function ScanPage() {
                   meal: 'lunch',
                   value: true
                 })
-                setQuickScanStatus({ type: 'success', message: 'Lunch Logged!', name: participantName })
+                setQuickScanStatus({ type: 'success', message: 'Food Logged!', name: participantName })
                 playAudioFeedback('success')
               } else if (scanMode === 'bus_in') {
                 await api.updateBus({
@@ -979,35 +966,17 @@ export default function ScanPage() {
     return mapping[dayKey] || null
   }
 
+  // '27: every day has one attendance scan. Conference Day also has a food scan
+  // (stored as that day's lunch). Manual / View Details stays for lookups.
   const getAvailableScanModes = () => {
     if (!selectedSession) return []
-    const dayKey = selectedSession.dayKey
     const modes = [
-      { value: 'view', label: 'Manual / View Details' }
+      { value: 'attendance', label: 'Attendance' }
     ]
-
-    // Attendance Check-in is available for all sessions except performance day
-    if (dayKey !== 'performanceDay') {
-      modes.push({ value: 'attendance', label: 'Auto Attendance Check-in' })
-      modes.push({ value: 'attendance_out', label: 'Auto Attendance Check-out' })
+    if (selectedSession.dayKey.startsWith('conference.')) {
+      modes.push({ value: 'lunch', label: 'Food' })
     }
-
-    if (dayKey === 'openingCeremony') {
-      modes.push({ value: 'catering', label: 'Auto Catering Checkout' })
-      modes.push({ value: 'bar', label: 'Auto Bar Checkout' })
-    }
-
-    if (dayKey.startsWith('conference.')) {
-      modes.push({ value: 'breakfast', label: 'Auto Breakfast Checkout' })
-      modes.push({ value: 'lunch', label: 'Auto Lunch Checkout' })
-    } else if (dayKey.startsWith('sessions.')) {
-      modes.push({ value: 'lunch', label: 'Auto Lunch Checkout' })
-    }
-
-    // Bus is available for all sessions
-    modes.push({ value: 'bus_in', label: 'Auto Bus Check-in' })
-    modes.push({ value: 'bus_out', label: 'Auto Bus Check-out' })
-
+    modes.push({ value: 'view', label: 'Manual / View Details' })
     return modes
   }
 
@@ -1366,83 +1335,6 @@ export default function ScanPage() {
               <div className="mt-6 pt-6 border-t border-gray-200">
                 <h3 className="text-lg font-bold mb-4">Activity Tracking</h3>
 
-                {/* Check-in/Check-out */}
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  <button
-                    onClick={handleCheckIn}
-                    disabled={saving || attendance || !!checkOutTime}
-                    className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:text-white disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
-                  >
-                    <LogIn className="w-4 h-4" />
-                    Check In
-                  </button>
-                  <button
-                    onClick={handleCheckOut}
-                    disabled={saving || !attendance || !!checkOutTime}
-                    className="flex items-center justify-center gap-2 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-400 disabled:text-white disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    {checkOutTime ? 'Checked Out' : 'Check Out'}
-                  </button>
-                </div>
-
-                {checkInTime && (
-                  <div className="mb-3 text-sm text-gray-600">
-                    <Clock className="w-4 h-4 inline mr-1" />
-                    Check-in: {new Date(checkInTime).toLocaleString()}
-                  </div>
-                )}
-                {checkOutTime && (
-                  <div className="mb-3 text-sm text-gray-600">
-                    <Clock className="w-4 h-4 inline mr-1" />
-                    Check-out: {new Date(checkOutTime).toLocaleString()}
-                  </div>
-                )}
-
-                {/* Bus Check-in/Check-out */}
-                <h4 className="text-md font-semibold mt-4 mb-2">Bus Tracking</h4>
-                <div className="space-y-3 mb-4">
-                  <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <LogIn className="w-5 h-5 text-blue-500" />
-                      <span className="font-medium">Bus Check In</span>
-                    </div>
-                    <ToggleSwitch
-                      checked={!!busCheckInTime}
-                      disabled={saving}
-                      label="Toggle bus check in"
-                      onChange={handleToggleBusCheckIn}
-                    />
-                  </label>
-
-                  <label className={`flex items-center justify-between p-3 bg-gray-50 rounded-lg transition-colors ${busCheckInTime ? 'cursor-pointer hover:bg-gray-100' : 'cursor-not-allowed opacity-60'
-                    }`}>
-                    <div className="flex items-center gap-3">
-                      <LogOut className="w-5 h-5 text-indigo-500" />
-                      <span className="font-medium">Bus Check Out</span>
-                    </div>
-                    <ToggleSwitch
-                      checked={!!busCheckOutTime}
-                      disabled={saving || !busCheckInTime}
-                      label="Toggle bus check out"
-                      onChange={handleToggleBusCheckOut}
-                    />
-                  </label>
-                </div>
-
-                {busCheckInTime && (
-                  <div className="mb-3 text-sm text-gray-600">
-                    <Clock className="w-4 h-4 inline mr-1" />
-                    Bus Check-in: {new Date(busCheckInTime).toLocaleString()}
-                  </div>
-                )}
-                {busCheckOutTime && (
-                  <div className="mb-3 text-sm text-gray-600">
-                    <Clock className="w-4 h-4 inline mr-1" />
-                    Bus Check-out: {new Date(busCheckOutTime).toLocaleString()}
-                  </div>
-                )}
-
                 {/* Activity Toggles */}
                 <div className="space-y-3">
                   <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
@@ -1458,33 +1350,17 @@ export default function ScanPage() {
                     />
                   </label>
 
-                  {/* Show breakfast only for conference days */}
+                  {/* '27: one food scan on Conference Day (stored as lunch) */}
                   {selectedSession && selectedSession.dayKey.startsWith('conference.') && (
                     <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
                       <div className="flex items-center gap-3">
                         <UtensilsCrossed className="w-5 h-5 text-orange-500" />
-                        <span className="font-medium">Breakfast</span>
-                      </div>
-                      <ToggleSwitch
-                        checked={breakfast}
-                        disabled={saving}
-                        label="Toggle breakfast"
-                        onChange={handleToggleBreakfast}
-                      />
-                    </label>
-                  )}
-
-                  {/* Show lunch for sessions and conference days */}
-                  {selectedSession && (selectedSession.dayKey.startsWith('sessions.') || selectedSession.dayKey.startsWith('conference.')) && (
-                    <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <UtensilsCrossed className="w-5 h-5 text-orange-500" />
-                        <span className="font-medium">Lunch</span>
+                        <span className="font-medium">Food</span>
                       </div>
                       <ToggleSwitch
                         checked={lunch}
                         disabled={saving}
-                        label="Toggle lunch"
+                        label="Toggle food"
                         onChange={handleToggleLunch}
                       />
                     </label>

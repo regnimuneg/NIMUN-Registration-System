@@ -24,14 +24,10 @@ interface SessionDef {
 
 // Fixed whitelist: column names below are the only ones ever put into SQL.
 const SESSIONS: SessionDef[] = [
-  { key: 'opening_ceremony', label: 'Opening Ceremony', attended: 'opening_ceremony_attended', meals: { catering: 'opening_ceremony_food', bar: 'opening_ceremony_bar' } },
-  { key: 'day1', label: 'Session Day 1', attended: 'day1_session_attended', meals: { lunch: 'day1_food' } },
-  { key: 'day2', label: 'Session Day 2', attended: 'day2_session_attended', meals: { lunch: 'day2_food' } },
-  { key: 'day3', label: 'Session Day 3', attended: 'day3_session_attended', meals: { lunch: 'day3_food' } },
-  { key: 'day4', label: 'Session Day 4', attended: 'day4_session_attended', meals: { lunch: 'day4_food' } },
-  { key: 'conf_day1', label: 'Conference Day 1', attended: 'conf_day1_attended', meals: { breakfast: 'conf_day1_breakfast', lunch: 'conf_day1_lunch' } },
-  { key: 'conf_day2', label: 'Conference Day 2', attended: 'conf_day2_attended', meals: { breakfast: 'conf_day2_breakfast', lunch: 'conf_day2_lunch' } },
-  { key: 'conf_day3', label: 'Conference Day 3', attended: 'conf_day3_attended', meals: { breakfast: 'conf_day3_breakfast', lunch: 'conf_day3_lunch' } },
+  { key: 'day1', label: 'Session Day One (Nov 24)', attended: 'day1_session_attended', meals: {} },
+  { key: 'day2', label: 'Session Day Two (Nov 25)', attended: 'day2_session_attended', meals: {} },
+  { key: 'day3', label: 'Session Day Three (Nov 26)', attended: 'day3_session_attended', meals: {} },
+  { key: 'conf_day1', label: 'Conference Day (Nov 27)', attended: 'conf_day1_attended', meals: { food: 'conf_day1_lunch' } },
 ]
 
 const sessionColumns = SESSIONS.flatMap((s) => [s.attended, `${s.key}_checkin`, `${s.key}_checkout`, ...Object.values(s.meals)])
