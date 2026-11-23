@@ -104,7 +104,7 @@ router.get('/', async (req: Request, res: Response) => {
         `${PEOPLE_CTE}
          SELECT p.id, CONCAT(u.first_name, ' ', u.last_name) AS name, p.council, p.committee,
                 COALESCE(p.${selected.attended}, FALSE) AS attended,
-                p.${selected.key}_checkin AS "checkIn", p.${selected.key}_checkout AS "checkOut"
+                p.${selected.key}_checkin AS "checkIn", p.${selected.key}_checkout AS "checkOut"${Object.entries(selected.meals).map(([meal, col]) => `, COALESCE(p.${col}, FALSE) AS "${meal}"`).join('')}
          FROM scoped p JOIN users u ON u.id = p.user_id
          ORDER BY p.id`,
         [council],
@@ -123,11 +123,73 @@ router.get('/', async (req: Request, res: Response) => {
         attended: Object.fromEntries(SESSIONS.map((s) => [s.key, n(r[s.key])])),
       })),
       recent: recentRes.rows,
-      ...(people ? { session: selected!.key, people } : {}),
+      ...(people ? { session: selected!.key, meals: Object.keys(selected!.meals), people } : {}),
     })
   } catch (error) {
     console.error('Scan analytics error:', error)
     res.status(500).json({ error: 'Failed to load scan analytics' })
+  }
+})
+
+// Who scanned whom and when (attendance and food, including undos), newest first
+router.get('/log', async (req: Request, res: Response) => {
+  try {
+    const auth = req.auth!
+    const requested = typeof req.query.council === 'string' && req.query.council.trim() ? req.query.council.trim() : null
+    const council = auth.access === 'analytics' ? auth.council : requested
+    const limit = Math.min(Math.max(Number(req.query.limit) || 200, 1), 1000)
+    const r = await query(
+      `${PEOPLE_CTE}
+       SELECT p.id, CONCAT(u.first_name, ' ', u.last_name) AS name, p.council,
+              a.activity_type AS type, a.title, a.description,
+              COALESCE((a.metadata->>'value')::boolean, TRUE) AS value,
+              a.metadata->>'dayKey' AS "dayKey",
+              a.metadata->>'scannedBy' AS "scannedBy",
+              NULLIF(CONCAT(su.first_name, ' ', su.last_name), ' ') AS "scannedByName",
+              a.created_at AS "at"
+       FROM activity_timeline a
+       JOIN scoped p ON p.user_id = a.user_id
+       JOIN users u ON u.id = p.user_id
+       LEFT JOIN members sm ON sm.id = a.metadata->>'scannedBy'
+       LEFT JOIN users su ON su.id = sm.user_id
+       WHERE a.activity_type IN ('attendance', 'food')
+       ORDER BY a.created_at DESC
+       LIMIT ${limit}`,
+      [council],
+    )
+    res.json({ scope: { council, locked: auth.access === 'analytics' }, entries: r.rows })
+  } catch (error) {
+    console.error('Scan log error:', error)
+    res.status(500).json({ error: 'Failed to load scan log' })
+  }
+})
+
+// Every person in scope with each day's attendance and food, for spreadsheet export
+router.get('/export', async (req: Request, res: Response) => {
+  try {
+    const auth = req.auth!
+    const requested = typeof req.query.council === 'string' && req.query.council.trim() ? req.query.council.trim() : null
+    const council = auth.access === 'analytics' ? auth.council : requested
+    const cols = SESSIONS.flatMap((s) => [
+      `COALESCE(p.${s.attended}, FALSE) AS "${s.key}.attended"`,
+      `p.${s.key}_checkin AS "${s.key}.checkIn"`,
+      ...Object.entries(s.meals).map(([meal, col]) => `COALESCE(p.${col}, FALSE) AS "${s.key}.${meal}"`),
+    ]).join(', ')
+    const r = await query(
+      `${PEOPLE_CTE}
+       SELECT p.id, u.first_name AS "firstName", u.last_name AS "lastName", p.council, p.committee, ${cols}
+       FROM scoped p JOIN users u ON u.id = p.user_id
+       ORDER BY p.id`,
+      [council],
+    )
+    res.json({
+      scope: { council, locked: auth.access === 'analytics' },
+      sessions: SESSIONS.map((s) => ({ key: s.key, label: s.label, meals: Object.keys(s.meals) })),
+      people: r.rows,
+    })
+  } catch (error) {
+    console.error('Scan export error:', error)
+    res.status(500).json({ error: 'Failed to export' })
   }
 })
 

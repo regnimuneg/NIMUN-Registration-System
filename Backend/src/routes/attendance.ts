@@ -25,7 +25,9 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Invalid dayKey' })
     }
 
-    const timestamp = new Date()
+    // Offline scans are synced later and carry the time they were really scanned
+    const sent = req.body.scannedAt ? new Date(req.body.scannedAt) : null
+    const timestamp = sent && !isNaN(sent.getTime()) && Math.abs(Date.now() - sent.getTime()) < 3 * 86400000 ? sent : new Date()
 
     // Check if participant is delegate, member, or invitation
     const delegateCheck = await query('SELECT id FROM delegates WHERE id = $1', [participantId])
@@ -103,6 +105,8 @@ router.post('/', async (req: Request, res: Response) => {
       }
 
       await updateParticipantAttendanceField(participantId, sessionType, false, isDelegate, isInvitation)
+      // '27 undo: forget the check-in time too
+      await updateParticipantCheckIn(participantId, sessionType, null, isDelegate, isInvitation)
     }
 
     // Get user_id for activity timeline
@@ -129,54 +133,24 @@ router.post('/', async (req: Request, res: Response) => {
         description = value ? `Marked as present` : `Marked as absent`
       }
 
-      // Check if there's a recent entry for this dayKey (within last 2 minutes)
-      // If so, update it instead of creating a duplicate
-      const recentEntry = await query(`
-        SELECT id
-        FROM activity_timeline
-        WHERE user_id = $1
-          AND activity_type = 'attendance'
-          AND title = $2
-          AND created_at >= NOW() - INTERVAL '2 minutes'
-        ORDER BY created_at DESC
-        LIMIT 1
-      `, [userId, title])
-
-      if (recentEntry.rows.length > 0) {
-        // Update existing entry instead of creating duplicate
-        await query(`
-          UPDATE activity_timeline
-          SET 
-            description = $1,
-            metadata = $2,
-            created_at = $3
-          WHERE id = $4
-        `, [
-          description,
-          JSON.stringify({ dayKey, field, value, checkIn, checkOut, scannedBy: req.auth?.memberId ?? null }),
-          timestamp,
-          recentEntry.rows[0].id
-        ])
-      } else {
-        // No recent entry, create a new one
-        await query(`
-          INSERT INTO activity_timeline (
-            user_id,
-            activity_type,
-            title,
-            description,
-            metadata,
-            created_at
-          ) VALUES ($1, $2, $3, $4, $5, $6)
-        `, [
-          userId,
-          'attendance',
+      // '27: always add a new entry so the scan log keeps every scan and undo
+      await query(`
+        INSERT INTO activity_timeline (
+          user_id,
+          activity_type,
           title,
           description,
-          JSON.stringify({ dayKey, field, value, checkIn, checkOut, scannedBy: req.auth?.memberId ?? null }),
-          timestamp
-        ])
-      }
+          metadata,
+          created_at
+        ) VALUES ($1, $2, $3, $4, $5, $6)
+      `, [
+        userId,
+        'attendance',
+        title,
+        description,
+        JSON.stringify({ dayKey, field, value, checkIn, checkOut, scannedBy: req.auth?.memberId ?? null }),
+        timestamp
+      ])
     }
 
     res.json({
@@ -251,7 +225,7 @@ async function updateParticipantAttendanceField(
 async function updateParticipantCheckIn(
   participantId: string,
   sessionType: string,
-  timestamp: Date,
+  timestamp: Date | null,
   isDelegate: boolean,
   isInvitation: boolean
 ) {

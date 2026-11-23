@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Html5Qrcode } from 'html5-qrcode'
-import { api } from '../../lib/api'
-import { QrCode, Search, CheckCircle, XCircle, RefreshCw, User, Camera, CameraOff, Calendar, UtensilsCrossed, Clock, LogIn, LogOut, MessageSquare, CheckSquare, Square, ChevronDown, Check, GlassWater, AlertTriangle } from 'lucide-react'
+import { api, ApiError } from '../../lib/api'
+import { QrCode, Search, CheckCircle, XCircle, RefreshCw, User, Camera, CameraOff, Calendar, UtensilsCrossed, Clock, LogIn, LogOut, MessageSquare, CheckSquare, Square, ChevronDown, Check, GlassWater, AlertTriangle, Undo2, WifiOff, CloudUpload, Loader2 } from 'lucide-react'
 
 interface SessionOption {
   id: string
@@ -107,6 +107,28 @@ function ToggleSwitch({ checked, disabled = false, label, onChange }: ToggleSwit
   )
 }
 
+// ---------- '27 quick scan helpers: offline queue ----------
+type QuickMode = 'attendance' | 'lunch'
+interface QueuedScan { id: string; dayKey: string; mode: QuickMode; value: boolean; at: string }
+const QUEUE_KEY = 'oc27_scan_queue'
+function readQueue(): QueuedScan[] {
+  try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]') } catch { return [] }
+}
+function writeQueue(q: QueuedScan[]) {
+  try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)) } catch { /* storage full or blocked */ }
+}
+function sendScan(item: QueuedScan) {
+  if (item.mode === 'attendance') {
+    return api.updateAttendance({
+      participantId: item.id, dayKey: item.dayKey, field: 'attended', value: item.value,
+      ...(item.value ? { checkIn: true } : {}), scannedAt: item.at,
+    })
+  }
+  return api.updateFood({ participantId: item.id, dayKey: item.dayKey, meal: 'lunch', value: item.value, scannedAt: item.at })
+}
+const buzz = (pattern: number | number[]) => { try { navigator.vibrate?.(pattern) } catch { /* not supported */ } }
+const timeOf = (iso?: string | null) => (iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '')
+
 export default function ScanPage() {
   const [selectedSession, setSelectedSession] = useState<SessionOption | null>(() => {
     const now = new Date()
@@ -151,7 +173,14 @@ export default function ScanPage() {
   const [newComment, setNewComment] = useState('')
   const [saving, setSaving] = useState(false)
   const [scanMode, setScanMode] = useState<string>('attendance')
-  const [quickScanStatus, setQuickScanStatus] = useState<{ type: 'success' | 'warning' | 'error'; message: string; name?: string } | null>(null)
+  const [quickScanStatus, setQuickScanStatus] = useState<{ type: 'success' | 'warning' | 'error' | 'queued' | 'duplicate' | 'pending'; message: string; name?: string; detail?: string } | null>(null)
+  // '27 quick scan: last action (for undo), offline queue, camera de-bounce
+  const [lastAction, setLastAction] = useState<(QueuedScan & { name: string }) | null>(null)
+  const [pendingCount, setPendingCount] = useState(() => readQueue().length)
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine))
+  const [syncing, setSyncing] = useState(false)
+  const lastCodeRef = useRef<{ code: string; at: number }>({ code: '', at: 0 })
+  const statusTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
     setScanMode('attendance')
@@ -328,7 +357,17 @@ export default function ScanPage() {
         },
         (decodedText) => {
           if (scanInFlightRef.current) return
+          const code = decodedText.trim().toUpperCase()
+          const now = Date.now()
+          // Ignore the same code held in front of the camera for a few seconds
+          if (lastCodeRef.current.code === code && now - lastCodeRef.current.at < 4000) return
+          lastCodeRef.current = { code, at: now }
           scanInFlightRef.current = true
+          if (scanModeRef.current !== 'view') {
+            // Quick modes keep the camera running for the next person
+            void quickScanRef.current(code).finally(() => { scanInFlightRef.current = false })
+            return
+          }
           void stopScanning()
           void handleScan(decodedText, true)
         },
@@ -356,7 +395,128 @@ export default function ScanPage() {
     setIsScanning(false)
   }
 
+  // Show a status, then clear it after a moment (longer for problems)
+  const showStatus = (st: NonNullable<typeof quickScanStatus>, ms = 2200) => {
+    if (statusTimerRef.current) window.clearTimeout(statusTimerRef.current)
+    setQuickScanStatus(st)
+    if (st.type !== 'pending') {
+      statusTimerRef.current = window.setTimeout(() => setQuickScanStatus(null), ms)
+    }
+  }
+
+  const enqueue = (item: QueuedScan) => {
+    const q = [...readQueue(), item]
+    writeQueue(q)
+    setPendingCount(q.length)
+  }
+
+  const syncQueue = async () => {
+    if (syncing) return
+    let q = readQueue()
+    if (q.length === 0) return
+    setSyncing(true)
+    try {
+      while (q.length > 0) {
+        try {
+          await sendScan(q[0])
+        } catch (e: any) {
+          if (e instanceof ApiError && e.network) break // still offline: try later
+          // 409 duplicate or other refusal: drop it, the server already has the truth
+        }
+        q = q.slice(1)
+        writeQueue(q)
+        setPendingCount(q.length)
+      }
+    } finally {
+      setSyncing(false)
+    }
+  }
+  const syncRef = useRef(syncQueue)
+  syncRef.current = syncQueue
+
+  useEffect(() => {
+    const on = () => { setIsOnline(true); void syncRef.current() }
+    const off = () => setIsOnline(false)
+    window.addEventListener('online', on)
+    window.addEventListener('offline', off)
+    const t = window.setInterval(() => { if (readQueue().length) void syncRef.current() }, 15000)
+    void syncRef.current()
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); window.clearInterval(t) }
+  }, [])
+
+  const quickScan = async (rawCode: string) => {
+    if (!selectedSession) return
+    const code = rawCode.trim().toUpperCase()
+    if (!code) return
+    const mode: QuickMode = scanMode === 'lunch' ? 'lunch' : 'attendance'
+    const item: QueuedScan = { id: code, dayKey: selectedSession.dayKey, mode, value: true, at: new Date().toISOString() }
+    const what = mode === 'lunch' ? 'Food' : 'Attendance'
+    showStatus({ type: 'pending', message: 'Checking…', name: code })
+    let name = code
+    try {
+      const data = await api.getParticipant(code, true)
+      if (!data?.participant) throw new ApiError('Not found', { status: 404 })
+      name = data.participant.name || code
+      const dayData = data.tracking ? getDayDataFromTracking(data.tracking.dayTracking, item.dayKey) : null
+      if (mode === 'attendance' && dayData?.attended) {
+        playAudioFeedback('warning'); buzz([60, 60, 60])
+        showStatus({ type: 'warning', message: 'Already marked present', name, detail: `${code}${dayData.checkin ? ` · scanned at ${timeOf(dayData.checkin)}` : ''}` }, 3200)
+        return
+      }
+      await sendScan(item)
+      playAudioFeedback('success'); buzz(40)
+      showStatus({ type: 'success', message: mode === 'lunch' ? 'Food logged' : 'Marked present', name, detail: `${code} · ${selectedSession.label}` })
+      setLastAction({ ...item, name })
+      setScanHistory(prev => [{ id: code, name: `${name} · ${what}`, time: new Date().toLocaleTimeString() }, ...prev.slice(0, 19)])
+    } catch (e: any) {
+      if (e instanceof ApiError && e.network) {
+        enqueue(item)
+        playAudioFeedback('success'); buzz([30, 40, 30])
+        showStatus({ type: 'queued', message: 'Saved offline', name: code, detail: 'It will sync when the connection is back' }, 2600)
+        setScanHistory(prev => [{ id: code, name: `${code} · ${what} (offline)`, time: new Date().toLocaleTimeString() }, ...prev.slice(0, 19)])
+      } else if (e instanceof ApiError && e.status === 409 && e.data?.duplicate) {
+        playAudioFeedback('error'); buzz([200, 80, 200])
+        showStatus({ type: 'duplicate', message: 'Already got food', name: name === code ? code : `${name} · ${code}`, detail: e.data.claimedAt ? `First claimed at ${timeOf(e.data.claimedAt)}. Do not serve again.` : 'Do not serve again.' }, 4500)
+      } else if (e instanceof ApiError && e.status === 404) {
+        playAudioFeedback('error'); buzz([200, 80, 200])
+        showStatus({ type: 'error', message: 'Unknown QR code', name: code, detail: 'No one has this ID' }, 3500)
+      } else {
+        playAudioFeedback('error')
+        showStatus({ type: 'error', message: e?.message || 'Scan failed', name: code }, 3500)
+      }
+    } finally {
+      setScannedId('')
+      manualInputRef.current?.focus()
+    }
+  }
+  const quickScanRef = useRef(quickScan)
+  quickScanRef.current = quickScan
+  const scanModeRef = useRef(scanMode)
+  scanModeRef.current = scanMode
+
+  const undoLast = async () => {
+    if (!lastAction) return
+    const item: QueuedScan = { ...lastAction, value: false, at: new Date().toISOString() }
+    setLastAction(null)
+    try {
+      await sendScan(item)
+      playAudioFeedback('warning')
+      showStatus({ type: 'warning', message: 'Scan undone', name: lastAction.name, detail: `${lastAction.id} · ${lastAction.mode === 'lunch' ? 'Food' : 'Attendance'} removed` })
+    } catch (e: any) {
+      if (e instanceof ApiError && e.network) {
+        enqueue(item)
+        showStatus({ type: 'queued', message: 'Undo saved offline', name: lastAction.name })
+      } else {
+        showStatus({ type: 'error', message: e?.message || 'Undo failed', name: lastAction.name }, 3500)
+      }
+    }
+  }
+
   const handleScan = async (participantId: string, lockAlreadyHeld = false) => {
+    if (scanMode !== 'view') {
+      try { await quickScan(participantId) } finally { scanInFlightRef.current = false }
+      return
+    }
     if (!participantId.trim() || !selectedSession) {
       if (lockAlreadyHeld) scanInFlightRef.current = false
       return
@@ -1160,31 +1320,54 @@ export default function ScanPage() {
 
           {/* Camera Scanner */}
           <div className="card mb-4 sm:mb-6">
-            {quickScanStatus && (
-              <div className={`mb-4 p-4 rounded-2xl border-2 shadow-lg flex items-center justify-between transition-all duration-300 animate-pulse ${
-                quickScanStatus.type === 'success'
-                  ? 'bg-green-50 border-green-500 text-green-800'
-                  : quickScanStatus.type === 'warning'
-                  ? 'bg-yellow-50 border-yellow-500 text-yellow-800'
-                  : 'bg-red-50 border-red-500 text-red-800'
-              }`}>
-                <div className="flex items-center gap-3">
-                  {quickScanStatus.type === 'success' ? (
-                    <CheckCircle className="w-8 h-8 text-green-500 flex-shrink-0" />
-                  ) : quickScanStatus.type === 'warning' ? (
-                    <AlertTriangle className="w-8 h-8 text-yellow-500 flex-shrink-0" />
-                  ) : (
-                    <XCircle className="w-8 h-8 text-red-500 flex-shrink-0" />
-                  )}
-                  <div>
-                    <h3 className="font-bold text-lg">{quickScanStatus.message}</h3>
-                    {quickScanStatus.name && (
-                      <p className="text-sm opacity-90 font-medium">Participant: {quickScanStatus.name}</p>
-                    )}
-                  </div>
-                </div>
+            {/* Connection + offline queue */}
+            {(!isOnline || pendingCount > 0) && (
+              <div className={`oc-offline-bar ${isOnline ? 'is-syncing' : ''}`} role="status">
+                {isOnline ? <CloudUpload className="w-4 h-4" /> : <WifiOff className="w-4 h-4" />}
+                <span className="flex-1">
+                  {isOnline
+                    ? `${pendingCount} offline scan${pendingCount === 1 ? '' : 's'} waiting to sync`
+                    : `Offline. Scans are saved on this phone${pendingCount ? ` (${pendingCount} waiting)` : ''}`}
+                </span>
+                {isOnline && pendingCount > 0 && (
+                  <button type="button" onClick={() => void syncQueue()} disabled={syncing} className="oc-chip-btn">
+                    {syncing ? 'Syncing…' : 'Sync now'}
+                  </button>
+                )}
               </div>
             )}
+
+            {/* Scan result: big, colour-coded, readable at arm's length */}
+            <div className="oc-scan-result-slot" aria-live="assertive">
+              {quickScanStatus && (
+                <div key={`${quickScanStatus.type}-${quickScanStatus.name}-${quickScanStatus.message}`} className={`oc-scan-result oc-scan-${quickScanStatus.type}`}>
+                  <div className="oc-scan-icon">
+                    {quickScanStatus.type === 'success' ? <CheckCircle className="w-9 h-9" />
+                      : quickScanStatus.type === 'pending' ? <Loader2 className="w-9 h-9 oc-spin" />
+                      : quickScanStatus.type === 'queued' ? <CloudUpload className="w-9 h-9" />
+                      : quickScanStatus.type === 'warning' ? <AlertTriangle className="w-9 h-9" />
+                      : <XCircle className="w-9 h-9" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="oc-scan-title">{quickScanStatus.message}</p>
+                    {quickScanStatus.name && <p className="oc-scan-name">{quickScanStatus.name}</p>}
+                    {quickScanStatus.detail && <p className="oc-scan-detail">{quickScanStatus.detail}</p>}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {lastAction && (
+              <div className="oc-last-action">
+                <span className="truncate">
+                  Last: <strong>{lastAction.name}</strong> · {lastAction.mode === 'lunch' ? 'Food' : 'Attendance'}
+                </span>
+                <button type="button" onClick={() => void undoLast()} className="oc-chip-btn">
+                  <Undo2 className="w-4 h-4" /> Undo
+                </button>
+              </div>
+            )}
+
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
               <h2 className="text-lg sm:text-xl font-black">Camera Scanner</h2>
               {!isScanning ? (
@@ -1232,7 +1415,7 @@ export default function ScanPage() {
                     value={scannedId}
                     onChange={handleInputChange}
                     onKeyPress={handleKeyPress}
-                    placeholder="Enter participant ID (e.g., IC-01, EX-05)"
+                    placeholder="Type an ID, e.g. PRS-01"
                     disabled={!selectedSession}
                     className="w-full pl-10 pr-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
                   />

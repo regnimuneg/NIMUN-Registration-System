@@ -4,6 +4,17 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || (
     : 'http://localhost:3001'
 )
 
+/** Error with the HTTP status and body, or network=true when the server could not be reached. */
+export class ApiError extends Error {
+  status?: number
+  data?: any
+  network?: boolean
+  constructor(message: string, opts: { status?: number; data?: any; network?: boolean } = {}) {
+    super(message)
+    Object.assign(this, opts)
+  }
+}
+
 async function callApi(endpoint: string, options?: RequestInit) {
   try {
     const url = `${API_BASE_URL}${endpoint}`
@@ -29,18 +40,13 @@ async function callApi(endpoint: string, options?: RequestInit) {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}: ${response.statusText}` }))
-      throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
+      throw new ApiError(errorData.error || `HTTP ${response.status}: ${response.statusText}`, { status: response.status, data: errorData })
     }
     return response.json()
   } catch (error) {
-    if (error instanceof Error) {
-      // Provide more helpful error messages
-      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-        throw new Error(`Cannot connect to backend at ${API_BASE_URL}. Make sure the backend server is running.`)
-      }
-      throw error
-    }
-    throw new Error(`Network error: Failed to connect to backend at ${API_BASE_URL}`)
+    if (error instanceof ApiError) throw error
+    // fetch() itself failed: offline or server unreachable
+    throw new ApiError('No connection to the server', { network: true })
   }
 }
 
@@ -167,6 +173,17 @@ export const api = {
   },
 
   // Admin
+  getScanLog: (params: { council?: string; limit?: number } = {}) => {
+    const q = new URLSearchParams()
+    if (params.council) q.set('council', params.council)
+    if (params.limit) q.set('limit', String(params.limit))
+    return callApi(`/api/scan-analytics/log${q.toString() ? `?${q}` : ''}`)
+  },
+  getScanExport: (council?: string) =>
+    callApi(`/api/scan-analytics/export${council ? `?council=${encodeURIComponent(council)}` : ''}`),
+  sendQrEmail: (body: { participantId?: string; all?: boolean; testTo?: string }) =>
+    callApi('/api/qr-email', { method: 'POST', body: JSON.stringify(body) }),
+  getQrEmailStatus: () => callApi('/api/qr-email/status'),
   clearTrackingData: (dataType: string) =>
     callApi('/api/admin/clear-tracking', {
       method: 'POST',

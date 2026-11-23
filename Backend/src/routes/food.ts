@@ -4,6 +4,23 @@ import { trackingBlockedReason } from '../middleware/auth.js'
 
 const router = express.Router()
 
+// Map dayKey.meal to database fields (whitelist to prevent SQL injection)
+const FOOD_FIELDS: Record<string, string> = {
+  'sessions.day1.lunch': 'day1_food',
+  'sessions.day2.lunch': 'day2_food',
+  'sessions.day3.lunch': 'day3_food',
+  'sessions.day4.lunch': 'day4_food',
+  'openingCeremony.catering': 'opening_ceremony_food',
+  'openingCeremony.bar': 'opening_ceremony_bar',
+  'conference.day1.breakfast': 'conf_day1_breakfast',
+  'conference.day1.lunch': 'conf_day1_lunch',
+  'conference.day2.breakfast': 'conf_day2_breakfast',
+  'conference.day2.lunch': 'conf_day2_lunch',
+  'conference.day3.breakfast': 'conf_day3_breakfast',
+  'conference.day3.lunch': 'conf_day3_lunch'
+}
+
+
 // Update food tracking
 router.post('/', async (req: Request, res: Response) => {
   try {
@@ -19,7 +36,8 @@ router.post('/', async (req: Request, res: Response) => {
     const blocked = await trackingBlockedReason(req, participantId, 'food')
     if (blocked) return res.status(403).json({ error: blocked })
 
-    const timestamp = new Date()
+    const sent = req.body.scannedAt ? new Date(req.body.scannedAt) : null
+    const timestamp = sent && !isNaN(sent.getTime()) && Math.abs(Date.now() - sent.getTime()) < 3 * 86400000 ? sent : new Date()
 
     // Get user_id for this participant (delegate, member, or invitation)
     const participantCheck = await query(`
@@ -42,6 +60,26 @@ router.post('/', async (req: Request, res: Response) => {
     const isDelegate = delegateCheck.rows.length > 0
     const invitationCheck = await query('SELECT id FROM invitations WHERE id = $1', [participantId])
     const isInvitation = invitationCheck.rows.length > 0
+
+    // '27: refuse a second food claim for the same meal and say when the first was
+    const dupField = FOOD_FIELDS[`${dayKey}.${meal}`]
+    if (value && dupField) {
+      const table = isDelegate ? 'delegates' : isInvitation ? 'invitations' : 'members'
+      const cur = await query(`SELECT ${dupField} AS claimed FROM ${table} WHERE id = $1`, [participantId])
+      if (cur.rows[0]?.claimed) {
+        const last = await query(
+          `SELECT created_at FROM activity_timeline
+           WHERE user_id = $1 AND activity_type = 'food' AND title = $2 AND (metadata->>'value') = 'true'
+           ORDER BY created_at DESC LIMIT 1`,
+          [userId, `${dayKey} ${meal}`],
+        )
+        return res.status(409).json({
+          error: 'Food already claimed',
+          duplicate: true,
+          claimedAt: last.rows[0]?.created_at ?? null,
+        })
+      }
+    }
 
     if (value) {
       // Insert food history record (only for delegates - schema limitation)
@@ -82,14 +120,16 @@ router.post('/', async (req: Request, res: Response) => {
         activity_type,
         title,
         description,
-        metadata
-      ) VALUES ($1, $2, $3, $4, $5)
+        metadata,
+        created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6)
     `, [
       userId,
       'food',
       `${dayKey} ${meal}`,
       `Food tracking: ${meal} for ${dayKey}`,
-      JSON.stringify({ dayKey, meal, value })
+      JSON.stringify({ dayKey, meal, value, scannedBy: req.auth?.memberId ?? null }),
+      timestamp
     ])
 
     res.json({
@@ -112,20 +152,7 @@ async function updateParticipantFoodField(
   isInvitation: boolean
 ) {
   // Map dayKey.meal to actual database fields (whitelist to prevent SQL injection)
-  const fieldMap: Record<string, string> = {
-    'sessions.day1.lunch': 'day1_food',
-    'sessions.day2.lunch': 'day2_food',
-    'sessions.day3.lunch': 'day3_food',
-    'sessions.day4.lunch': 'day4_food',
-    'openingCeremony.catering': 'opening_ceremony_food',
-    'openingCeremony.bar': 'opening_ceremony_bar',
-    'conference.day1.breakfast': 'conf_day1_breakfast',
-    'conference.day1.lunch': 'conf_day1_lunch',
-    'conference.day2.breakfast': 'conf_day2_breakfast',
-    'conference.day2.lunch': 'conf_day2_lunch',
-    'conference.day3.breakfast': 'conf_day3_breakfast',
-    'conference.day3.lunch': 'conf_day3_lunch'
-  }
+  const fieldMap = FOOD_FIELDS
 
   const field = fieldMap[`${dayKey}.${meal}`]
   if (!field) {

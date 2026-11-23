@@ -219,7 +219,7 @@ export default function DashboardPage() {
               <div className="jn-icon-tile mb-4">
                 <BarChart3 className="w-7 h-7" />
               </div>
-              <p className="font-black text-lg mb-1">Scan Analytics</p>
+              <p className="font-black text-lg mb-1">Live Board</p>
               <p className="text-sm text-gray-600">Attendance and food by day and council</p>
               <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="jn-sticker -right-2 bottom-1 w-16 -rotate-12" />
             </a>

@@ -66,7 +66,7 @@ export default function PortalLayout() {
 
   const adminLinks = [
     { href: '/admin/dashboard', label: 'Dashboard', icon: Home, paths: ['/admin/dashboard', '/admin', '/dashboard'] },
-    { href: '/analytics/scans', label: 'Scan Analytics', icon: BarChart3, paths: ['/analytics/scans'] },
+    { href: '/analytics/scans', label: 'Live Board', icon: BarChart3, paths: ['/analytics/scans'] },
     { href: '/admin/participants', label: 'Participants', icon: Users, paths: ['/admin/participants'] },
     { href: '/member/scanner', label: 'Scanner', icon: Smartphone, paths: ['/member/scanner', '/scan'] }
   ]
@@ -206,7 +206,7 @@ export default function PortalLayout() {
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   <BarChart3 className="w-5 h-5 mr-3" />
-                  Scan Analytics
+                  Live Board
                 </a>
               )}
 
@@ -316,7 +316,7 @@ export default function PortalLayout() {
                 {isAnalyst && (
                   <a href="/analytics/scans" className={`nav-link flex items-center border-2 border-white/80 ${isActive(['/analytics/scans']) ? 'bg-[var(--oc-white)] !text-[var(--oc-blue)]' : ''}`}>
                     <BarChart3 className="w-4 h-4" />
-                    <span className="ml-2 hidden lg:inline text-base">Scan Analytics</span>
+                    <span className="ml-2 hidden lg:inline text-base">Live Board</span>
                   </a>
                 )}
                 {isMember && (
