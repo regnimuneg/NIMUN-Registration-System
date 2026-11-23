@@ -46,7 +46,7 @@ function StickerCard({
   className?: string
 }) {
   return (
-    <div className={`jn-card p-5 sm:p-6 ${className}`} style={themedStyle(color)}>
+    <div className={`jn-card oc-lift p-5 sm:p-6 ${className}`} style={themedStyle(color)}>
       {children}
     </div>
   )
@@ -134,7 +134,7 @@ export default function DashboardPage() {
           <div>
             <h1 className="jn-title">Admin Dashboard</h1>
           </div>
-          <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="hidden md:block jn-sticker right-40 -top-4 rotate-12 opacity-90" />
+          <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="hidden md:block jn-sticker right-40 -top-4 rotate-12 opacity-90 oc-twinkle" />
           <button
             onClick={loadAnalytics}
             className="jn-sticker-button flex items-center gap-2 text-sm sm:text-base px-5 py-3 w-full sm:w-auto"
@@ -146,18 +146,18 @@ export default function DashboardPage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+        <div className="oc-stagger grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <StickerCard color="blue">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-black text-[var(--jn-blue)] mb-1">OC Members</p>
-                <p className="text-5xl font-black text-[var(--jn-blue)] leading-none">{analytics.participants.total}</p>
+                <p className="text-5xl font-black text-[var(--jn-blue)] leading-none oc-big-number">{analytics.participants.total}</p>
               </div>
               <div className="jn-icon-tile">
                 <Users className="w-8 h-8" />
               </div>
             </div>
-            <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="jn-sticker -right-3 bottom-0 w-16 sm:w-20 rotate-12" />
+            <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="jn-sticker -right-3 bottom-0 w-16 sm:w-20 rotate-12 oc-twinkle" />
           </StickerCard>
 
           <StickerCard color="green">
@@ -199,7 +199,7 @@ export default function DashboardPage() {
         {/* Quick Actions */}
         <div className="mb-6 sm:mb-8">
           <h2 className="jn-section-title mb-5 sm:mb-6">Quick Actions</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          <div className="oc-stagger grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <a
               href="/scan"
               className="jn-card p-6 block min-h-44"
@@ -221,7 +221,7 @@ export default function DashboardPage() {
               </div>
               <p className="font-black text-lg mb-1">Live Board</p>
               <p className="text-sm text-gray-600">Attendance and food by day and council</p>
-              <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="jn-sticker -right-2 bottom-1 w-16 -rotate-12" />
+              <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="jn-sticker -right-2 bottom-1 w-16 -rotate-12 oc-twinkle" />
             </a>
           </div>
         </div>

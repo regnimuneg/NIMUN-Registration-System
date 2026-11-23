@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { CSSProperties } from 'react'
 import { api } from '../../lib/api'
-import { Users, Search, Edit, Trash2, QrCode, Eye, Plus, RefreshCw, X, Download, Calendar, UtensilsCrossed, Gamepad2, Ticket } from 'lucide-react'
+import { Users, Search, Edit, Trash2, QrCode, Eye, Plus, RefreshCw, X, Download, Calendar, UtensilsCrossed, Gamepad2, Ticket, Mail, Send } from 'lucide-react'
 
 interface Participant {
   id: string
@@ -42,9 +42,62 @@ export default function ParticipantsPage() {
   const [showQRModal, setShowQRModal] = useState(false)
   const [qrCodeData, setQrCodeData] = useState<{ qrUrl: string; participantId: string; participantName: string } | null>(null)
 
+  // QR email (Resend). Real sends stay off on the server until QR_EMAIL_ENABLED=true.
+  const [emailStatus, setEmailStatus] = useState<{ configured: boolean; enabled: boolean; from: string } | null>(null)
+  const [testTo, setTestTo] = useState('')
+  const [emailBusy, setEmailBusy] = useState<string | null>(null)
+  const [emailNote, setEmailNote] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null)
+
   useEffect(() => {
     loadParticipants()
+    api.getQrEmailStatus().then(setEmailStatus).catch(() => setEmailStatus(null))
   }, [])
+
+  const sendTestEmail = async () => {
+    setEmailBusy('test'); setEmailNote(null)
+    try {
+      await api.sendQrEmail({ testTo: testTo.trim() })
+      setEmailNote({ tone: 'ok', text: `Test email sent to ${testTo.trim()}. Check the inbox (and spam).` })
+    } catch (err: any) {
+      setEmailNote({ tone: 'err', text: err.message || 'Test email failed' })
+    } finally { setEmailBusy(null) }
+  }
+
+  const emailOne = async (p: Participant) => {
+    if (!p.email) { setEmailNote({ tone: 'err', text: `${p.id} has no email address.` }); return }
+    if (!confirm(`Email ${p.id}'s QR code to ${p.email}?`)) return
+    setEmailBusy(p.id); setEmailNote(null)
+    try {
+      const r = await api.sendQrEmail({ participantId: p.id })
+      if (r?.sent > 0) setEmailNote({ tone: 'ok', text: `QR code emailed to ${p.name} (${p.id}).` })
+      else setEmailNote({ tone: 'err', text: `${p.id} was not emailed: ${r?.failed?.[0]?.error || 'no valid email address on file'}` })
+    } catch (err: any) {
+      setEmailNote({ tone: 'err', text: `${p.id}: ${err.message || 'failed'}` })
+    } finally { setEmailBusy(null) }
+  }
+
+  const emailAll = async () => {
+    const withEmail = participants.filter((p) => p.email && p.email.includes('@'))
+    if (!confirm(`Email QR codes to all ${withEmail.length} members with an email address? This sends real emails.`)) return
+    setEmailBusy('all'); setEmailNote(null)
+    let sent = 0
+    const failed: string[] = []
+    setBulkProgress({ done: 0, total: withEmail.length })
+    // One request per person keeps each call short and shows progress
+    for (let i = 0; i < withEmail.length; i += 2) {
+      await Promise.all(withEmail.slice(i, i + 2).map(async (p) => {
+        try {
+          const r = await api.sendQrEmail({ participantId: p.id })
+          if (r?.sent > 0) sent++; else failed.push(p.id)
+        } catch { failed.push(p.id) }
+      }))
+      setBulkProgress({ done: Math.min(i + 2, withEmail.length), total: withEmail.length })
+      await new Promise((r) => setTimeout(r, 1100))
+    }
+    setBulkProgress(null); setEmailBusy(null)
+    setEmailNote({ tone: failed.length ? 'err' : 'ok', text: `Sent ${sent}.${failed.length ? ` Failed: ${failed.join(', ')}` : ''}` })
+  }
 
   const loadParticipants = async () => {
     try {
@@ -395,6 +448,55 @@ export default function ParticipantsPage() {
             </div>
           </div>
 
+          {/* QR email */}
+          <div className="jn-card p-4 sm:p-5 mb-6" style={{ '--card-color': 'var(--jn-blue)' } as CSSProperties}>
+            <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+              <div className="flex items-center gap-3 lg:w-64 shrink-0">
+                <div className="jn-icon-tile"><Mail className="w-6 h-6" /></div>
+                <div>
+                  <p className="font-black">Email QR codes</p>
+                  <p className="text-xs text-gray-600">
+                    {!emailStatus ? 'Checking email setup...' : !emailStatus.configured ? 'Not set up yet (needs a Resend key)' : emailStatus.enabled ? 'Ready to send' : 'Test emails only for now'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-1 flex-col sm:flex-row gap-2">
+                <input
+                  type="email"
+                  value={testTo}
+                  onChange={(e) => setTestTo(e.target.value)}
+                  placeholder="Your email for a test"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                />
+                <button
+                  onClick={sendTestEmail}
+                  disabled={!emailStatus?.configured || !testTo.includes('@') || emailBusy !== null}
+                  className="btn-secondary flex items-center justify-center gap-2 text-sm px-4 py-2 disabled:opacity-50"
+                >
+                  <Send className="w-4 h-4" />{emailBusy === 'test' ? 'Sending...' : 'Send test'}
+                </button>
+                <button
+                  onClick={emailAll}
+                  disabled={!emailStatus?.enabled || emailBusy !== null}
+                  title={emailStatus?.enabled ? '' : 'Switched on after the test email is approved'}
+                  className="jn-sticker-button flex items-center justify-center gap-2 text-sm px-4 py-2 disabled:opacity-50"
+                  style={{ '--button-color': 'var(--jn-blue)' } as CSSProperties}
+                >
+                  <Mail className="w-4 h-4" />
+                  {bulkProgress ? `Sending ${bulkProgress.done}/${bulkProgress.total}` : 'Email all'}
+                </button>
+              </div>
+            </div>
+            {bulkProgress && (
+              <div className="mt-3 h-2 rounded-full bg-gray-200 overflow-hidden">
+                <div className="h-full bg-[var(--jn-blue)] transition-all duration-500" style={{ width: `${(bulkProgress.done / bulkProgress.total) * 100}%` }} />
+              </div>
+            )}
+            {emailNote && (
+              <p className={`mt-3 text-sm font-semibold ${emailNote.tone === 'ok' ? 'text-green-700' : 'text-red-700'}`}>{emailNote.text}</p>
+            )}
+          </div>
+
           {/* Filters */}
           <div className="jn-card p-4 mb-8" style={{ '--card-color': 'var(--jn-purple)' } as CSSProperties}>
             <div className="flex flex-col sm:flex-row gap-4">
@@ -491,6 +593,16 @@ export default function ParticipantsPage() {
                           >
                             <QrCode className="w-4 h-4" />
                           </button>
+                          {emailStatus?.enabled && (
+                            <button
+                              onClick={() => emailOne(participant)}
+                              disabled={emailBusy !== null}
+                              className="p-2 text-[var(--jn-blue)] hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-40"
+                              title="Email QR code"
+                            >
+                              <Mail className="w-4 h-4" />
+                            </button>
+                          )}
                           <button
                             onClick={() => handleEdit(participant)}
                             className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"

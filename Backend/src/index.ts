@@ -12,6 +12,7 @@ import commentsRoutes from './routes/comments.js'
 // Bus routes
 import busRoutes from './routes/bus.js'
 import qrRoutes from './routes/qr.js'
+import qrEmailRoutes from './routes/qr-email.js'
 import importRoutes from './routes/import.js'
 import registerRoutes from './routes/register.js'
 import analyticsRoutes from './routes/analytics.js'
@@ -120,6 +121,7 @@ app.use('/api/bus', SCAN, busRoutes)
 app.use('/api/scan-analytics', requireAccess('full', 'analytics'), scanAnalyticsRoutes)
 
 // Full power only (Highboard, Registration Affairs)
+app.use('/api/qr-email', FULL, qrEmailRoutes)
 app.use('/api/qr', FULL, qrRoutes)
 app.use('/api/import', FULL, importRoutes)
 app.use('/api/register', FULL, registerRoutes)

@@ -12,10 +12,10 @@ export default function HomePage() {
           <p className="text-base sm:text-lg md:text-xl text-gray-600 max-w-2xl mx-auto px-2 mt-5">
             Manage participants, track attendance, monitor food distribution, and analyze event data
           </p>
-          <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="hidden sm:block jn-sticker right-8 top-6 rotate-12" />
+          <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="hidden sm:block jn-sticker right-8 top-6 rotate-12 oc-twinkle" />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
+        <div className="oc-stagger grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
           {/* Admin Access */}
           <Link
             to="/auth/login"
@@ -34,7 +34,7 @@ export default function HomePage() {
               <LogIn className="w-4 h-4" />
               Login to Admin
             </div>
-            <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="jn-sticker -right-6 bottom-3 w-20 rotate-12" />
+            <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="jn-sticker -right-6 bottom-3 w-20 rotate-12 oc-twinkle" />
           </Link>
 
           {/* Member Access */}
@@ -55,13 +55,13 @@ export default function HomePage() {
               <ArrowRight className="w-4 h-4" />
               Go to Member Portal
             </div>
-            <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="jn-sticker -right-4 bottom-2 w-20 rotate-12" />
+            <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="jn-sticker -right-4 bottom-2 w-20 rotate-12 oc-twinkle" />
           </Link>
         </div>
 
         <div className="jn-card p-4 sm:p-6" style={{ '--card-color': 'var(--jn-green)' } as CSSProperties}>
           <h3 className="text-base sm:text-lg font-black mb-3 sm:mb-4 text-center">Quick Access</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+          <div className="oc-stagger grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
 
             <Link
               to="/scan"

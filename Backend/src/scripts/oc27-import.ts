@@ -32,8 +32,7 @@ import { fileURLToPath } from 'url'
 import dotenv from 'dotenv'
 import pg from 'pg'
 import bcrypt from 'bcrypt'
-import QRCode from 'qrcode'
-import sharp from 'sharp'
+import { makeQrPng } from '../lib/qr-image.js'
 import { parse } from 'csv-parse/sync'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -60,7 +59,6 @@ const VALID_COMMITTEES = [
 ]
 
 const USER_NAMESPACE = '6ba7b811-9dad-11d1-80b4-00c04fd430c8'
-const QR_COLOR = { r: 25, g: 95, b: 140 } // #195F8C, same as the NIMUN'26 QR codes
 
 interface Person {
   id: string
@@ -147,27 +145,7 @@ export function assignIds(
   })
 }
 
-async function makeQr(id: string): Promise<Buffer> {
-  const qr = await QRCode.toBuffer(id, {
-    errorCorrectionLevel: 'H',
-    margin: 1,
-    scale: 20,
-    color: { dark: '#000000', light: '#FFFFFF' },
-  })
-  const { data, info } = await sharp(qr).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
-  for (let i = 0; i < data.length; i += 4) {
-    const light = data[i] > 200 && data[i + 1] > 200 && data[i + 2] > 200
-    if (light) {
-      data[i + 3] = 0
-    } else {
-      data[i] = QR_COLOR.r
-      data[i + 1] = QR_COLOR.g
-      data[i + 2] = QR_COLOR.b
-      data[i + 3] = 255
-    }
-  }
-  return sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } }).png().toBuffer()
-}
+const makeQr = makeQrPng
 
 const csvCell = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
 

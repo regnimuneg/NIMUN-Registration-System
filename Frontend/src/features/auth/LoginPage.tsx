@@ -87,9 +87,9 @@ export default function LoginPage() {
       <div className="login-left-panel">
         <span className="login-corner login-corner-tl" aria-hidden="true" />
         <span className="login-corner login-corner-br" aria-hidden="true" />
-        <img src="/oc27/star-light.png" alt="" aria-hidden="true" className="login-star login-star-a" />
-        <img src="/oc27/star-light.png" alt="" aria-hidden="true" className="login-star login-star-b" />
-        <div className="login-brand-content">
+        <img src="/oc27/star-light.png" alt="" aria-hidden="true" className="login-star login-star-a oc-twinkle" />
+        <img src="/oc27/star-light.png" alt="" aria-hidden="true" className="login-star login-star-b oc-twinkle oc-twinkle-slow" />
+        <div className="login-brand-content oc-stagger">
           <img src="/oc27/stamp-light.png" alt="NIMUN'27 Setting the Standard" className="login-logo-image" />
           <div className="login-logo">
             NIMUN<span className="login-logo-year">&apos;27</span>
@@ -103,8 +103,8 @@ export default function LoginPage() {
       {/* Right panel: sign-in form */}
       <div className="login-right-panel">
         <div className="login-form-container">
-          <div className="login-card">
-            <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="login-card-star" />
+          <div className="login-card oc-pop-in">
+            <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="login-card-star oc-twinkle" />
             <p className="login-eyebrow">Staff portal</p>
             <h1 className="login-title">Welcome <span>back</span></h1>
 
