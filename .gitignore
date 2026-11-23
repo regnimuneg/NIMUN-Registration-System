@@ -52,3 +52,6 @@ admin_creds.txt
 
 # CSV files with sensitive data (optional - uncomment if needed)
 # *.csv
+# OC27: keep participant spreadsheets out of git
+*.csv
+*.xlsx
