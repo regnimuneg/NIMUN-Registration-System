@@ -93,7 +93,7 @@ export default function ImportPage() {
         </div>
 
         <div className="jn-card p-4 sm:p-6 mb-4 sm:mb-6" style={{ '--card-color': 'var(--jn-orange)' } as CSSProperties}>
-          <img src="/element_14_x560_y415_w221_h216.png" alt="" aria-hidden="true" className="hidden sm:block jn-sticker -right-5 -top-6 rotate-12" />
+          <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="hidden sm:block jn-sticker -right-5 -top-6 rotate-12" />
           <div className="mb-6">
             <h2 className="text-lg font-black mb-4">CSV Format</h2>
             <p className="text-sm text-gray-600 mb-4">

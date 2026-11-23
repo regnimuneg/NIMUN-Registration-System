@@ -1,29 +1,39 @@
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap');
+/* NIMUN'27 fonts. Monument Extended (brand display font) is used when it is
+   installed or its files are added (see the @font-face note at the end of
+   this file); until then Archivo at its widest setting stands in for it.
+   Consolas is the brand body font; Inconsolata is its free stand-in. */
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Inconsolata:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  font-family: Montserrat, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --jn-blue: #4e8ecb;
-  --jn-blue-light: #6fb0e0;
-  --jn-blue-dark: #2f6fa7;
-  --jn-pink: #ff3f78;
-  --jn-yellow: #ffd84d;
-  --jn-green: #17b978;
-  --jn-orange: #ff8a1f;
-  --jn-purple: #9b4de8;
-  --jn-cream: #fffdf6;
-  --jn-ink: #111827;
-  --jn-muted: #5b6577;
-  --jn-border: #1d2b53;
-  --jn-shadow: 0 14px 0 rgba(78, 142, 203, 0.1), 0 16px 32px rgba(31, 41, 55, 0.12);
-  --jn-page-doodle-overlay: rgba(255, 253, 246, 0.74);
+  font-family: var(--oc-font-mono);
+  /* NIMUN'27 palette: blue #183591, black #202020, white #f3ece4 */
+  --oc-blue: #183591;
+  --oc-black: #202020;
+  --oc-white: #f3ece4;
+  --oc-font-display: 'Monument Extended', 'Archivo', 'Arial Black', sans-serif;
+  --oc-font-mono: Consolas, 'Inconsolata', 'Cascadia Mono', Menlo, monospace;
+  --jn-blue: var(--oc-blue);
+  --jn-blue-light: #2b4bb5;
+  --jn-blue-dark: #0f2266;
+  --jn-pink: var(--oc-blue);
+  --jn-yellow: #183591;
+  --jn-green: #17804f;
+  --jn-orange: #c2410c;
+  --jn-purple: #5b3fb3;
+  --jn-cream: var(--oc-white);
+  --jn-ink: var(--oc-black);
+  --jn-muted: #55524d;
+  --jn-border: var(--oc-black);
+  --jn-shadow: none;
+  --jn-page-doodle-overlay: rgba(243, 236, 228, 1);
   --nimun-blue: var(--jn-blue);
   --nimun-blue-light: var(--jn-blue-light);
   --nimun-blue-dark: var(--jn-blue-dark);
-  --nimun-blue-bg: #edf6fd;
+  --nimun-blue-bg: #e6e2f0;
 }
 
 * {
@@ -459,3 +469,159 @@ main .overflow-x-auto {
 .focus\:border-blue-300:focus {
   border-color: var(--jn-blue) !important;
 }
+
+
+/* =====================================================================
+   NIMUN'27 theme
+   Flat off-white paper, black hairlines, sharp corners, extended display
+   type for headings and buttons, monospace for everything else.
+
+   To use the real Monument Extended: put the font files in
+   Frontend/public/fonts/ and uncomment this block (match file names).
+   @font-face { font-family: 'Monument Extended'; font-weight: 400; font-display: swap;
+     src: url('/fonts/MonumentExtended-Regular.woff2') format('woff2'); }
+   @font-face { font-family: 'Monument Extended'; font-weight: 800; font-display: swap;
+     src: url('/fonts/MonumentExtended-Ultrabold.woff2') format('woff2'); }
+   ===================================================================== */
+
+body {
+  background-image: none !important;
+  background-color: var(--oc-white) !important;
+  font-family: var(--oc-font-mono);
+  color: var(--oc-black);
+}
+main::before { background-image: none !important; background-color: var(--oc-white); }
+
+.oc-display,
+h1, h2, h3,
+.nav-link,
+.btn-primary, .btn-secondary, .jn-sticker-button {
+  font-family: var(--oc-font-display);
+  font-stretch: 125%;
+}
+
+main h1:not(.unstyled-title) {
+  font-weight: 800 !important;
+  letter-spacing: -0.01em !important;
+  text-transform: uppercase;
+  color: var(--oc-black) !important;
+  line-height: 1 !important;
+}
+main h1:not(.unstyled-title)::after {
+  width: min(100%, 14rem) !important;
+  height: 2px !important;
+  border-radius: 0 !important;
+  transform: none !important;
+  background: var(--oc-black) !important;
+  margin-top: 0.6rem !important;
+}
+main h2:not(.unstyled-title), main h3 {
+  font-weight: 800 !important;
+  letter-spacing: 0 !important;
+  text-transform: uppercase;
+  font-size: 0.95em;
+}
+
+/* Cards and panels: paper with a thin black rule, square corners */
+main [class*="bg-white"][class*="rounded-lg"][class*="shadow"],
+main [class*="bg-white"][class*="rounded-xl"][class*="shadow"],
+main [class*="bg-white"][class*="rounded-2xl"][class*="shadow"],
+main [class*="bg-white"][class*="rounded-lg"][class*="border"],
+main [class*="bg-white"][class*="rounded-xl"][class*="border"],
+main [class~="card"],
+.jn-card {
+  border: 1.5px solid var(--oc-black) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background-color: #faf6f0 !important;
+}
+.jn-card:hover { transform: none; box-shadow: none !important; }
+main [class*="bg-gray-50"][class*="rounded-lg"],
+main [class*="bg-blue-50"][class*="rounded-lg"],
+main [class*="bg-green-50"][class*="rounded-lg"],
+main [class*="bg-purple-50"][class*="rounded-lg"],
+main [class*="bg-indigo-50"][class*="rounded-lg"],
+main [class*="bg-orange-50"][class*="rounded-lg"] {
+  background-image: none !important;
+  border: 1px solid rgba(32, 32, 32, 0.35) !important;
+  border-radius: 0 !important;
+}
+main .overflow-x-auto { border-radius: 0; }
+
+main input,
+main select,
+main textarea {
+  border: 1.5px solid var(--oc-black) !important;
+  border-radius: 0 !important;
+  background-color: #fffdf9 !important;
+  box-shadow: none !important;
+  font-family: var(--oc-font-mono);
+}
+main input:focus, main select:focus, main textarea:focus {
+  outline: 2px solid var(--oc-blue) !important;
+  outline-offset: 1px;
+}
+main th { color: var(--oc-blue) !important; font-weight: 700 !important; text-transform: uppercase; letter-spacing: 0.04em; }
+main tbody tr:hover { background: rgba(24, 53, 145, 0.06) !important; }
+
+/* Buttons: solid blue blocks, uppercase extended type */
+.btn-primary,
+.jn-sticker-button,
+main button[class*="bg-blue-500"],
+main button[class*="bg-green-500"],
+main button[class*="bg-red-500"],
+main button[class*="bg-red-600"],
+main a[class*="bg-blue-500"],
+main a[class*="bg-green-500"] {
+  border-radius: 0 !important;
+  border: 1.5px solid var(--oc-black) !important;
+  box-shadow: 3px 3px 0 var(--oc-black) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  font-weight: 800 !important;
+  font-size: 0.82rem;
+}
+.btn-primary { background: var(--oc-blue) !important; }
+.jn-sticker-button { background: var(--button-color, var(--oc-blue)) !important; }
+.btn-primary:hover, .jn-sticker-button:hover:not(:disabled) {
+  transform: translate(-1px, -1px) !important;
+  box-shadow: 4px 4px 0 var(--oc-black) !important;
+}
+.btn-primary:active, .jn-sticker-button:active { transform: translate(2px, 2px) !important; box-shadow: 1px 1px 0 var(--oc-black) !important; }
+.btn-secondary, main button[class*="bg-gray-200"] {
+  border-radius: 0 !important;
+  border: 1.5px solid var(--oc-black) !important;
+  background: transparent !important;
+  color: var(--oc-black) !important;
+  box-shadow: none !important;
+  text-transform: uppercase;
+  font-size: 0.82rem;
+}
+.jn-sticker-button:focus-visible, .btn-primary:focus-visible, .btn-secondary:focus-visible, .nav-link:focus-visible {
+  outline: 2px solid var(--oc-white) !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--oc-blue) !important;
+}
+
+/* Navbar links on the blue bar */
+.nav-link {
+  border-radius: 0 !important;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+}
+.nav-link:hover { background-color: rgba(243, 236, 228, 0.14) !important; }
+
+.jn-underline::after { border-radius: 0; height: 2px; transform: none; background: var(--oc-black); }
+.jn-chip { border-radius: 0 !important; }
+
+/* Legacy Tailwind tints mapped onto the '27 palette */
+.hover\:bg-blue-50:hover, .bg-blue-50 { background-color: rgba(24, 53, 145, 0.07) !important; }
+.bg-blue-100 { background-color: rgba(24, 53, 145, 0.12) !important; }
+.bg-blue-200 { background-color: rgba(24, 53, 145, 0.2) !important; }
+.focus\:ring-blue-500:focus, .focus\:ring-blue-100:focus { --tw-ring-color: rgba(24, 53, 145, 0.45) !important; }
+
+/* Mobile sidebar */
+.mobile-sidebar { border-left: 2px solid var(--oc-black) !important; background: var(--oc-white) !important; }
+.jn-sticker { filter: none !important; width: clamp(2rem, 4vw, 3rem) !important; transform: none !important; }

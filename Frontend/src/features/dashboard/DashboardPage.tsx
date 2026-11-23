@@ -134,7 +134,7 @@ export default function DashboardPage() {
           <div>
             <h1 className="jn-title">Admin Dashboard</h1>
           </div>
-          <img src="/element_04_x733_y91_w150_h147.png" alt="" aria-hidden="true" className="hidden md:block jn-sticker right-40 -top-4 rotate-12 opacity-90" />
+          <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="hidden md:block jn-sticker right-40 -top-4 rotate-12 opacity-90" />
           <button
             onClick={loadAnalytics}
             className="jn-sticker-button flex items-center gap-2 text-sm sm:text-base px-5 py-3 w-full sm:w-auto"
@@ -161,7 +161,7 @@ export default function DashboardPage() {
               <p>Delegates: {analytics.participants.delegates}</p>
               <p>Members: {analytics.participants.members}</p>
             </div>
-            <img src="/sticker-dove.png" alt="" aria-hidden="true" className="jn-sticker -right-3 bottom-0 w-16 sm:w-20 rotate-12" />
+            <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="jn-sticker -right-3 bottom-0 w-16 sm:w-20 rotate-12" />
           </StickerCard>
 
           <StickerCard color="green">
@@ -213,7 +213,7 @@ export default function DashboardPage() {
             <div className="mt-4 text-sm text-gray-500">
               <p>{analytics.vouchers.byDelegate.length} delegates</p>
             </div>
-            <img src="/element_05_x1163_y67_w148_h225.png" alt="" aria-hidden="true" className="jn-sticker -right-5 -top-6 w-14 rotate-12 opacity-95" />
+            <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="jn-sticker -right-5 -top-6 w-14 rotate-12 opacity-95" />
           </StickerCard>
 
           {analytics.bus && (
@@ -250,7 +250,7 @@ export default function DashboardPage() {
               </div>
               <p className="font-black text-lg mb-1">Register Participant</p>
               <p className="text-sm text-gray-600">Add a new participant</p>
-              <img src="/sticker-handshake.png" alt="" aria-hidden="true" className="jn-sticker -right-7 bottom-0 w-24 rotate-12" />
+              <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="jn-sticker -right-7 bottom-0 w-24 rotate-12" />
             </a>
             <a
               href="/scan"
@@ -273,7 +273,7 @@ export default function DashboardPage() {
               </div>
               <p className="font-black text-lg mb-1">View Analytics</p>
               <p className="text-sm text-gray-600">Detailed reports and insights</p>
-              <img src="/element_08_x545_y129_w159_h247.png" alt="" aria-hidden="true" className="jn-sticker -right-2 bottom-1 w-16 -rotate-12" />
+              <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="jn-sticker -right-2 bottom-1 w-16 -rotate-12" />
             </a>
             <a
               href="/admin/import"
@@ -285,7 +285,7 @@ export default function DashboardPage() {
               </div>
               <p className="font-black text-lg mb-1">Import CSV</p>
               <p className="text-sm text-gray-600">Bulk import participants</p>
-              <img src="/element_14_x560_y415_w221_h216.png" alt="" aria-hidden="true" className="jn-sticker -right-4 bottom-0 w-16 rotate-12" />
+              <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="jn-sticker -right-4 bottom-0 w-16 rotate-12" />
             </a>
           </div>
         </div>

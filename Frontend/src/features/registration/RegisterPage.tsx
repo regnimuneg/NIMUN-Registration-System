@@ -111,7 +111,7 @@ export default function RegisterPage() {
           </div>
 
           <div className="jn-card p-4 sm:p-6 mb-4 sm:mb-6" style={{ '--card-color': 'var(--jn-blue)' } as CSSProperties}>
-            <img src="/sticker-handshake.png" alt="" aria-hidden="true" className="hidden sm:block jn-sticker -right-6 -top-6 rotate-12" />
+            <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="hidden sm:block jn-sticker -right-6 -top-6 rotate-12" />
             <form onSubmit={handleSingleRegister} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>

@@ -146,9 +146,9 @@ export default function ScanAnalyticsPage() {
       {data && selected && (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
-            <Stat label="People" value={total} icon={Users} color="#4E8ECB" />
+            <Stat label="People" value={total} icon={Users} color="#183591" />
             <Stat label={`Present · ${selected.label}`} value={present} sub={`${pct(present, total)}% of ${total}`} icon={UserCheck} color="#16a34a" />
-            <Stat label="Checked in" value={selected.checkedIn} icon={LogIn} color="#7c3aed" />
+            <Stat label="Checked in" value={selected.checkedIn} icon={LogIn} color="#202020" />
             <Stat label="Checked out" value={selected.checkedOut} icon={LogOut} color="#ea580c" />
           </div>
 

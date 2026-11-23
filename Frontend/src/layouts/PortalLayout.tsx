@@ -122,14 +122,14 @@ export default function PortalLayout() {
       >
         <div className="flex flex-col h-full overflow-hidden">
           {/* Sidebar Header */}
-          <div className="flex items-center justify-between p-4 border-b-2 border-white/30 bg-[var(--jn-blue)] bg-[url('/doodles.png')] bg-[length:420px_auto] text-white">
+          <div className="flex items-center justify-between p-4 border-b-2 border-[var(--oc-black)] bg-[var(--oc-blue)] text-[var(--oc-white)]">
             <div className="flex items-center">
               <img
-                src="/element_01_x268_y31_w228_h189.png"
-                alt="NIMUN'26 Logo"
-                className="w-16 h-14 object-contain mr-3 drop-shadow"
+                src="/oc27/stamp-light.png"
+                alt="NIMUN'27 Setting the Standard"
+                className="w-12 h-12 object-contain mr-3"
               />
-              <span className="text-lg font-black">JNIMUN&apos;26</span>
+              <span className="oc-display text-base font-extrabold uppercase">NIMUN&apos;27</span>
             </div>
             <button
               onClick={() => {
@@ -266,20 +266,20 @@ export default function PortalLayout() {
       {/* Top Navbar */}
       <header className="w-full">
         <div className="fixed top-0 left-0 right-0 z-30">
-          <nav className="bg-[var(--jn-blue)] bg-[url('/doodles.png')] bg-[length:720px_auto] px-4 sm:px-6 lg:px-10 py-3 md:py-4 shadow-[0_8px_24px_rgba(78,142,203,0.28)] transition-all duration-200">
+          <nav className="bg-[var(--oc-blue)] border-b-2 border-[var(--oc-black)] px-4 sm:px-6 lg:px-10 py-3 md:py-4 transition-all duration-200">
             <div className="flex justify-between items-center">
               <a href={isAnalyst ? '/analytics/scans' : isMember ? '/member/scanner' : '/admin/dashboard'} className="flex items-center min-w-0">
                 <img
-                  src="/element_01_x268_y31_w228_h189.png"
-                  alt="NIMUN'26 Logo"
-                  className="w-16 h-14 md:w-20 md:h-16 object-contain mr-3 drop-shadow-lg"
+                  src="/oc27/stamp-light.png"
+                  alt="NIMUN'27 Setting the Standard"
+                  className="w-12 h-12 md:w-14 md:h-14 object-contain mr-3"
                 />
                 <div className="flex flex-col">
-                  <span className="text-lg sm:text-2xl font-black text-white hidden sm:block leading-none">
-                    JNIMUN&apos;<span className="text-[var(--jn-pink)]">26</span> System
+                  <span className="oc-display text-lg sm:text-2xl font-extrabold text-[var(--oc-white)] hidden sm:block leading-none">
+                    NIMUN&apos;27 <span className="font-mono font-normal text-sm tracking-[0.2em] align-middle opacity-80">PORTAL</span>
                   </span>
-                  <span className="text-base font-black text-white block sm:hidden">
-                    JNIMUN&apos;<span className="text-[var(--jn-pink)]">26</span>
+                  <span className="oc-display text-base font-extrabold text-[var(--oc-white)] block sm:hidden">
+                    NIMUN&apos;27
                   </span>
                 </div>
               </a>
@@ -288,7 +288,7 @@ export default function PortalLayout() {
                   <>
                     <a
                       href="/admin/dashboard"
-                      className={`nav-link flex items-center border-2 border-white/80 ${isActive(['/admin/dashboard', '/admin', '/dashboard']) ? 'bg-[var(--jn-pink)] shadow-[0_4px_0_rgba(0,0,0,0.18)]' : 'bg-white/0'}`}
+                      className={`nav-link flex items-center border-2 border-white/80 ${isActive(['/admin/dashboard', '/admin', '/dashboard']) ? 'bg-[var(--oc-white)] !text-[var(--oc-blue)]' : 'bg-white/0'}`}
                     >
                       <Home className="w-4 h-4" />
                       <span className="ml-2 hidden lg:inline text-base">Dashboard</span>
@@ -317,14 +317,14 @@ export default function PortalLayout() {
                   </>
                 )}
                 {isAnalyst && (
-                  <a href="/analytics/scans" className={`nav-link flex items-center border-2 border-white/80 ${isActive(['/analytics/scans']) ? 'bg-[var(--jn-pink)] shadow-[0_4px_0_rgba(0,0,0,0.18)]' : ''}`}>
+                  <a href="/analytics/scans" className={`nav-link flex items-center border-2 border-white/80 ${isActive(['/analytics/scans']) ? 'bg-[var(--oc-white)] !text-[var(--oc-blue)]' : ''}`}>
                     <BarChart3 className="w-4 h-4" />
                     <span className="ml-2 hidden lg:inline text-base">Scan Analytics</span>
                   </a>
                 )}
                 {isMember && (
                   memberLinks.map(({ href, label, icon: Icon, paths }) => (
-                    <a key={href} href={href} className={`nav-link flex items-center border-2 border-white/80 ${isActive(paths) ? 'bg-[var(--jn-pink)] shadow-[0_4px_0_rgba(0,0,0,0.18)]' : ''}`}>
+                    <a key={href} href={href} className={`nav-link flex items-center border-2 border-white/80 ${isActive(paths) ? 'bg-[var(--oc-white)] !text-[var(--oc-blue)]' : ''}`}>
                       <Icon className="w-4 h-4" />
                       <span className="ml-2 hidden lg:inline text-base">{label}</span>
                     </a>
@@ -335,7 +335,7 @@ export default function PortalLayout() {
                     onClick={handleSignOut}
                     className="nav-link flex items-center border-2 border-white/80 ml-2"
                   >
-                    <LogOut className="w-4 h-4 text-[var(--jn-pink)]" />
+                    <LogOut className="w-4 h-4" />
                     <span className="ml-2 hidden lg:inline text-base">Sign Out</span>
                   </button>
                 )}

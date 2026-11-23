@@ -5,26 +5,12 @@ import './LoginPage.css'
 
 /**
  * Login Page
- * Modern split-screen design with image slideshow
+ * Split-screen NIMUN'27 design: brand panel and sign-in card
  * Matches portal.nimuneg.org design exactly
  */
 export default function LoginPage() {
   const navigate = useNavigate()
 
-  // Image slideshow URLs (local images from public folder)
-  const slideshowImages = [
-    '/slideshowimages/_NU27875.jpg',
-    '/slideshowimages/CCPCJ\'26.jpg',
-    '/slideshowimages/Council2.png',
-    '/slideshowimages/Group.jpg',
-    '/slideshowimages/henry.jpg',
-    '/slideshowimages/plac.jpg',
-    '/slideshowimages/plac2.jpg',
-    '/slideshowimages/Press\'26.jpg',
-    '/slideshowimages/salama.jpg'
-  ]
-
-  const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -42,15 +28,6 @@ export default function LoginPage() {
       document.body.style.height = ''
     }
   }, [])
-
-  // Image slideshow rotation
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentImageIndex((prev) => (prev + 1) % slideshowImages.length)
-    }, 2500) // Change image every 2.5 seconds
-
-    return () => clearInterval(interval)
-  }, [slideshowImages.length])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -106,42 +83,33 @@ export default function LoginPage() {
 
   return (
     <div className="login-page">
-      {/* Left Panel - Branding & Slideshow */}
+      {/* Left panel: NIMUN'27 brand */}
       <div className="login-left-panel">
-        {/* <div className="login-slideshow">
-          {slideshowImages.map((image, index) => (
-            <div
-              key={index}
-              className={`login-slideshow-image ${index === currentImageIndex ? 'active' : ''}`}
-              style={{ backgroundImage: `url(${image})` }}
-            />
-          ))}
-        </div> */}
-        <div className="login-left-overlay"></div>
+        <span className="login-corner login-corner-tl" aria-hidden="true" />
+        <span className="login-corner login-corner-br" aria-hidden="true" />
+        <img src="/oc27/star-light.png" alt="" aria-hidden="true" className="login-star login-star-a" />
+        <img src="/oc27/star-light.png" alt="" aria-hidden="true" className="login-star login-star-b" />
         <div className="login-brand-content">
-          <div className="login-logo-container">
-            <img src="/Logo_White.png" alt="NIMUN Logo" className="login-logo-image" />
-            <div className="login-logo-text-container">
-              <div className="login-logo">
-                <span className="login-logo-text">NIMUN</span>
-                <span className="login-logo-year">'26</span>
-              </div>
-              <p className="login-tagline">Registration System</p>
-            </div>
+          <img src="/oc27/stamp-light.png" alt="NIMUN'27 Setting the Standard" className="login-logo-image" />
+          <div className="login-logo">
+            NIMUN<span className="login-logo-year">&apos;27</span>
           </div>
+          <p className="login-headline">Setting the standard</p>
+          <div className="login-rule" aria-hidden="true" />
+          <p className="login-tagline">OC Conference Portal</p>
         </div>
       </div>
 
-      {/* Right Panel - Form */}
+      {/* Right panel: sign-in form */}
       <div className="login-right-panel">
         <div className="login-form-container">
           <div className="login-card">
-            <img src="/element_05_x1163_y67_w148_h225.png" alt="" aria-hidden="true" className="login-card-sticker login-card-sticker-star" />
-            <img src="/sticker-dove.png" alt="" aria-hidden="true" className="login-card-sticker login-card-sticker-dove" />
-            <h1 className="login-title">Welcome Back</h1>
+            <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="login-card-star" />
+            <p className="login-eyebrow">Staff portal</p>
+            <h1 className="login-title">Welcome <span>back</span></h1>
 
             {import.meta.env.VITE_ENABLE_MOCK_AUTH === 'true' && (
-              <div className="login-error" style={{ color: '#195f8c', background: '#eaf4fa' }}>
+              <div className="login-error login-note">
                 Local demo: admin@local.test / admin123
               </div>
             )}
