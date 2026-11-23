@@ -1,6 +1,6 @@
 import express, { type Request, type Response } from 'express'
 import { query } from '../config/index.js'
-import { trackingBlockedReason } from '../middleware/auth.js'
+import { trackingBlockedReason, isInactiveMember, INACTIVE_ERROR } from '../middleware/auth.js'
 
 const router = express.Router()
 
@@ -35,6 +35,7 @@ router.post('/', async (req: Request, res: Response) => {
     // Access control from the server-side session (requesterId from the browser is ignored)
     const blocked = await trackingBlockedReason(req, participantId, 'food')
     if (blocked) return res.status(403).json({ error: blocked })
+    if (await isInactiveMember(participantId)) return res.status(403).json({ error: INACTIVE_ERROR, inactive: true })
 
     const sent = req.body.scannedAt ? new Date(req.body.scannedAt) : null
     const timestamp = sent && !isNaN(sent.getTime()) && Math.abs(Date.now() - sent.getTime()) < 3 * 86400000 ? sent : new Date()

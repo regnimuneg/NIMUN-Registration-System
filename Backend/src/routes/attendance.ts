@@ -1,6 +1,6 @@
 import express, { type Request, type Response } from 'express'
 import { query } from '../config/index.js'
-import { trackingBlockedReason } from '../middleware/auth.js'
+import { trackingBlockedReason, isInactiveMember, INACTIVE_ERROR } from '../middleware/auth.js'
 
 const router = express.Router()
 
@@ -18,6 +18,7 @@ router.post('/', async (req: Request, res: Response) => {
     // Access control from the server-side session (requesterId from the browser is ignored)
     const blocked = await trackingBlockedReason(req, participantId, 'attendance')
     if (blocked) return res.status(403).json({ error: blocked })
+    if (await isInactiveMember(participantId)) return res.status(403).json({ error: INACTIVE_ERROR, inactive: true })
 
     // Map dayKey to session_type
     const sessionType = mapDayKeyToSessionType(dayKey)

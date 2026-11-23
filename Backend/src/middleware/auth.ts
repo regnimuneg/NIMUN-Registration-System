@@ -105,6 +105,13 @@ export const byMethod = (read: AccessLevel[], write: AccessLevel[]) =>
  * server-side session, never from a requesterId sent by the browser.
  * Returns an error message, or null when allowed.
  */
+/** True when this ID is a member marked inactive (kept in the DB, not scannable). */
+export async function isInactiveMember(participantId: string): Promise<boolean> {
+  const r = await query(`SELECT 1 FROM members WHERE id = $1 AND inactive`, [String(participantId || '').toUpperCase()])
+  return r.rows.length > 0
+}
+export const INACTIVE_ERROR = 'This person is inactive and cannot be scanned'
+
 export async function trackingBlockedReason(req: Request, participantId: string, what: string): Promise<string | null> {
   if (req.auth?.access === 'full') return null
   const target = await query(`SELECT role FROM members WHERE id = $1`, [participantId])

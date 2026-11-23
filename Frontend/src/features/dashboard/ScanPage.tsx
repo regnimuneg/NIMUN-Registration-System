@@ -477,6 +477,9 @@ export default function ScanPage() {
       } else if (e instanceof ApiError && e.status === 409 && e.data?.duplicate) {
         playAudioFeedback('error'); buzz([200, 80, 200])
         showStatus({ type: 'duplicate', message: 'Already got food', name: name === code ? code : `${name} · ${code}`, detail: e.data.claimedAt ? `First claimed at ${timeOf(e.data.claimedAt)}. Do not serve again.` : 'Do not serve again.' }, 4500)
+      } else if (e instanceof ApiError && e.data?.inactive) {
+        playAudioFeedback('error'); buzz([200, 80, 200])
+        showStatus({ type: 'error', message: 'Inactive: do not admit', name: code, detail: 'This person was removed from the OC list' }, 4000)
       } else if (e instanceof ApiError && e.status === 404) {
         playAudioFeedback('error'); buzz([200, 80, 200])
         showStatus({ type: 'error', message: 'Unknown QR code', name: code, detail: 'No one has this ID' }, 3500)

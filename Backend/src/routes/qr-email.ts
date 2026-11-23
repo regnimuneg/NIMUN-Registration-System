@@ -69,7 +69,7 @@ async function sendOne(p: Person, to: string) {
 const PEOPLE_SQL = `
   SELECT m.id, u.first_name, u.last_name, u.email, substring(m.role from '^OC Member \\((.*)\\)$') AS council
   FROM members m JOIN users u ON u.id = m.user_id
-  WHERE m.role LIKE 'OC Member (%'`
+  WHERE m.role LIKE 'OC Member (%' AND NOT m.inactive`
 
 router.get('/status', (_req: Request, res: Response) => {
   res.json({ configured: !!apiKey(), enabled: enabled(), from: fromAddr(), excluded: [...excluded()] })

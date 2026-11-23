@@ -10,13 +10,13 @@ router.get('/', async (_req: Request, res: Response) => {
   try {
     // Get participant counts
     const delegatesCount = await query('SELECT COUNT(*) as count FROM delegates').catch(() => ({ rows: [{ count: '0' }] }))
-    const membersCount = await query("SELECT COUNT(*) as count FROM members WHERE role LIKE 'OC Member (%'").catch(() => ({ rows: [{ count: '0' }] }))
+    const membersCount = await query("SELECT COUNT(*) as count FROM members WHERE role LIKE 'OC Member (%' AND NOT inactive").catch(() => ({ rows: [{ count: '0' }] }))
 
     // Get claimed participants count
     // Delegates: status = 'active'
     // Members: claim_token_used = true
     const claimedDelegatesCount = await query('SELECT COUNT(*) as count FROM delegates WHERE claim_token_used = TRUE').catch(() => ({ rows: [{ count: '0' }] }))
-    const claimedMembersCount = await query("SELECT COUNT(*) as count FROM members WHERE claim_token_used = TRUE AND role LIKE 'OC Member (%'").catch(() => ({ rows: [{ count: '0' }] }))
+    const claimedMembersCount = await query("SELECT COUNT(*) as count FROM members WHERE claim_token_used = TRUE AND role LIKE 'OC Member (%' AND NOT inactive").catch(() => ({ rows: [{ count: '0' }] }))
 
     // Get total attendance records from activity timeline
     const totalAttendanceRecords = await query(`
@@ -426,7 +426,7 @@ router.get('/attendance/export', async (req: Request, res: Response) => {
           m.conf_day3_comments
         FROM members m
         LEFT JOIN users u ON m.user_id = u.id
-        WHERE 1=1
+        WHERE NOT m.inactive
       `
       const memberParams: any[] = []
       let memberParamIndex = 1

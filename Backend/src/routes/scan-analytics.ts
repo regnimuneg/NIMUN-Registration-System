@@ -37,7 +37,7 @@ const PEOPLE_CTE = `
   WITH people AS (
     SELECT m.id, m.user_id, substring(m.role from '^OC Member \\((.*)\\)$') AS council, m.committee, 'member' AS kind, ${colList('m')}
     FROM members m
-    WHERE m.role LIKE 'OC Member (%'
+    WHERE m.role LIKE 'OC Member (%' AND NOT m.inactive
     UNION ALL
     SELECT d.id, d.user_id, d.council, NULL::varchar AS committee, 'delegate' AS kind, ${colList('d')}
     FROM delegates d

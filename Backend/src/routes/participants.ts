@@ -1,4 +1,5 @@
 import express, { type Request, type Response } from 'express'
+import { isInactiveMember, INACTIVE_ERROR } from '../middleware/auth.js'
 import type { QueryResultRow } from 'pg'
 import { query } from '../config/index.js'
 
@@ -70,7 +71,7 @@ router.get('/', async (_req: Request, res: Response) => {
       FROM members m
       LEFT JOIN users u ON m.user_id = u.id
       -- Only OC participants; the six staff login accounts are not participants
-      WHERE m.role LIKE 'OC Member (%'
+      WHERE m.role LIKE 'OC Member (%' AND NOT m.inactive
       ORDER BY m.id
     `)
 
@@ -109,6 +110,7 @@ router.get('/', async (_req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params
+    if (await isInactiveMember(id)) return res.status(410).json({ error: INACTIVE_ERROR, inactive: true })
     const includeTracking = req.query.include === 'tracking'
 
     const participant = await query<ParticipantLookupRow>(`
