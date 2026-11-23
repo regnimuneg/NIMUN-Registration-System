@@ -3,9 +3,6 @@ import PortalLayout from '../layouts/PortalLayout'
 import LoginPage from '../features/auth/LoginPage'
 import DashboardPage from '../features/dashboard/DashboardPage'
 import ScanPage from '../features/dashboard/ScanPage'
-import RegisterPage from '../features/registration/RegisterPage'
-import ImportPage from '../features/registration/ImportPage'
-import AnalyticsPage from '../features/analytics/AnalyticsPage'
 import MemberDashboardPage from '../features/member/MemberDashboardPage'
 import MemberParticipantsPage from '../features/member/MemberParticipantsPage'
 import ParticipantsPage from '../features/participants/ParticipantsPage'
@@ -45,13 +42,7 @@ export default function App() {
         <Route path="/admin/dashboard" element={<ProtectedRoute requireAdmin><DashboardPage /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute requireAdmin><DashboardPage /></ProtectedRoute>} />
         <Route path="/dashboard" element={<ProtectedRoute requireAdmin><DashboardPage /></ProtectedRoute>} />
-        <Route path="/admin/register" element={<ProtectedRoute requireAdmin><RegisterPage /></ProtectedRoute>} />
-        <Route path="/register" element={<ProtectedRoute requireAdmin><RegisterPage /></ProtectedRoute>} />
-        <Route path="/admin/import" element={<ProtectedRoute requireAdmin><ImportPage /></ProtectedRoute>} />
-        <Route path="/import" element={<ProtectedRoute requireAdmin><ImportPage /></ProtectedRoute>} />
         <Route path="/admin/participants" element={<ProtectedRoute requireAdmin><ParticipantsPage /></ProtectedRoute>} />
-        <Route path="/admin/analytics" element={<ProtectedRoute requireAdmin><AnalyticsPage /></ProtectedRoute>} />
-        <Route path="/analytics" element={<ProtectedRoute requireAdmin><AnalyticsPage /></ProtectedRoute>} />
 
         {/* Scan analytics: full-access accounts and analysts */}
         <Route path="/analytics/scans" element={<ProtectedRoute allow={['admin', 'analyst']}><ScanAnalyticsPage /></ProtectedRoute>} />

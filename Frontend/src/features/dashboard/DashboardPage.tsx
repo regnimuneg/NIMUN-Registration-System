@@ -146,20 +146,16 @@ export default function DashboardPage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <StickerCard color="blue">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-black text-[var(--jn-blue)] mb-1">Total Participants</p>
+                <p className="text-sm font-black text-[var(--jn-blue)] mb-1">OC Members</p>
                 <p className="text-5xl font-black text-[var(--jn-blue)] leading-none">{analytics.participants.total}</p>
               </div>
               <div className="jn-icon-tile">
                 <Users className="w-8 h-8" />
               </div>
-            </div>
-            <div className="mt-4 text-sm text-gray-500">
-              <p>Delegates: {analytics.participants.delegates}</p>
-              <p>Members: {analytics.participants.members}</p>
             </div>
             <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="jn-sticker -right-3 bottom-0 w-16 sm:w-20 rotate-12" />
           </StickerCard>
@@ -198,60 +194,12 @@ export default function DashboardPage() {
             </div>
           </StickerCard>
 
-          <StickerCard color="purple">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-black text-[var(--jn-purple)] mb-1">Voucher Usage</p>
-                <p className="text-5xl font-black text-[var(--jn-purple)] leading-none">
-                  {analytics.vouchers.byDelegate.reduce((sum, v) => sum + parseInt(String(v.usage_count) || '0', 10), 0)}
-                </p>
-              </div>
-              <div className="jn-icon-tile">
-                <BarChart3 className="w-8 h-8" />
-              </div>
-            </div>
-            <div className="mt-4 text-sm text-gray-500">
-              <p>{analytics.vouchers.byDelegate.length} delegates</p>
-            </div>
-            <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="jn-sticker -right-5 -top-6 w-14 rotate-12 opacity-95" />
-          </StickerCard>
-
-          {analytics.bus && (
-            <StickerCard color="blue" className="lg:col-span-1">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-black text-[var(--jn-blue)] mb-1">Bus Check-ins</p>
-                  <p className="text-5xl font-black text-[var(--jn-blue)] leading-none">
-                    {analytics.bus.total ?? 0}
-                  </p>
-                </div>
-                <div className="jn-icon-tile">
-                  <BarChart3 className="w-8 h-8" />
-                </div>
-              </div>
-              <div className="mt-4 text-sm text-gray-500">
-                <p>{analytics.bus.items?.length ?? 0} active days</p>
-              </div>
-            </StickerCard>
-          )}
         </div>
 
         {/* Quick Actions */}
         <div className="mb-6 sm:mb-8">
           <h2 className="jn-section-title mb-5 sm:mb-6">Quick Actions</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            <a
-              href="/register"
-              className="jn-card p-6 block min-h-44"
-              style={themedStyle('blue')}
-            >
-              <div className="jn-icon-tile mb-4">
-                <Users className="w-7 h-7" />
-              </div>
-              <p className="font-black text-lg mb-1">Register Participant</p>
-              <p className="text-sm text-gray-600">Add a new participant</p>
-              <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="jn-sticker -right-7 bottom-0 w-24 rotate-12" />
-            </a>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <a
               href="/scan"
               className="jn-card p-6 block min-h-44"
@@ -264,28 +212,16 @@ export default function DashboardPage() {
               <p className="text-sm text-gray-600">Scan participant QR codes</p>
             </a>
             <a
-              href="/analytics"
+              href="/analytics/scans"
               className="jn-card p-6 block min-h-44"
               style={themedStyle('purple')}
             >
               <div className="jn-icon-tile mb-4">
                 <BarChart3 className="w-7 h-7" />
               </div>
-              <p className="font-black text-lg mb-1">View Analytics</p>
-              <p className="text-sm text-gray-600">Detailed reports and insights</p>
+              <p className="font-black text-lg mb-1">Scan Analytics</p>
+              <p className="text-sm text-gray-600">Attendance and food by day and council</p>
               <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="jn-sticker -right-2 bottom-1 w-16 -rotate-12" />
-            </a>
-            <a
-              href="/admin/import"
-              className="jn-card p-6 block min-h-44"
-              style={themedStyle('orange')}
-            >
-              <div className="jn-icon-tile mb-4">
-                <RefreshCw className="w-7 h-7" />
-              </div>
-              <p className="font-black text-lg mb-1">Import CSV</p>
-              <p className="text-sm text-gray-600">Bulk import participants</p>
-              <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="jn-sticker -right-4 bottom-0 w-16 rotate-12" />
             </a>
           </div>
         </div>
@@ -312,33 +248,6 @@ export default function DashboardPage() {
             >
               <Trash2 className="w-4 h-4" />
               {clearing === 'food' ? 'Clearing...' : 'Clear Food'}
-            </button>
-            <button
-              onClick={() => handleClearTracking('games')}
-              disabled={clearing !== null}
-              className="jn-sticker-button px-4 py-3"
-              style={buttonStyle('blue')}
-            >
-              <Trash2 className="w-4 h-4" />
-              {clearing === 'games' ? 'Clearing...' : 'Clear Games'}
-            </button>
-            <button
-              onClick={() => handleClearTracking('bus')}
-              disabled={clearing !== null}
-              className="jn-sticker-button px-4 py-3"
-              style={buttonStyle('purple')}
-            >
-              <Trash2 className="w-4 h-4" />
-              {clearing === 'bus' ? 'Clearing...' : 'Clear Bus'}
-            </button>
-            <button
-              onClick={() => handleClearTracking('all')}
-              disabled={clearing !== null}
-              className="jn-sticker-button px-4 py-3"
-              style={buttonStyle('pink')}
-            >
-              <Trash2 className="w-4 h-4" />
-              {clearing === 'all' ? 'Clearing...' : 'Clear All'}
             </button>
           </div>
         </div>

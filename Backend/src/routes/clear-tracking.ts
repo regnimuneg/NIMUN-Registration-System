@@ -12,6 +12,11 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'dataType is required' })
     }
 
+    // OC Conference '27 only uses attendance and food
+    if (dataType !== 'attendance' && dataType !== 'food') {
+      return res.status(400).json({ error: `Invalid data type: ${dataType}` })
+    }
+
     switch (dataType) {
       case 'all':
         // Clear all tracking data
@@ -53,9 +58,16 @@ router.post('/', async (req: Request, res: Response) => {
         break
 
       case 'attendance':
+        // '27: also clears check-in/out times and the scan history entries
         await query('DELETE FROM attendance_records')
+        await query("DELETE FROM activity_timeline WHERE activity_type = 'attendance'")
         await query(`
           UPDATE delegates SET
+            day1_checkin = NULL, day1_checkout = NULL, day2_checkin = NULL, day2_checkout = NULL,
+            day3_checkin = NULL, day3_checkout = NULL, day4_checkin = NULL, day4_checkout = NULL,
+            opening_ceremony_checkin = NULL, opening_ceremony_checkout = NULL,
+            conf_day1_checkin = NULL, conf_day1_checkout = NULL, conf_day2_checkin = NULL, conf_day2_checkout = NULL,
+            conf_day3_checkin = NULL, conf_day3_checkout = NULL,
             day1_session_attended = FALSE, day2_session_attended = FALSE,
             day3_session_attended = FALSE, day4_session_attended = FALSE,
             opening_ceremony_attended = FALSE,
@@ -63,6 +75,11 @@ router.post('/', async (req: Request, res: Response) => {
         `)
         await query(`
           UPDATE members SET
+            day1_checkin = NULL, day1_checkout = NULL, day2_checkin = NULL, day2_checkout = NULL,
+            day3_checkin = NULL, day3_checkout = NULL, day4_checkin = NULL, day4_checkout = NULL,
+            opening_ceremony_checkin = NULL, opening_ceremony_checkout = NULL,
+            conf_day1_checkin = NULL, conf_day1_checkout = NULL, conf_day2_checkin = NULL, conf_day2_checkout = NULL,
+            conf_day3_checkin = NULL, conf_day3_checkout = NULL,
             day1_session_attended = FALSE, day2_session_attended = FALSE,
             day3_session_attended = FALSE, day4_session_attended = FALSE,
             opening_ceremony_attended = FALSE,
@@ -76,6 +93,7 @@ router.post('/', async (req: Request, res: Response) => {
 
       case 'food':
         await query('DELETE FROM food_history')
+        await query("DELETE FROM activity_timeline WHERE activity_type = 'food'")
         await query(`
           UPDATE delegates SET
             day1_food = FALSE, day2_food = FALSE, day3_food = FALSE, day4_food = FALSE,

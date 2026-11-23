@@ -66,10 +66,7 @@ export default function PortalLayout() {
 
   const adminLinks = [
     { href: '/admin/dashboard', label: 'Dashboard', icon: Home, paths: ['/admin/dashboard', '/admin', '/dashboard'] },
-    { href: '/admin/analytics', label: 'Analytics', icon: BarChart3, paths: ['/admin/analytics', '/analytics'] },
     { href: '/analytics/scans', label: 'Scan Analytics', icon: BarChart3, paths: ['/analytics/scans'] },
-    { href: '/admin/register', label: 'Register', icon: User, paths: ['/admin/register', '/register'] },
-    { href: '/admin/import', label: 'Import CSV', icon: BarChart3, paths: ['/admin/import', '/import'] },
     { href: '/admin/participants', label: 'Participants', icon: Users, paths: ['/admin/participants'] },
     { href: '/member/scanner', label: 'Scanner', icon: Smartphone, paths: ['/member/scanner', '/scan'] }
   ]

@@ -293,48 +293,6 @@ export default function ParticipantsPage() {
                   </div>
                 )}
 
-                {history.vouchers && history.vouchers.length > 0 && (
-                  <div>
-                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                      <Ticket className="w-5 h-5" />
-                      Voucher Claim History
-                    </h2>
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full text-sm">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-3 py-2 text-left">Voucher Name</th>
-                            <th className="px-3 py-2 text-left">Vendor</th>
-                            <th className="px-3 py-2 text-left">Status</th>
-                            <th className="px-3 py-2 text-left">Claimed At</th>
-                            <th className="px-3 py-2 text-left">Redeemed At</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {history.vouchers.map((v: any, idx: number) => (
-                            <tr key={idx} className="border-b">
-                              <td className="px-3 py-2">{v.voucher_name}</td>
-                              <td className="px-3 py-2">{v.vendor_name || 'N/A'}</td>
-                              <td className="px-3 py-2">
-                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${v.status === 'redeemed'
-                                  ? 'bg-green-100 text-green-700'
-                                  : v.status === 'active'
-                                    ? 'bg-blue-100 text-blue-700'
-                                    : 'bg-gray-100 text-gray-700'
-                                  }`}>
-                                  {v.status || 'active'}
-                                </span>
-                              </td>
-                              <td className="px-3 py-2">{new Date(v.claimed_at).toLocaleString()}</td>
-                              <td className="px-3 py-2">{v.redeemed_at ? new Date(v.redeemed_at).toLocaleString() : 'Not redeemed'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
                 {history.timeline && history.timeline.length > 0 && (() => {
                   // Deduplicate timeline entries - group by activity type and title, keep only latest
                   const seen = new Map<string, any>()
@@ -424,16 +382,9 @@ export default function ParticipantsPage() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
             <div>
               <h1 className="text-2xl sm:text-4xl font-bold mb-2">Participants Management</h1>
-              <p className="text-gray-600 text-sm sm:text-base">Manage all delegates and members</p>
+              <p className="text-gray-600 text-sm sm:text-base">OC Conference '27 members</p>
             </div>
             <div className="flex gap-2 w-full sm:w-auto">
-              <a
-                href="/admin/register"
-                className="btn-primary flex items-center gap-2 text-sm sm:text-base px-4 py-2 sm:px-6 sm:py-3 flex-1 sm:flex-none justify-center"
-              >
-                <Plus className="w-4 h-4" />
-                Add Participant
-              </a>
               <button
                 onClick={loadParticipants}
                 className="btn-secondary flex items-center gap-2 text-sm sm:text-base px-4 py-2 sm:px-6 sm:py-3"
@@ -466,43 +417,6 @@ export default function ParticipantsPage() {
                     <X className="w-4 h-4" />
                   </button>
                 )}
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setFilterType('all')}
-                  className={`px-4 py-2 rounded-lg transition-colors text-sm sm:text-base ${filterType === 'all' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
-                    }`}
-                >
-                  All
-                </button>
-                <button
-                  onClick={() => setFilterType('delegate')}
-                  className={`px-4 py-2 rounded-lg transition-colors text-sm sm:text-base ${filterType === 'delegate' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
-                    }`}
-                >
-                  Delegates
-                </button>
-                <button
-                  onClick={() => setFilterType('member')}
-                  className={`px-4 py-2 rounded-lg transition-colors text-sm sm:text-base ${filterType === 'member' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
-                    }`}
-                >
-                  Members
-                </button>
-                <button
-                  onClick={() => setFilterType('staff')}
-                  className={`px-4 py-2 rounded-lg transition-colors text-sm sm:text-base ${filterType === 'staff' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
-                    }`}
-                >
-                  Staff
-                </button>
-                <button
-                  onClick={() => setFilterType('invitation')}
-                  className={`px-4 py-2 rounded-lg transition-colors text-sm sm:text-base ${filterType === 'invitation' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
-                    }`}
-                >
-                  Invitations
-                </button>
               </div>
             </div>
           </div>
