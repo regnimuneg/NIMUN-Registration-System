@@ -1,5 +1,6 @@
 import express, { type Request, type Response } from 'express'
 import { query } from '../config/index.js'
+import { scanTime } from '../lib/scan-time.js'
 import { trackingBlockedReason, isInactiveMember, INACTIVE_ERROR } from '../middleware/auth.js'
 
 const router = express.Router()
@@ -27,8 +28,7 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     // Offline scans are synced later and carry the time they were really scanned
-    const sent = req.body.scannedAt ? new Date(req.body.scannedAt) : null
-    const timestamp = sent && !isNaN(sent.getTime()) && Math.abs(Date.now() - sent.getTime()) < 3 * 86400000 ? sent : new Date()
+    const timestamp = scanTime(req.body.scannedAt)
 
     // Check if participant is delegate, member, or invitation
     const delegateCheck = await query('SELECT id FROM delegates WHERE id = $1', [participantId])

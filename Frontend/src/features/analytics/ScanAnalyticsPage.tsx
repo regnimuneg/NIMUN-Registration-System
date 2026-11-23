@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { RefreshCw, Download, Search, UserX, UserCheck, Utensils, History, Undo2 } from 'lucide-react'
 import { api, tokenManager } from '../../lib/api'
+import { serverNow, fmtTime, fmtStamp, todayDayKey, LiveClock } from '../../lib/clock'
 
 interface SessionStat {
   key: string
@@ -44,7 +45,8 @@ interface LogEntry {
   at: string
 }
 
-const REFRESH_MS = 10_000
+const POLL_MS = 2_000          // quick change check
+const FULL_REFRESH_MS = 30_000  // full reload even without changes
 const DAY_LABELS: Record<string, string> = {
   'sessions.day1': 'Session Day One',
   'sessions.day2': 'Session Day Two',
@@ -52,15 +54,10 @@ const DAY_LABELS: Record<string, string> = {
   'conference.day1': 'Conference Day',
 }
 const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 100) : 0)
-const clock = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—')
-const stamp = (iso: string) => new Date(iso).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+const clock = (iso: string | null) => (iso ? fmtTime(iso) : '—')
+const stamp = (iso: string) => fmtStamp(iso)
 
-/** Today's conference day (24-27 Nov), else null. */
-function todayKey(): string | null {
-  const d = new Date()
-  if (d.getMonth() !== 10) return null
-  return ({ 24: 'day1', 25: 'day2', 26: 'day3', 27: 'conf_day1' } as Record<number, string>)[d.getDate()] ?? null
-}
+const todayKey = todayDayKey
 
 /** CSV that Excel and Google Sheets open directly (UTF-8 with BOM). */
 function downloadCsv(filename: string, rows: (string | number | boolean | null | undefined)[][]) {
@@ -123,7 +120,7 @@ export default function ScanAnalyticsPage() {
       ])
       setData(result)
       setLog(logRes.entries ?? [])
-      setUpdatedAt(new Date())
+      setUpdatedAt(serverNow())
     } catch (e: any) {
       setError(e?.message || 'Could not load the live board')
     } finally {
@@ -131,11 +128,33 @@ export default function ScanAnalyticsPage() {
     }
   }, [council, sessionKey])
 
+  // Near-instant updates: check a tiny change marker every 2 seconds and reload
+  // the board only when a scan, undo or clear happened (plus a full reload every 30s).
+  const versionRef = useRef<string | null>(null)
+  const lastFullRef = useRef(0)
   useEffect(() => {
-    void load()
-    const t = setInterval(() => { if (!document.hidden) void load() }, REFRESH_MS)
-    return () => clearInterval(t)
-  }, [load])
+    let stopped = false
+    let busy = false
+    versionRef.current = null
+    const tick = async (force = false) => {
+      if (busy || stopped || (document.hidden && !force)) return
+      busy = true
+      try {
+        const v = await api.getScanVersion(council || undefined).catch(() => null)
+        const changed = !!v?.version && v.version !== versionRef.current
+        if (force || changed || Date.now() - lastFullRef.current > FULL_REFRESH_MS) {
+          if (v?.version) versionRef.current = v.version
+          lastFullRef.current = Date.now()
+          await load()
+        }
+      } finally { busy = false }
+    }
+    void tick(true)
+    const t = setInterval(() => void tick(), POLL_MS)
+    const onVisible = () => { if (!document.hidden) void tick(true) }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => { stopped = true; clearInterval(t); document.removeEventListener('visibilitychange', onVisible) }
+  }, [load, council])
 
   const selected = useMemo(() => data?.sessions.find((s) => s.key === sessionKey) ?? null, [data, sessionKey])
   const allPeople = data?.people ?? []
@@ -220,13 +239,13 @@ export default function ScanAnalyticsPage() {
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-4 mb-5">
         <div className="min-w-0">
           <p className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] mb-2">
-            <span className="oc-live-dot" aria-hidden="true" /> Live · updates every 10 seconds
+            <span className="oc-live-dot" aria-hidden="true" /> Live · <LiveClock />
           </p>
           <h1 className="text-2xl sm:text-4xl font-bold">Live Board</h1>
           <p className="text-gray-600 mt-3 text-sm">
             {scopeLabel}
             {user?.name ? ` · ${user.name}` : ''}
-            {updatedAt ? ` · ${updatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : ''}
+            {updatedAt ? ` · updated ${fmtTime(updatedAt, true)}` : ''}
           </p>
         </div>
         <div className="flex flex-wrap gap-2 w-full lg:w-auto">

@@ -732,3 +732,4 @@ main table tbody tr { transition: background-color 0.15s ease; }
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
   .oc-spin { animation: oc-spin-kf 2s linear infinite !important; animation-duration: 2s !important; animation-iteration-count: infinite !important; }
 }
+.oc-live-clock { font-variant-numeric: tabular-nums; }

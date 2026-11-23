@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || (
+export const API_BASE_URL = import.meta.env.VITE_API_URL || (
   typeof window !== 'undefined' && window.location.hostname !== 'localhost'
     ? `http://${window.location.hostname}:3001`
     : 'http://localhost:3001'
@@ -173,6 +173,8 @@ export const api = {
   },
 
   // Admin
+  getScanVersion: (council?: string) =>
+    callApi(`/api/scan-analytics/version${council ? `?council=${encodeURIComponent(council)}` : ''}`),
   getScanLog: (params: { council?: string; limit?: number } = {}) => {
     const q = new URLSearchParams()
     if (params.council) q.set('council', params.council)

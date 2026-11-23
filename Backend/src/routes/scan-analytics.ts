@@ -131,6 +131,29 @@ router.get('/', async (req: Request, res: Response) => {
   }
 })
 
+// Tiny change marker so the board can poll every couple of seconds cheaply
+// and only reload when something was scanned, undone or cleared.
+router.get('/version', async (req: Request, res: Response) => {
+  try {
+    const auth = req.auth!
+    const requested = typeof req.query.council === 'string' && req.query.council.trim() ? req.query.council.trim() : null
+    const council = auth.access === 'analytics' ? auth.council : requested
+    const r = await query(
+      `${PEOPLE_CTE}
+       SELECT COUNT(a.*) AS n, MAX(a.created_at) AS last
+       FROM activity_timeline a JOIN scoped p ON p.user_id = a.user_id
+       WHERE a.activity_type IN ('attendance', 'food')`,
+      [council],
+    )
+    const row: any = r.rows[0] ?? {}
+    res.set('Cache-Control', 'no-store')
+    res.json({ version: `${row.n ?? 0}:${row.last ? new Date(row.last).getTime() : 0}`, serverTime: new Date().toISOString() })
+  } catch (error) {
+    console.error('Scan version error:', error)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
 // Who scanned whom and when (attendance and food, including undos), newest first
 router.get('/log', async (req: Request, res: Response) => {
   try {

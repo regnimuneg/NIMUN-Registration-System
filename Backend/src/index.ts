@@ -101,6 +101,12 @@ app.get('/health', async (_req: Request, res: Response) => {
 
 // API Routes
 // /api/auth handles its own checks (login is public, verify/logout need a token).
+// Server clock for the apps (no login needed: it is just the time)
+app.get('/api/time', (_req: Request, res: Response) => {
+  res.set('Cache-Control', 'no-store')
+  res.json({ now: new Date().toISOString(), ms: Date.now(), timeZone: 'Africa/Cairo' })
+})
+
 app.use('/api/auth', authRoutes)
 
 // Every other API route needs a valid server-side session.

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Html5Qrcode } from 'html5-qrcode'
 import { api, ApiError } from '../../lib/api'
+import { serverNow, fmtTime, todayDayKey, cairoDate, useClockSync, LiveClock } from '../../lib/clock'
 import { QrCode, Search, CheckCircle, XCircle, RefreshCw, User, Camera, CameraOff, Calendar, UtensilsCrossed, Clock, LogIn, LogOut, MessageSquare, CheckSquare, Square, ChevronDown, Check, GlassWater, AlertTriangle, Undo2, WifiOff, CloudUpload, Loader2 } from 'lucide-react'
 
 interface SessionOption {
@@ -127,19 +128,24 @@ function sendScan(item: QueuedScan) {
   return api.updateFood({ participantId: item.id, dayKey: item.dayKey, meal: 'lunch', value: item.value, scannedAt: item.at })
 }
 const buzz = (pattern: number | number[]) => { try { navigator.vibrate?.(pattern) } catch { /* not supported */ } }
-const timeOf = (iso?: string | null) => (iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '')
+const timeOf = (iso?: string | null) => fmtTime(iso)
+
+function sessionForToday(): SessionOption {
+  const key = todayDayKey()
+  if (key === 'day2') return SESSION_OPTIONS[1]
+  if (key === 'day3') return SESSION_OPTIONS[2]
+  if (key === 'conf_day1') return SESSION_OPTIONS[3]
+  const { month, day } = cairoDate()
+  if (month === 11 && day > 27) return SESSION_OPTIONS[3]
+  return SESSION_OPTIONS[0]
+}
 
 export default function ScanPage() {
-  const [selectedSession, setSelectedSession] = useState<SessionOption | null>(() => {
-    const now = new Date()
-    if (now.getMonth() === 10) { // November
-      const day = now.getDate()
-      if (day === 25) return SESSION_OPTIONS[1]
-      if (day === 26) return SESSION_OPTIONS[2]
-      if (day >= 27) return SESSION_OPTIONS[3]
-    }
-    return SESSION_OPTIONS[0]
-  })
+  const [selectedSession, setSelectedSession] = useState<SessionOption | null>(sessionForToday)
+  // When the server clock arrives, move to the server's day unless someone already picked one
+  const sessionPickedRef = useRef(false)
+  const clockOffset = useClockSync()
+  useEffect(() => { if (!sessionPickedRef.current) setSelectedSession(sessionForToday()) }, [clockOffset])
   const [scannedId, setScannedId] = useState<string>('')
   const [participant, setParticipant] = useState<any>(null)
   const [loading, setLoading] = useState(false)
@@ -449,7 +455,7 @@ export default function ScanPage() {
     const code = rawCode.trim().toUpperCase()
     if (!code) return
     const mode: QuickMode = scanMode === 'lunch' ? 'lunch' : 'attendance'
-    const item: QueuedScan = { id: code, dayKey: selectedSession.dayKey, mode, value: true, at: new Date().toISOString() }
+    const item: QueuedScan = { id: code, dayKey: selectedSession.dayKey, mode, value: true, at: serverNow().toISOString() }
     const what = mode === 'lunch' ? 'Food' : 'Attendance'
     showStatus({ type: 'pending', message: 'Checking…', name: code })
     let name = code
@@ -467,13 +473,13 @@ export default function ScanPage() {
       playAudioFeedback('success'); buzz(40)
       showStatus({ type: 'success', message: mode === 'lunch' ? 'Food logged' : 'Marked present', name, detail: `${code} · ${selectedSession.label}` })
       setLastAction({ ...item, name })
-      setScanHistory(prev => [{ id: code, name: `${name} · ${what}`, time: new Date().toLocaleTimeString() }, ...prev.slice(0, 19)])
+      setScanHistory(prev => [{ id: code, name: `${name} · ${what}`, time: fmtTime(serverNow(), true) }, ...prev.slice(0, 19)])
     } catch (e: any) {
       if (e instanceof ApiError && e.network) {
         enqueue(item)
         playAudioFeedback('success'); buzz([30, 40, 30])
         showStatus({ type: 'queued', message: 'Saved offline', name: code, detail: 'It will sync when the connection is back' }, 2600)
-        setScanHistory(prev => [{ id: code, name: `${code} · ${what} (offline)`, time: new Date().toLocaleTimeString() }, ...prev.slice(0, 19)])
+        setScanHistory(prev => [{ id: code, name: `${code} · ${what} (offline)`, time: fmtTime(serverNow(), true) }, ...prev.slice(0, 19)])
       } else if (e instanceof ApiError && e.status === 409 && e.data?.duplicate) {
         playAudioFeedback('error'); buzz([200, 80, 200])
         showStatus({ type: 'duplicate', message: 'Already got food', name: name === code ? code : `${name} · ${code}`, detail: e.data.claimedAt ? `First claimed at ${timeOf(e.data.claimedAt)}. Do not serve again.` : 'Do not serve again.' }, 4500)
@@ -499,7 +505,7 @@ export default function ScanPage() {
 
   const undoLast = async () => {
     if (!lastAction) return
-    const item: QueuedScan = { ...lastAction, value: false, at: new Date().toISOString() }
+    const item: QueuedScan = { ...lastAction, value: false, at: serverNow().toISOString() }
     setLastAction(null)
     try {
       await sendScan(item)
@@ -814,7 +820,7 @@ export default function ScanPage() {
 
         // Add to scan history
         setScanHistory(prev => [
-          { id: searchId, name: data.participant.name, time: new Date().toLocaleTimeString() },
+          { id: searchId, name: data.participant.name, time: fmtTime(serverNow(), true) },
           ...prev.slice(0, 9) // Keep last 10 scans
         ])
 
@@ -887,7 +893,7 @@ export default function ScanPage() {
 
     try {
       setSaving(true)
-      const timestamp = new Date().toISOString()
+      const timestamp = serverNow().toISOString()
       await api.updateAttendance({
         participantId: participant.id,
         dayKey: selectedSession.dayKey,
@@ -909,7 +915,7 @@ export default function ScanPage() {
 
     try {
       setSaving(true)
-      const timestamp = new Date().toISOString()
+      const timestamp = serverNow().toISOString()
       // Checkout does NOT mean absent - they were present and are now leaving
       // We keep attendance as true, just record the checkout time
       await api.updateAttendance({
@@ -933,7 +939,7 @@ export default function ScanPage() {
 
     try {
       setSaving(true)
-      const timestamp = new Date().toISOString()
+      const timestamp = serverNow().toISOString()
       await api.updateBus({
         participantId: participant.id,
         dayKey: selectedSession.dayKey,
@@ -956,7 +962,7 @@ export default function ScanPage() {
 
     try {
       setSaving(true)
-      const timestamp = new Date().toISOString()
+      const timestamp = serverNow().toISOString()
       await api.updateBus({
         participantId: participant.id,
         dayKey: selectedSession.dayKey,
@@ -984,7 +990,7 @@ export default function ScanPage() {
       })
       setAttendance(value)
       if (value && !checkInTime) {
-        setCheckInTime(new Date().toISOString())
+        setCheckInTime(serverNow().toISOString())
       }
     } catch (err: any) {
       alert(`Failed to update attendance: ${err.message}`)
@@ -1152,6 +1158,7 @@ export default function ScanPage() {
           <div className="mb-6 sm:mb-8 relative">
             <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold mb-2">QR Code Scanner</h1>
             <p className="text-gray-600 text-sm sm:text-base md:text-lg">Select a session, then scan QR code or enter participant ID</p>
+            <p className="mt-1 text-xs uppercase tracking-[0.15em] text-gray-600"><LiveClock /></p>
           </div>
 
           {/* Session Selection */}
@@ -1205,7 +1212,7 @@ export default function ScanPage() {
                               key={session.id}
                               type="button"
                               onClick={() => {
-                                setSelectedSession(session)
+                                sessionPickedRef.current = true; setSelectedSession(session)
                                 setIsDropdownOpen(false)
                               }}
                               className={`w-full px-4 py-3.5 text-left hover:bg-blue-50 transition-colors duration-150 border-b border-gray-100 last:border-b-0 ${isSelected ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
