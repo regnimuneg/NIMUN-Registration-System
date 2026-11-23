@@ -34,6 +34,24 @@ From `Backend/`, run `npm run oc27:accounts`. It creates six accounts and prints
 
 The backend checks a server-side session on every request (`auth_sessions` table), so these limits hold even if someone calls the API directly. `npm run oc27:accounts -- --reset OC-PRESS` (or `--reset all`) issues a new password and signs that account out everywhere.
 
+## Hosting on Vercel (two separate projects)
+
+Both are new Vercel projects from the `oc-conference-27` branch; they never touch the NIMUN'26 projects.
+
+**1. API project** (Root Directory `Backend`). `Backend/vercel.json` builds the TypeScript and runs the whole Express API as one serverless function. Environment variables:
+
+| Name | Value |
+|---|---|
+| `DATABASE_URL` | Supabase **Transaction pooler** URI (port 6543) with the database password filled in |
+| `FRONTEND_URL` | the frontend project's URL, e.g. `https://oc27-portal.vercel.app` |
+| `NODE_ENV` | `production` |
+
+**2. Frontend project** (Root Directory `Frontend`, framework Vite). Environment variable `VITE_API_URL` = the API project's URL (no trailing slash). It overrides the placeholder in `Frontend/.env.production`.
+
+In each project, set **Settings → Git → Production Branch** to `oc-conference-27`, then redeploy. Any `*.vercel.app` origin is already allowed by CORS; add a custom domain to `ALLOWED_ORIGINS` (comma-separated) on the API project.
+
+Note: the login throttle (10 failures / 15 min) is kept in memory, so on serverless it is per instance and resets on cold starts.
+
 ## What was removed from this branch
 
 The NIMUN'26 participant and staff files (`Full Participants*.xlsx`, `Backend/seeds/Participants.csv`, `Backend/db/seed*.sql`, `Backend/db/migrate_executive_ids.sql`) are deleted here so no real personal data or '26 credentials carry into '27. They still exist on `main` and in git history.

@@ -68,13 +68,15 @@ if (databaseUrl) {
 const poolConfig: any = {
   connectionString: connectionString,
   // Connection pool settings
-  max: 20,
+  // Serverless (Vercel) starts many small instances: keep each one's pool tiny
+  // so the Supabase pooler is not exhausted.
+  max: process.env.VERCEL ? 2 : 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000 // Increased timeout for Supabase
 }
 
-// Add SSL config for Supabase connections
-if (projectRef) {
+// Add SSL config for Supabase connections (from SUPABASE_URL or a Supabase DATABASE_URL)
+if (projectRef || /supabase\.(co|com)/.test(connectionString ?? '')) {
   poolConfig.ssl = {
     rejectUnauthorized: false // Required for Supabase connections
   }

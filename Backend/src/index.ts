@@ -27,6 +27,8 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
 // CORS configuration - allow multiple frontend ports for development
 const allowedOrigins = [
   FRONTEND_URL,
+  // Extra allowed sites, comma-separated (e.g. a custom domain for the '27 portal)
+  ...(process.env.ALLOWED_ORIGINS ?? '').split(',').map((o) => o.trim()).filter(Boolean),
   'http://localhost:5173',
   'http://localhost:5174',
   'http://localhost:3000',
@@ -125,7 +127,8 @@ app.use('/api/analytics', FULL, analyticsRoutes)
 app.use('/api/admin/clear-tracking', FULL, clearTrackingRoutes)
 
 // Start server
-if (process.env.NODE_ENV !== 'test') {
+// On Vercel the app runs as a serverless function (api/index.js), not a server.
+if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
   app.listen(PORT as number, '0.0.0.0', () => {
     console.log(`🚀 Backend server running on http://0.0.0.0:${PORT}`)
     console.log(`📡 Frontend URL: ${FRONTEND_URL}`)
