@@ -1,12 +1,13 @@
 import express, { type Request, type Response } from 'express'
 import { query } from '../config/index.js'
+import { trackingBlockedReason } from '../middleware/auth.js'
 
 const router = express.Router()
 
 // Update attendance
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { participantId, dayKey, field, value, requesterId, checkIn, checkOut } = req.body
+    const { participantId, dayKey, field, value, checkIn, checkOut } = req.body
 
     if (!participantId || !dayKey || !field || typeof value !== 'boolean') {
       return res.status(400).json({
@@ -14,26 +15,9 @@ router.post('/', async (req: Request, res: Response) => {
       })
     }
 
-    // Access control: Members can only track delegates, not other members
-    // Only admins can track members
-    if (requesterId) {
-      const requesterCheck = await query('SELECT id FROM members WHERE id = $1', [requesterId])
-      const isRequesterMember = requesterCheck.rows.length > 0
-
-      if (isRequesterMember) {
-        // Requester is a member - check if target is also a member
-        const targetCheck = await query('SELECT id FROM members WHERE id = $1', [participantId])
-        const isTargetMember = targetCheck.rows.length > 0
-
-        if (isTargetMember) {
-          return res.status(403).json({
-            error: 'Members cannot track attendance for other members. Only admins can track members.'
-          })
-        }
-        // If target is delegate, allow tracking
-      }
-      // If requester is admin (not a member), allow all tracking
-    }
+    // Access control from the server-side session (requesterId from the browser is ignored)
+    const blocked = await trackingBlockedReason(req, participantId, 'attendance')
+    if (blocked) return res.status(403).json({ error: blocked })
 
     // Map dayKey to session_type
     const sessionType = mapDayKeyToSessionType(dayKey)
@@ -169,7 +153,7 @@ router.post('/', async (req: Request, res: Response) => {
           WHERE id = $4
         `, [
           description,
-          JSON.stringify({ dayKey, field, value, checkIn, checkOut }),
+          JSON.stringify({ dayKey, field, value, checkIn, checkOut, scannedBy: req.auth?.memberId ?? null }),
           timestamp,
           recentEntry.rows[0].id
         ])
@@ -189,7 +173,7 @@ router.post('/', async (req: Request, res: Response) => {
           'attendance',
           title,
           description,
-          JSON.stringify({ dayKey, field, value, checkIn, checkOut }),
+          JSON.stringify({ dayKey, field, value, checkIn, checkOut, scannedBy: req.auth?.memberId ?? null }),
           timestamp
         ])
       }

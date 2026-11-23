@@ -1,12 +1,13 @@
 import express, { type Request, type Response } from 'express'
 import { query } from '../config/index.js'
+import { trackingBlockedReason } from '../middleware/auth.js'
 
 const router = express.Router()
 
 // Update bus tracking
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { participantId, dayKey, checkIn, checkOut, requesterId, value = true } = req.body
+    const { participantId, dayKey, checkIn, checkOut, value = true } = req.body
 
     if (!participantId || !dayKey) {
       return res.status(400).json({
@@ -29,22 +30,9 @@ router.post('/', async (req: Request, res: Response) => {
       })
     }
 
-    // Access control: Same as attendance (Members can only track delegates, admins can track members)
-    if (requesterId) {
-      const requesterCheck = await query('SELECT id FROM members WHERE id = $1', [requesterId])
-      const isRequesterMember = requesterCheck.rows.length > 0
-
-      if (isRequesterMember) {
-        const targetCheck = await query('SELECT id FROM members WHERE id = $1', [participantId])
-        const isTargetMember = targetCheck.rows.length > 0
-
-        if (isTargetMember) {
-          return res.status(403).json({
-            error: 'Members cannot track bus for other members. Only admins can track members.'
-          })
-        }
-      }
-    }
+    // Access control from the server-side session (requesterId from the browser is ignored)
+    const blocked = await trackingBlockedReason(req, participantId, 'bus')
+    if (blocked) return res.status(403).json({ error: blocked })
 
     // Map dayKey to session_type
     const sessionType = mapDayKeyToSessionType(dayKey)

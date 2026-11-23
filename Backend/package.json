@@ -8,7 +8,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "seed": "tsx src/scripts/seed.ts",
-    "oc27:import": "tsx src/scripts/oc27-import.ts"
+    "oc27:import": "tsx src/scripts/oc27-import.ts",
+    "oc27:accounts": "tsx src/scripts/oc27-accounts.ts"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

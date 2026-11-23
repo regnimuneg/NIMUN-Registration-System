@@ -17,6 +17,8 @@ import registerRoutes from './routes/register.js'
 import analyticsRoutes from './routes/analytics.js'
 import authRoutes from './routes/auth.js'
 import clearTrackingRoutes from './routes/clear-tracking.js'
+import scanAnalyticsRoutes from './routes/scan-analytics.js'
+import { requireAuth, requireAccess, byMethod } from './middleware/auth.js'
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -95,19 +97,32 @@ app.get('/health', async (_req: Request, res: Response) => {
 })
 
 // API Routes
-app.use('/api/participants', participantsRoutes)
-app.use('/api/attendance', attendanceRoutes)
-app.use('/api/food', foodRoutes)
-app.use('/api/games', gamesRoutes)
-app.use('/api/comments', commentsRoutes)
-// Bus routes
-app.use('/api/bus', busRoutes)
-app.use('/api/qr', qrRoutes)
-app.use('/api/import', importRoutes)
-app.use('/api/register', registerRoutes)
-app.use('/api/analytics', analyticsRoutes)
+// /api/auth handles its own checks (login is public, verify/logout need a token).
 app.use('/api/auth', authRoutes)
-app.use('/api/admin/clear-tracking', clearTrackingRoutes)
+
+// Every other API route needs a valid server-side session.
+app.use('/api', requireAuth)
+
+const FULL = requireAccess('full')
+const SCAN = requireAccess('full', 'scan')
+
+// Scanning: look people up and record check-ins
+app.use('/api/participants', byMethod(['full', 'scan'], ['full']), participantsRoutes)
+app.use('/api/attendance', SCAN, attendanceRoutes)
+app.use('/api/food', SCAN, foodRoutes)
+app.use('/api/games', SCAN, gamesRoutes)
+app.use('/api/comments', SCAN, commentsRoutes)
+app.use('/api/bus', SCAN, busRoutes)
+
+// Scan analytics: Press Head and Secretariats see only their own council
+app.use('/api/scan-analytics', requireAccess('full', 'analytics'), scanAnalyticsRoutes)
+
+// Full power only (Highboard, Registration Affairs)
+app.use('/api/qr', FULL, qrRoutes)
+app.use('/api/import', FULL, importRoutes)
+app.use('/api/register', FULL, registerRoutes)
+app.use('/api/analytics', FULL, analyticsRoutes)
+app.use('/api/admin/clear-tracking', FULL, clearTrackingRoutes)
 
 // Start server
 if (process.env.NODE_ENV !== 'test') {
