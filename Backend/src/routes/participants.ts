@@ -69,6 +69,8 @@ router.get('/', async (_req: Request, res: Response) => {
         END as "type"
       FROM members m
       LEFT JOIN users u ON m.user_id = u.id
+      -- Only OC participants; the six staff login accounts are not participants
+      WHERE m.role LIKE 'OC Member (%'
       ORDER BY m.id
     `)
 
