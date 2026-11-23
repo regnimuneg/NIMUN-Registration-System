@@ -43,7 +43,7 @@ export default function ParticipantsPage() {
   const [qrCodeData, setQrCodeData] = useState<{ qrUrl: string; participantId: string; participantName: string } | null>(null)
 
   // QR email (Resend). Real sends stay off on the server until QR_EMAIL_ENABLED=true.
-  const [emailStatus, setEmailStatus] = useState<{ configured: boolean; enabled: boolean; from: string } | null>(null)
+  const [emailStatus, setEmailStatus] = useState<{ configured: boolean; enabled: boolean; from: string; excluded?: string[] } | null>(null)
   const [testTo, setTestTo] = useState('')
   const [emailBusy, setEmailBusy] = useState<string | null>(null)
   const [emailNote, setEmailNote] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
@@ -78,8 +78,9 @@ export default function ParticipantsPage() {
   }
 
   const emailAll = async () => {
-    const withEmail = participants.filter((p) => p.email && p.email.includes('@'))
-    if (!confirm(`Email QR codes to all ${withEmail.length} members with an email address? This sends real emails.`)) return
+    const skip = new Set(emailStatus?.excluded ?? ['UNI-03'])
+    const withEmail = participants.filter((p) => (p.role ?? '').startsWith('OC Member (') && !skip.has(p.id) && p.email && p.email.includes('@'))
+    if (!confirm(`Email QR codes to all ${withEmail.length} OC members with an email address (skipping ${[...skip].join(', ')})? This sends real emails.`)) return
     setEmailBusy('all'); setEmailNote(null)
     let sent = 0
     const failed: string[] = []
@@ -593,7 +594,7 @@ export default function ParticipantsPage() {
                           >
                             <QrCode className="w-4 h-4" />
                           </button>
-                          {emailStatus?.enabled && (
+                          {emailStatus?.enabled && !(emailStatus.excluded ?? ['UNI-03']).includes(participant.id) && (
                             <button
                               onClick={() => emailOne(participant)}
                               disabled={emailBusy !== null}

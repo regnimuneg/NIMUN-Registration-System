@@ -22,6 +22,9 @@ const apiKey = () => process.env.RESEND_API_KEY || ''
 const fromAddr = () => process.env.QR_EMAIL_FROM || "NIMUN'27 <onboarding@resend.dev>"
 const enabled = () => process.env.QR_EMAIL_ENABLED === 'true'
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
+// IDs that must never be emailed a QR code (UNI-03 was left out on request).
+// QR_EMAIL_EXCLUDE can add more, comma separated.
+const excluded = () => new Set(['UNI-03', ...(process.env.QR_EMAIL_EXCLUDE || '').split(',').map((x) => x.trim().toUpperCase()).filter(Boolean)])
 
 interface Person { id: string; first_name: string; last_name: string; email: string | null; council: string | null }
 
@@ -69,7 +72,7 @@ const PEOPLE_SQL = `
   WHERE m.role LIKE 'OC Member (%'`
 
 router.get('/status', (_req: Request, res: Response) => {
-  res.json({ configured: !!apiKey(), enabled: enabled(), from: fromAddr() })
+  res.json({ configured: !!apiKey(), enabled: enabled(), from: fromAddr(), excluded: [...excluded()] })
 })
 
 router.post('/', async (req: Request, res: Response) => {
@@ -103,8 +106,10 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Give participantId, all or testTo' })
     }
 
-    const skipped = people.filter((p) => !p.email || !EMAIL_RE.test(p.email)).map((p) => p.id)
-    const todo = people.filter((p) => p.email && EMAIL_RE.test(p.email))
+    const ex = excluded()
+    if (people.length === 1 && ex.has(people[0].id)) return res.status(403).json({ error: `${people[0].id} is on the do-not-send list` })
+    const skipped = people.filter((p) => ex.has(p.id) || !p.email || !EMAIL_RE.test(p.email)).map((p) => p.id)
+    const todo = people.filter((p) => !ex.has(p.id) && p.email && EMAIL_RE.test(p.email))
     const failed: { id: string; error: string }[] = []
     let sent = 0
     // A few at a time to stay inside the email service's rate limit
