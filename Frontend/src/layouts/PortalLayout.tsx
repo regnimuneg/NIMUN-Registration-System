@@ -16,6 +16,7 @@ export default function PortalLayout() {
   const userRole = tokenManager.getUserRole()
   const isAdmin = userRole === 'admin'
   const isMember = userRole === 'member'
+  const isAnalyst = userRole === 'analyst'
 
   // Determine if user is on member routes (hide admin links)
   const isMemberRoute = location.pathname.startsWith('/member') || location.pathname === '/scan'
@@ -66,6 +67,7 @@ export default function PortalLayout() {
   const adminLinks = [
     { href: '/admin/dashboard', label: 'Dashboard', icon: Home, paths: ['/admin/dashboard', '/admin', '/dashboard'] },
     { href: '/admin/analytics', label: 'Analytics', icon: BarChart3, paths: ['/admin/analytics', '/analytics'] },
+    { href: '/analytics/scans', label: 'Scan Analytics', icon: BarChart3, paths: ['/analytics/scans'] },
     { href: '/admin/register', label: 'Register', icon: User, paths: ['/admin/register', '/register'] },
     { href: '/admin/import', label: 'Import CSV', icon: BarChart3, paths: ['/admin/import', '/import'] },
     { href: '/admin/participants', label: 'Participants', icon: Users, paths: ['/admin/participants'] },
@@ -200,6 +202,17 @@ export default function PortalLayout() {
                 </>
               )}
 
+              {isAnalyst && (
+                <a
+                  href="/analytics/scans"
+                  className="flex items-center px-4 py-3 rounded-2xl text-base font-extrabold text-[var(--jn-blue)] hover:bg-blue-50 transition-colors"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <BarChart3 className="w-5 h-5 mr-3" />
+                  Scan Analytics
+                </a>
+              )}
+
               {isMember && (
                 <>
                   <a
@@ -255,7 +268,7 @@ export default function PortalLayout() {
         <div className="fixed top-0 left-0 right-0 z-30">
           <nav className="bg-[var(--jn-blue)] bg-[url('/doodles.png')] bg-[length:720px_auto] px-4 sm:px-6 lg:px-10 py-3 md:py-4 shadow-[0_8px_24px_rgba(78,142,203,0.28)] transition-all duration-200">
             <div className="flex justify-between items-center">
-              <a href="/admin/dashboard" className="flex items-center min-w-0">
+              <a href={isAnalyst ? '/analytics/scans' : isMember ? '/member/scanner' : '/admin/dashboard'} className="flex items-center min-w-0">
                 <img
                   src="/element_01_x268_y31_w228_h189.png"
                   alt="NIMUN'26 Logo"
@@ -302,6 +315,12 @@ export default function PortalLayout() {
                       </div>
                     </div>
                   </>
+                )}
+                {isAnalyst && (
+                  <a href="/analytics/scans" className={`nav-link flex items-center border-2 border-white/80 ${isActive(['/analytics/scans']) ? 'bg-[var(--jn-pink)] shadow-[0_4px_0_rgba(0,0,0,0.18)]' : ''}`}>
+                    <BarChart3 className="w-4 h-4" />
+                    <span className="ml-2 hidden lg:inline text-base">Scan Analytics</span>
+                  </a>
                 )}
                 {isMember && (
                   memberLinks.map(({ href, label, icon: Icon, paths }) => (

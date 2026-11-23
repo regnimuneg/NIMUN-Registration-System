@@ -9,10 +9,13 @@ import AnalyticsPage from '../features/analytics/AnalyticsPage'
 import MemberDashboardPage from '../features/member/MemberDashboardPage'
 import MemberParticipantsPage from '../features/member/MemberParticipantsPage'
 import ParticipantsPage from '../features/participants/ParticipantsPage'
+import ScanAnalyticsPage from '../features/analytics/ScanAnalyticsPage'
 import { tokenManager } from '../lib/api'
 
 // Protected Route Component
-function ProtectedRoute({ children, requireAdmin = false }: { children: React.ReactNode, requireAdmin?: boolean }) {
+// Roles: admin (full access), member (scanner), analyst (scan analytics only).
+// The backend enforces the same rules; this only decides which pages to show.
+function ProtectedRoute({ children, requireAdmin = false, allow }: { children: React.ReactNode, requireAdmin?: boolean, allow?: string[] }) {
   const token = tokenManager.getToken()
   const userRole = tokenManager.getUserRole()
 
@@ -20,8 +23,9 @@ function ProtectedRoute({ children, requireAdmin = false }: { children: React.Re
     return <Navigate to="/auth/login" replace />
   }
 
-  if (requireAdmin && userRole !== 'admin') {
-    return <Navigate to="/member/scanner" replace />
+  const allowed = allow ?? (requireAdmin ? ['admin'] : ['admin', 'member'])
+  if (!userRole || !allowed.includes(userRole)) {
+    return <Navigate to={userRole === 'analyst' ? '/analytics/scans' : '/member/scanner'} replace />
   }
 
   return <>{children}</>
@@ -48,6 +52,9 @@ export default function App() {
         <Route path="/admin/participants" element={<ProtectedRoute requireAdmin><ParticipantsPage /></ProtectedRoute>} />
         <Route path="/admin/analytics" element={<ProtectedRoute requireAdmin><AnalyticsPage /></ProtectedRoute>} />
         <Route path="/analytics" element={<ProtectedRoute requireAdmin><AnalyticsPage /></ProtectedRoute>} />
+
+        {/* Scan analytics: full-access accounts and analysts */}
+        <Route path="/analytics/scans" element={<ProtectedRoute allow={['admin', 'analyst']}><ScanAnalyticsPage /></ProtectedRoute>} />
 
         {/* Member routes */}
         <Route path="/member" element={<ProtectedRoute><MemberDashboardPage /></ProtectedRoute>} />

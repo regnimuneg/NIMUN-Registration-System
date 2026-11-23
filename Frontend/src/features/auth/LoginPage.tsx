@@ -87,6 +87,8 @@ export default function LoginPage() {
         const userRole = result.role || result.user?.role || 'member'
         if (userRole === 'admin') {
           navigate('/admin/dashboard')
+        } else if (userRole === 'analyst') {
+          navigate('/analytics/scans')
         } else if (userRole === 'member') {
           navigate('/member/scanner')
         } else {
@@ -146,16 +148,19 @@ export default function LoginPage() {
 
             <form onSubmit={handleSubmit} className="login-form">
               <div className="login-input-group">
-                <label htmlFor="email" className="login-label">Email</label>
+                <label htmlFor="email" className="login-label">Account ID or email</label>
                 <input
                   id="email"
-                  type="email"
+                  type="text"
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  placeholder="your.email@example.com"
+                  placeholder="e.g. OC-REG"
                   required
-                  autoComplete="email"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  autoComplete="username"
                   className="login-input"
                 />
               </div>

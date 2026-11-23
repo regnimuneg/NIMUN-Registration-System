@@ -8,14 +8,24 @@ async function callApi(endpoint: string, options?: RequestInit) {
   try {
     const url = `${API_BASE_URL}${endpoint}`
 
+    const token = localStorage.getItem('auth_token')
     const response = await fetch(url, {
       ...options,
       cache: 'no-store',
       headers: {
         'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...options?.headers,
       },
     })
+
+    // Session expired or revoked on the server: sign out and go to login
+    if (response.status === 401 && !endpoint.startsWith('/api/auth/login')) {
+      tokenManager.clearToken()
+      if (typeof window !== 'undefined' && window.location.pathname !== '/auth/login') {
+        window.location.assign('/auth/login')
+      }
+    }
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}: ${response.statusText}` }))
@@ -147,6 +157,15 @@ export const api = {
     return callApi(`/api/analytics/attendance/export?${params.toString()}`)
   },
 
+  // Scan analytics (Press Head / Secretariats see only their own council)
+  getScanAnalytics: (params: { council?: string; session?: string } = {}) => {
+    const q = new URLSearchParams()
+    if (params.council) q.append('council', params.council)
+    if (params.session) q.append('session', params.session)
+    const qs = q.toString()
+    return callApi(`/api/scan-analytics${qs ? `?${qs}` : ''}`)
+  },
+
   // Admin
   clearTrackingData: (dataType: string) =>
     callApi('/api/admin/clear-tracking', {
@@ -170,11 +189,7 @@ export const api = {
     }),
 
   verifyToken: () =>
-    callApi('/api/auth/verify', {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
-      }
-    }),
+    callApi('/api/auth/verify'),
 
   // Health
   health: () =>
