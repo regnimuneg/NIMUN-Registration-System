@@ -15,13 +15,17 @@ export class ApiError extends Error {
   }
 }
 
-async function callApi(endpoint: string, options?: RequestInit) {
+async function callApi(endpoint: string, options?: RequestInit, timeoutMs?: number) {
+  // Optional time limit: a request stuck on bad venue Wi-Fi counts as offline
+  const controller = timeoutMs ? new AbortController() : null
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null
   try {
     const url = `${API_BASE_URL}${endpoint}`
 
     const token = localStorage.getItem('auth_token')
     const response = await fetch(url, {
       ...options,
+      ...(controller ? { signal: controller.signal } : {}),
       cache: 'no-store',
       headers: {
         'Content-Type': 'application/json',
@@ -47,6 +51,8 @@ async function callApi(endpoint: string, options?: RequestInit) {
     if (error instanceof ApiError) throw error
     // fetch() itself failed: offline or server unreachable
     throw new ApiError('No connection to the server', { network: true })
+  } finally {
+    if (timer) clearTimeout(timer)
   }
 }
 
@@ -87,12 +93,12 @@ export const api = {
     }),
 
   // Tracking
-  updateAttendance: (data: any) =>
+  updateAttendance: (data: any, timeoutMs?: number) =>
     callApi('/api/attendance', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
-    }),
+    }, timeoutMs),
 
   updateBus: (data: any) =>
     callApi('/api/bus', {
@@ -101,12 +107,12 @@ export const api = {
       body: JSON.stringify(data)
     }),
 
-  updateFood: (data: any) =>
+  updateFood: (data: any, timeoutMs?: number) =>
     callApi('/api/food', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
-    }),
+    }, timeoutMs),
 
   updateGame: (data: any) =>
     callApi('/api/games', {

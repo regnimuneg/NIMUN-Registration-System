@@ -1,7 +1,8 @@
 import express, { type Request, type Response } from 'express'
 import { query } from '../config/index.js'
 import { scanTime } from '../lib/scan-time.js'
-import { trackingBlockedReason, isInactiveMember, INACTIVE_ERROR } from '../middleware/auth.js'
+import { INACTIVE_ERROR } from '../middleware/auth.js'
+import { lookupPerson, blockedFor } from '../lib/person.js'
 
 const router = express.Router()
 
@@ -9,6 +10,8 @@ const router = express.Router()
 router.post('/', async (req: Request, res: Response) => {
   try {
     const { participantId, dayKey, field, value, checkIn, checkOut } = req.body
+    // Live scanner check-ins send rejectIfPresent so one request both checks and saves
+    const rejectIfPresent = req.body.rejectIfPresent === true
 
     if (!participantId || !dayKey || !field || typeof value !== 'boolean') {
       return res.status(400).json({
@@ -17,9 +20,12 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     // Access control from the server-side session (requesterId from the browser is ignored)
-    const blocked = await trackingBlockedReason(req, participantId, 'attendance')
+    // One lookup for access, inactive, type and user (was five separate queries)
+    const person = await lookupPerson(participantId)
+    const blocked = blockedFor(req, person, 'attendance')
     if (blocked) return res.status(403).json({ error: blocked })
-    if (await isInactiveMember(participantId)) return res.status(403).json({ error: INACTIVE_ERROR, inactive: true })
+    if (person?.inactive) return res.status(403).json({ error: INACTIVE_ERROR, inactive: true })
+    if (!person) return res.status(404).json({ error: 'Participant not found' })
 
     // Map dayKey to session_type
     const sessionType = mapDayKeyToSessionType(dayKey)
@@ -31,12 +37,19 @@ router.post('/', async (req: Request, res: Response) => {
     const timestamp = scanTime(req.body.scannedAt)
 
     // Check if participant is delegate, member, or invitation
-    const delegateCheck = await query('SELECT id FROM delegates WHERE id = $1', [participantId])
-    const isDelegate = delegateCheck.rows.length > 0
-    const invitationCheck = await query('SELECT id FROM invitations WHERE id = $1', [participantId])
-    const isInvitation = invitationCheck.rows.length > 0
+    const isDelegate = person.source === 'delegate'
+    const isInvitation = person.source === 'invitation'
 
     if (checkIn) {
+      if (value && rejectIfPresent) {
+        const state = await getDayState(participantId, sessionType, isDelegate, isInvitation)
+        if (state?.attended) {
+          return res.status(409).json({
+            error: 'Already marked present', alreadyPresent: true, name: person.name,
+            checkedInAt: state.checkin ? new Date(state.checkin).toISOString() : null,
+          })
+        }
+      }
       // Handle check-in
       if (isDelegate) {
         await query(`
@@ -67,10 +80,10 @@ router.post('/', async (req: Request, res: Response) => {
         // Checked here too so phones replaying offline scans get the same answer.
         const state = await getDayState(participantId, sessionType, isDelegate, isInvitation)
         if (state && !state.attended && !state.checkin) {
-          return res.status(409).json({ error: 'Not checked in today', notCheckedIn: true })
+          return res.status(409).json({ error: 'Not checked in today', notCheckedIn: true, name: person.name })
         }
         if (state?.checkout) {
-          return res.status(409).json({ error: 'Already checked out', duplicate: true, checkedOutAt: new Date(state.checkout).toISOString() })
+          return res.status(409).json({ error: 'Already checked out', duplicate: true, name: person.name, checkedOutAt: new Date(state.checkout).toISOString() })
         }
       }
       if (isDelegate) {
@@ -124,17 +137,8 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     // Get user_id for activity timeline
-    const userResult = await query(`
-      SELECT user_id FROM delegates WHERE id = $1
-      UNION ALL
-      SELECT user_id FROM members WHERE id = $1
-      UNION ALL
-      SELECT user_id FROM invitations WHERE id = $1
-      LIMIT 1
-    `, [participantId])
-
-    if (userResult.rows.length > 0) {
-      const userId = userResult.rows[0].user_id
+    if (person.userId) {
+      const userId = person.userId
       const title = `${dayKey} Attendance`
 
       // Determine description based on action type
@@ -170,7 +174,8 @@ router.post('/', async (req: Request, res: Response) => {
     res.json({
       success: true,
       message: `Attendance updated for ${participantId}: ${dayKey}.${field} = ${value}`,
-      timestamp: timestamp.toISOString()
+      timestamp: timestamp.toISOString(),
+      name: person.name
     })
   } catch (error) {
     console.error('Attendance update error:', error)

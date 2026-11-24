@@ -733,3 +733,29 @@ main table tbody tr { transition: background-color 0.15s ease; }
   .oc-spin { animation: oc-spin-kf 2s linear infinite !important; animation-duration: 2s !important; animation-iteration-count: infinite !important; }
 }
 .oc-live-clock { font-variant-numeric: tabular-nums; }
+
+/* ---------- Scanner: one-tap modes + coloured camera frame ---------- */
+.oc-mode-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr)); gap: 0.5rem; }
+.oc-mode-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
+  min-height: 3rem; padding: 0.55rem 0.6rem;
+  font-family: var(--oc-font-display); font-stretch: 125%; font-weight: 800; font-size: 0.78rem; text-transform: uppercase;
+  border: 2px solid var(--oc-black); background: #fffdf9; color: var(--oc-black); cursor: pointer;
+  transition: transform 0.12s ease, background-color 0.12s ease, box-shadow 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.oc-mode-btn:hover:not(:disabled) { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--oc-black); }
+.oc-mode-btn:active:not(:disabled) { transform: translate(1px, 1px); box-shadow: none; }
+.oc-mode-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.oc-mode-btn.is-active { background: var(--oc-blue); color: var(--oc-white); box-shadow: 3px 3px 0 var(--oc-black); }
+.oc-mode-btn.oc-mode-checkout.is-active { background: #7a4b00; }
+.oc-mode-btn.oc-mode-lunch.is-active { background: #0f5c38; }
+.oc-mode-btn.oc-mode-view.is-active { background: var(--oc-black); }
+
+.oc-cam-frame { border: 4px solid transparent; transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+.oc-cam-frame.is-on { border-color: rgba(32, 32, 32, 0.15); }
+.oc-cam-frame.oc-cam-success { border-color: #17804f; box-shadow: 0 0 0 4px rgba(23, 128, 79, 0.25); }
+.oc-cam-frame.oc-cam-queued, .oc-cam-frame.oc-cam-pending { border-color: var(--oc-blue); }
+.oc-cam-frame.oc-cam-warning { border-color: #d48a00; box-shadow: 0 0 0 4px rgba(212, 138, 0, 0.25); }
+.oc-cam-frame.oc-cam-error, .oc-cam-frame.oc-cam-duplicate { border-color: #b91c1c; box-shadow: 0 0 0 4px rgba(185, 28, 28, 0.3); }
+@media (prefers-reduced-motion: reduce) { .oc-mode-btn, .oc-cam-frame { transition: none; } }

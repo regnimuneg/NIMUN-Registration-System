@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Html5Qrcode } from 'html5-qrcode'
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode'
 import { api, ApiError, tokenManager } from '../../lib/api'
 import { serverNow, fmtTime, todayDayKey, cairoDate, useClockSync, LiveClock } from '../../lib/clock'
 import { QrCode, Search, CheckCircle, XCircle, RefreshCw, User, Camera, CameraOff, Calendar, UtensilsCrossed, Clock, LogIn, LogOut, MessageSquare, CheckSquare, Square, ChevronDown, Check, GlassWater, AlertTriangle, Undo2, WifiOff, CloudUpload, Loader2 } from 'lucide-react'
@@ -19,68 +19,71 @@ const SESSION_OPTIONS: SessionOption[] = [
   { id: 'conference-day1', label: 'Conference Day', date: 'November 27th', dayKey: 'conference.day1' }
 ]
 
-const playAudioFeedback = (type: 'success' | 'warning' | 'error') => {
+// One shared AudioContext. Phones start it muted until a tap, so it is
+// unlocked on the first touch/click (e.g. Start Camera) and then camera
+// scans can beep too. Creating a new context per beep also stops working
+// after a few dozen scans in Chrome.
+let sharedAudio: AudioContext | null = null
+function audioCtx(): AudioContext | null {
   try {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
-    if (!AudioContextClass) return
+    if (!AudioContextClass) return null
+    if (!sharedAudio) sharedAudio = new AudioContextClass()
+    if (sharedAudio.state === 'suspended') void sharedAudio.resume().catch(() => {})
+    return sharedAudio
+  } catch {
+    return null
+  }
+}
+const unlockAudio = () => { audioCtx() }
 
-    const ctx = new AudioContextClass()
-    
+function beep(ctx: AudioContext, freq: number, start: number, dur: number, vol: number, type: OscillatorType = 'sine') {
+  const osc = ctx.createOscillator()
+  const gain = ctx.createGain()
+  osc.type = type
+  osc.frequency.setValueAtTime(freq, start)
+  gain.gain.setValueAtTime(vol, start)
+  gain.gain.exponentialRampToValueAtTime(0.01, start + dur)
+  osc.connect(gain)
+  gain.connect(ctx.destination)
+  osc.start(start)
+  osc.stop(start + dur)
+}
+
+const playAudioFeedback = (type: 'success' | 'warning' | 'error') => {
+  try {
+    const ctx = audioCtx()
+    if (!ctx) return
+    const t = ctx.currentTime
     if (type === 'success') {
-      // Play a short high-pitch success beep (880Hz, 0.1s)
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = 'sine'
-      osc.frequency.setValueAtTime(880, ctx.currentTime)
-      gain.gain.setValueAtTime(0.1, ctx.currentTime)
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1)
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-      osc.start()
-      osc.stop(ctx.currentTime + 0.1)
+      beep(ctx, 880, t, 0.1, 0.1) // short high beep
     } else if (type === 'warning') {
-      // Play a double low-pitch warning beep (330Hz, 0.08s x 2)
-      const osc1 = ctx.createOscillator()
-      const gain1 = ctx.createGain()
-      osc1.frequency.setValueAtTime(330, ctx.currentTime)
-      gain1.gain.setValueAtTime(0.15, ctx.currentTime)
-      gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08)
-      osc1.connect(gain1)
-      gain1.connect(ctx.destination)
-      osc1.start()
-      osc1.stop(ctx.currentTime + 0.08)
-
-      setTimeout(() => {
-        try {
-          const ctx2 = new AudioContextClass()
-          const osc2 = ctx2.createOscillator()
-          const gain2 = ctx2.createGain()
-          osc2.frequency.setValueAtTime(330, ctx2.currentTime)
-          gain2.gain.setValueAtTime(0.15, ctx2.currentTime)
-          gain2.gain.exponentialRampToValueAtTime(0.01, ctx2.currentTime + 0.08)
-          osc2.connect(gain2)
-          gain2.connect(ctx2.destination)
-          osc2.start()
-          osc2.stop(ctx2.currentTime + 0.08)
-        } catch {}
-      }, 120)
-    } else if (type === 'error') {
-      // Play a low buzzer error sound (180Hz, 0.3s)
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = 'sawtooth'
-      osc.frequency.setValueAtTime(180, ctx.currentTime)
-      gain.gain.setValueAtTime(0.1, ctx.currentTime)
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3)
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-      osc.start()
-      osc.stop(ctx.currentTime + 0.3)
+      beep(ctx, 330, t, 0.08, 0.15) // double low beep
+      beep(ctx, 330, t + 0.12, 0.08, 0.15)
+    } else {
+      beep(ctx, 180, t, 0.3, 0.1, 'sawtooth') // low buzzer
     }
   } catch (e) {
     console.error('Audio feedback failed to play:', e)
   }
 }
+
+/**
+ * Tidy a typed ID so desks can type fast: "prs1", "PRS 1" and "prs-1" all
+ * become "PRS-01". Anything else (staff IDs, QR contents) is only trimmed
+ * and upper-cased, as before.
+ */
+export function normalizeId(raw: string): string {
+  const code = raw.trim().toUpperCase()
+  const m = code.match(/^([A-Z]{3})[\s-]*(\d{1,2})$/)
+  return m ? `${m[1]}-${m[2].padStart(2, '0')}` : code
+}
+
+// Phones and tablets: don't pop the keyboard up over the camera after each scan
+const isTouchDevice = () => typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches
+const CAMERA_PREF_KEY = 'oc27_camera_on'
+const MODE_PREF_KEY = 'oc27_scan_mode'
+const SCAN_TIMEOUT_MS = 8000
 
 const DAY_ACTIVITIES: Record<string, string[]> = {}
 
@@ -118,20 +121,24 @@ function readQueue(): QueuedScan[] {
 function writeQueue(q: QueuedScan[]) {
   try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)) } catch { /* storage full or blocked */ }
 }
-function sendScan(item: QueuedScan) {
+// live = a scan at the desk right now: one request that checks and saves, with a
+// time limit so bad Wi-Fi falls back to the offline queue instead of hanging.
+// Queued replays are sent exactly as before.
+function sendScan(item: QueuedScan, live = false) {
+  const timeout = live ? SCAN_TIMEOUT_MS : undefined
   if (item.mode === 'attendance') {
     return api.updateAttendance({
       participantId: item.id, dayKey: item.dayKey, field: 'attended', value: item.value,
-      ...(item.value ? { checkIn: true } : {}), scannedAt: item.at,
-    })
+      ...(item.value ? { checkIn: true } : {}), ...(live && item.value ? { rejectIfPresent: true } : {}), scannedAt: item.at,
+    }, timeout)
   }
   if (item.mode === 'checkout') {
     // value false = undo the check-out (attendance itself stays)
     return api.updateAttendance({
       participantId: item.id, dayKey: item.dayKey, field: 'attended', value: item.value, checkOut: true, scannedAt: item.at,
-    })
+    }, timeout)
   }
-  return api.updateFood({ participantId: item.id, dayKey: item.dayKey, meal: 'lunch', value: item.value, scannedAt: item.at })
+  return api.updateFood({ participantId: item.id, dayKey: item.dayKey, meal: 'lunch', value: item.value, scannedAt: item.at }, timeout)
 }
 const buzz = (pattern: number | number[]) => { try { navigator.vibrate?.(pattern) } catch { /* not supported */ } }
 const timeOf = (iso?: string | null) => fmtTime(iso)
@@ -161,12 +168,11 @@ export default function ScanPage() {
   const [isScanning, setIsScanning] = useState(false)
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-  const [isScanModeDropdownOpen, setIsScanModeDropdownOpen] = useState(false)
   const scannerRef = useRef<Html5Qrcode | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
-  const scanModeDropdownRef = useRef<HTMLDivElement>(null)
   const manualInputRef = useRef<HTMLInputElement>(null)
   const scanInFlightRef = useRef(false)
+  const cameraStartingRef = useRef(false)
   const loadedTrackingKeyRef = useRef<string | null>(null)
   const qrCodeRegionId = 'qr-reader'
 
@@ -195,10 +201,23 @@ export default function ScanPage() {
   const lastCodeRef = useRef<{ code: string; at: number }>({ code: '', at: 0 })
   const statusTimerRef = useRef<number | null>(null)
 
+  // Keep the desk's mode (e.g. Food) for the day across page reloads,
+  // otherwise start each day on Attendance
   useEffect(() => {
-    setScanMode('attendance')
+    let saved: { dayKey?: string; mode?: string } = {}
+    try { saved = JSON.parse(localStorage.getItem(MODE_PREF_KEY) || '{}') } catch { /* ignore */ }
+    const ok = saved.dayKey === selectedSession?.dayKey && getAvailableScanModes().some(m => m.value === saved.mode)
+    setScanMode(ok && saved.mode ? saved.mode : 'attendance')
     setQuickScanStatus(null)
   }, [selectedSession])
+
+  const chooseScanMode = (mode: string) => {
+    setScanMode(mode)
+    setQuickScanStatus(null)
+    try { localStorage.setItem(MODE_PREF_KEY, JSON.stringify({ dayKey: selectedSession?.dayKey, mode })) } catch { /* storage blocked */ }
+    // Typing desks: straight back to the ID box
+    if (!isTouchDevice()) window.setTimeout(() => manualInputRef.current?.focus(), 0)
+  }
 
   useEffect(() => {
     // Cleanup on unmount
@@ -340,33 +359,34 @@ export default function ScanPage() {
     }
   }, [isDropdownOpen])
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (scanModeDropdownRef.current && !scanModeDropdownRef.current.contains(event.target as Node)) {
-        setIsScanModeDropdownOpen(false)
-      }
-    }
 
-    if (isScanModeDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [isScanModeDropdownOpen])
-
-  const startScanning = async () => {
+  // auto: reopening the page with the camera left on last time
+  const startScanning = async (auto = false) => {
+    if (scannerRef.current || cameraStartingRef.current) return
+    cameraStartingRef.current = true
+    unlockAudio()
     try {
       setCameraError(null)
-      const html5QrCode = new Html5Qrcode(qrCodeRegionId)
+      const html5QrCode = new Html5Qrcode(qrCodeRegionId, {
+        verbose: false,
+        // Only look for QR codes (not every barcode type), and use the phone's
+        // built-in fast detector where the browser has one (Android Chrome)
+        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+        experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+      })
       scannerRef.current = html5QrCode
 
       await html5QrCode.start(
         { facingMode: 'environment' }, // Use back camera
         {
-          fps: 10,
-          qrbox: { width: 250, height: 250 }
+          fps: 15,
+          // Scan box sized to the screen (most of the view), so less aiming
+          qrbox: (w: number, h: number) => {
+            const side = Math.max(160, Math.floor(Math.min(w, h) * 0.8))
+            return { width: side, height: side }
+          },
+          // QR codes on phones/paper are never mirrored: skip the second, flipped pass
+          disableFlip: true,
         },
         (decodedText) => {
           if (scanInFlightRef.current) return
@@ -389,13 +409,22 @@ export default function ScanPage() {
         }
       )
       setIsScanning(true)
+      try { localStorage.setItem(CAMERA_PREF_KEY, '1') } catch { /* storage blocked */ }
     } catch (err: any) {
-      setCameraError(err.message || 'Failed to start camera')
+      scannerRef.current = null
+      // A failed automatic start just leaves the Start Camera button there
+      if (!auto) setCameraError(err?.message || String(err || '') || 'Failed to start camera')
       setIsScanning(false)
+    } finally {
+      cameraStartingRef.current = false
     }
   }
 
-  const stopScanning = async () => {
+  // userAction: the Stop Camera button, so next time the camera stays off
+  const stopScanning = async (userAction = false) => {
+    if (userAction === true) {
+      try { localStorage.removeItem(CAMERA_PREF_KEY) } catch { /* storage blocked */ }
+    }
     if (scannerRef.current) {
       try {
         await scannerRef.current.stop()
@@ -444,6 +473,8 @@ export default function ScanPage() {
       setSyncing(false)
     }
   }
+  const startScanningRef = useRef(startScanning)
+  startScanningRef.current = startScanning
   const syncRef = useRef(syncQueue)
   syncRef.current = syncQueue
 
@@ -453,59 +484,52 @@ export default function ScanPage() {
     window.addEventListener('online', on)
     window.addEventListener('offline', off)
     const t = window.setInterval(() => { if (readQueue().length) void syncRef.current() }, 15000)
+    // Camera was on last time: start it again without a tap
+    let camPref = false
+    try { camPref = localStorage.getItem(CAMERA_PREF_KEY) === '1' } catch { /* storage blocked */ }
+    if (camPref) void startScanningRef.current(true)
     void syncRef.current()
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); window.clearInterval(t) }
   }, [])
 
-  const quickScan = async (rawCode: string) => {
+  const quickScan = async (rawCode: string, fromKeyboard = false) => {
     if (!selectedSession) return
-    const code = rawCode.trim().toUpperCase()
+    const code = normalizeId(rawCode)
     if (!code) return
     const mode: QuickMode = scanMode === 'lunch' ? 'lunch' : scanMode === 'checkout' ? 'checkout' : 'attendance'
     const item: QueuedScan = { id: code, dayKey: selectedSession.dayKey, mode, value: true, at: serverNow().toISOString() }
     const what = modeLabel(mode)
     showStatus({ type: 'pending', message: 'Checking…', name: code })
-    let name = code
+    // The typed box is free for the next ID straight away
+    setScannedId('')
     try {
-      const data = await api.getParticipant(code, true)
-      if (!data?.participant) throw new ApiError('Not found', { status: 404 })
-      name = data.participant.name || code
-      const dayData = data.tracking ? getDayDataFromTracking(data.tracking.dayTracking, item.dayKey) : null
-      if (mode === 'attendance' && dayData?.attended) {
-        playAudioFeedback('warning'); buzz([60, 60, 60])
-        showStatus({ type: 'warning', message: 'Already marked present', name, detail: `${code}${dayData.checkin ? ` · scanned at ${timeOf(dayData.checkin)}` : ''}` }, 3200)
-        return
-      }
-      if (mode === 'checkout' && !dayData?.attended && !dayData?.checkin) {
-        playAudioFeedback('error'); buzz([200, 80, 200])
-        showStatus({ type: 'error', message: 'Not checked in today', name, detail: `${code} · Scan them in with Attendance first. No check-out saved.` }, 4500)
-        return
-      }
-      if (mode === 'checkout' && dayData?.checkout) {
-        playAudioFeedback('warning'); buzz([60, 60, 60])
-        showStatus({ type: 'warning', message: 'Already checked out', name, detail: `${code} · checked out at ${timeOf(dayData.checkout)}` }, 4000)
-        return
-      }
-      await sendScan(item)
+      // One request: the server checks (already scanned, not checked in, inactive,
+      // unknown ID) and saves in the same call, and sends the name back
+      const res: any = await sendScan(item, true)
+      const name = res?.name || code
       playAudioFeedback('success'); buzz(40)
       showStatus({ type: 'success', message: mode === 'lunch' ? 'Food logged' : mode === 'checkout' ? 'Checked out' : 'Marked present', name, detail: `${code} · ${selectedSession.label}` })
       setLastAction({ ...item, name })
       setScanHistory(prev => [{ id: code, name: `${name} · ${what}`, time: fmtTime(serverNow(), true) }, ...prev.slice(0, 19)])
     } catch (e: any) {
+      const who = e instanceof ApiError && e.data?.name && e.data.name !== code ? `${e.data.name} · ${code}` : code
       if (e instanceof ApiError && e.network) {
         enqueue(item)
         playAudioFeedback('success'); buzz([30, 40, 30])
         showStatus({ type: 'queued', message: 'Saved offline', name: code, detail: 'It will sync when the connection is back' }, 2600)
         setScanHistory(prev => [{ id: code, name: `${code} · ${what} (offline)`, time: fmtTime(serverNow(), true) }, ...prev.slice(0, 19)])
+      } else if (e instanceof ApiError && e.status === 409 && e.data?.alreadyPresent) {
+        playAudioFeedback('warning'); buzz([60, 60, 60])
+        showStatus({ type: 'warning', message: 'Already marked present', name: e.data.name || code, detail: `${code}${e.data.checkedInAt ? ` · scanned at ${timeOf(e.data.checkedInAt)}` : ''}` }, 3200)
       } else if (e instanceof ApiError && e.status === 409 && e.data?.notCheckedIn) {
         playAudioFeedback('error'); buzz([200, 80, 200])
-        showStatus({ type: 'error', message: 'Not checked in today', name: name === code ? code : `${name} · ${code}`, detail: 'Scan them in with Attendance first. No check-out saved.' }, 4500)
+        showStatus({ type: 'error', message: 'Not checked in today', name: who, detail: 'Scan them in with Attendance first. No check-out saved.' }, 4500)
       } else if (e instanceof ApiError && e.status === 409 && e.data?.duplicate && mode === 'checkout') {
         playAudioFeedback('warning'); buzz([60, 60, 60])
-        showStatus({ type: 'warning', message: 'Already checked out', name: name === code ? code : `${name} · ${code}`, detail: e.data.checkedOutAt ? `Checked out at ${timeOf(e.data.checkedOutAt)}` : undefined }, 4000)
+        showStatus({ type: 'warning', message: 'Already checked out', name: who, detail: e.data.checkedOutAt ? `Checked out at ${timeOf(e.data.checkedOutAt)}` : undefined }, 4000)
       } else if (e instanceof ApiError && e.status === 409 && e.data?.duplicate) {
         playAudioFeedback('error'); buzz([200, 80, 200])
-        showStatus({ type: 'duplicate', message: 'Already got food', name: name === code ? code : `${name} · ${code}`, detail: e.data.claimedAt ? `First claimed at ${timeOf(e.data.claimedAt)}. Do not serve again.` : 'Do not serve again.' }, 4500)
+        showStatus({ type: 'duplicate', message: 'Already got food', name: who, detail: e.data.claimedAt ? `First claimed at ${timeOf(e.data.claimedAt)}. Do not serve again.` : 'Do not serve again.' }, 4500)
       } else if (e instanceof ApiError && e.data?.inactive) {
         playAudioFeedback('error'); buzz([200, 80, 200])
         showStatus({ type: 'error', message: 'Inactive: do not admit', name: code, detail: 'This person was removed from the OC list' }, 4000)
@@ -517,8 +541,9 @@ export default function ScanPage() {
         showStatus({ type: 'error', message: e?.message || 'Scan failed', name: code }, 3500)
       }
     } finally {
-      setScannedId('')
-      manualInputRef.current?.focus()
+      // Typed IDs and desktop keyboards/USB scanners: ready for the next one.
+      // Phones scanning by camera: leave the keyboard down.
+      if (fromKeyboard || !isTouchDevice()) manualInputRef.current?.focus()
     }
   }
   const quickScanRef = useRef(quickScan)
@@ -546,7 +571,8 @@ export default function ScanPage() {
 
   const handleScan = async (participantId: string, lockAlreadyHeld = false) => {
     if (scanMode !== 'view') {
-      try { await quickScan(participantId) } finally { scanInFlightRef.current = false }
+      // Typed / keyboard-wedge entry. Don't block it while the camera is busy.
+      try { await quickScan(participantId, !lockAlreadyHeld) } finally { if (lockAlreadyHeld) scanInFlightRef.current = false }
       return
     }
     if (!participantId.trim() || !selectedSession) {
@@ -559,8 +585,8 @@ export default function ScanPage() {
       scanInFlightRef.current = true
     }
 
-    // Make case-insensitive - convert to uppercase for search
-    const searchId = participantId.trim().toUpperCase()
+    // Make case-insensitive - convert to uppercase for search ("prs1" -> "PRS-01")
+    const searchId = normalizeId(participantId)
     const trackingKey = `${searchId}:${selectedSession.dayKey}`
 
     setLoading(true)
@@ -885,10 +911,16 @@ export default function ScanPage() {
   }
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && scannedId) {
-      handleScan(scannedId)
+    if (e.key === 'Enter' && scannedId.trim()) {
+      e.preventDefault()
+      void handleScan(scannedId)
     }
   }
+
+  // Laptops / USB scanners: the ID box is ready to type into on arrival
+  useEffect(() => {
+    if (!isTouchDevice()) manualInputRef.current?.focus()
+  }, [])
 
   const clearScan = () => {
     setScannedId('')
@@ -1202,7 +1234,6 @@ export default function ScanPage() {
     return modes
   }
 
-  const activeMode = getAvailableScanModes().find(m => m.value === scanMode) || { value: 'view', label: 'Manual / View Details' }
 
   return (
     <div className="jn-page">
@@ -1308,68 +1339,29 @@ export default function ScanPage() {
                   <QrCode className="w-5 h-5 text-[var(--color-primary-blue)]" />
                   <h2 className="text-lg sm:text-xl font-black">Scan Mode</h2>
                 </div>
-                <div className="w-full relative" ref={scanModeDropdownRef}>
-                  {/* Custom Dropdown Button */}
-                  <button
-                    type="button"
-                    disabled={!selectedSession}
-                    onClick={() => setIsScanModeDropdownOpen(!isScanModeDropdownOpen)}
-                    className="w-full px-4 py-3.5 rounded-2xl border-2 border-[var(--jn-blue)] bg-white hover:border-[var(--jn-pink)] focus:border-[var(--jn-blue)] focus:ring-2 focus:ring-blue-100 transition-all duration-200 flex items-center justify-between text-left shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      {selectedSession ? (
-                        <>
-                          <div className="flex-shrink-0 w-2 h-2 rounded-full bg-blue-500"></div>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-semibold text-gray-900 truncate">{activeMode.label}</div>
-                          </div>
-                        </>
-                      ) : (
-                        <span className="text-gray-500 font-medium">Select a session first...</span>
-                      )}
-                    </div>
-                    <ChevronDown
-                      className={`w-5 h-5 text-gray-400 flex-shrink-0 transition-transform duration-200 ${isScanModeDropdownOpen ? 'transform rotate-180' : ''
-                        }`}
-                    />
-                  </button>
-
-                  {/* Dropdown Menu */}
-                  {isScanModeDropdownOpen && selectedSession && (
-                    <div className="absolute z-50 w-full mt-2 bg-white border-2 border-[var(--jn-blue)] rounded-3xl shadow-xl overflow-hidden dropdown-menu">
-                      <div className="max-h-80 overflow-y-auto scrollbar-hide">
-                        {getAvailableScanModes().map((mode) => {
-                          const isSelected = scanMode === mode.value
-
-                          return (
-                            <button
-                              key={mode.value}
-                              type="button"
-                              onClick={() => {
-                                setScanMode(mode.value)
-                                setIsScanModeDropdownOpen(false)
-                              }}
-                              className={`w-full px-4 py-3.5 text-left hover:bg-blue-50 transition-colors duration-150 border-b border-gray-100 last:border-b-0 ${isSelected ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
-                                }`}
-                            >
-                              <div className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-3 flex-1 min-w-0">
-                                  <div className={`font-semibold truncate ${isSelected ? 'text-blue-700' : 'text-gray-900'
-                                    }`}>
-                                    {mode.label}
-                                  </div>
-                                </div>
-                                {isSelected && (
-                                  <Check className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                                )}
-                              </div>
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )}
+                {/* One tap to switch: no dropdown */}
+                <div className="oc-mode-row" role="radiogroup" aria-label="Scan mode">
+                  {getAvailableScanModes().map((mode) => (
+                    <button
+                      key={mode.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={scanMode === mode.value}
+                      disabled={!selectedSession}
+                      onClick={() => chooseScanMode(mode.value)}
+                      className={`oc-mode-btn oc-mode-${mode.value} ${scanMode === mode.value ? 'is-active' : ''}`}
+                    >
+                      {mode.value === 'attendance' ? <LogIn className="w-4 h-4" />
+                        : mode.value === 'checkout' ? <LogOut className="w-4 h-4" />
+                        : mode.value === 'lunch' ? <UtensilsCrossed className="w-4 h-4" />
+                        : <Search className="w-4 h-4" />}
+                      <span>{mode.value === 'view' ? 'Manual' : mode.label}</span>
+                    </button>
+                  ))}
                 </div>
+                {scanMode === 'view' && (
+                  <p className="mt-2 text-xs text-gray-600">Manual / View Details: shows the person's details. Nothing is recorded until you switch something on.</p>
+                )}
               </div>
             </div>
 
@@ -1435,7 +1427,7 @@ export default function ScanPage() {
               <h2 className="text-lg sm:text-xl font-black">Camera Scanner</h2>
               {!isScanning ? (
                 <button
-                  onClick={startScanning}
+                  onClick={() => void startScanning()}
                   disabled={!selectedSession}
                   className="btn-primary flex items-center gap-2 text-sm sm:text-base w-full sm:w-auto justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -1444,7 +1436,7 @@ export default function ScanPage() {
                 </button>
               ) : (
                 <button
-                  onClick={stopScanning}
+                  onClick={() => void stopScanning(true)}
                   className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium text-sm sm:text-base w-full sm:w-auto justify-center"
                 >
                   <CameraOff className="w-4 h-4" />
@@ -1453,7 +1445,10 @@ export default function ScanPage() {
               )}
             </div>
 
-            <div id={qrCodeRegionId} className="w-full max-w-md mx-auto" />
+            {/* Frame turns green / amber / red with the result, so the desk sees it while aiming */}
+            <div className={`oc-cam-frame w-full max-w-md mx-auto ${isScanning ? 'is-on' : ''} ${quickScanStatus ? `oc-cam-${quickScanStatus.type}` : ''}`}>
+              <div id={qrCodeRegionId} className="w-full" />
+            </div>
 
             {cameraError && (
               <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
@@ -1477,8 +1472,13 @@ export default function ScanPage() {
                     type="text"
                     value={scannedId}
                     onChange={handleInputChange}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Type an ID, e.g. PRS-01"
+                    onKeyDown={handleKeyPress}
+                    placeholder="Type an ID, e.g. PRS-01 or prs1"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="characters"
+                    spellCheck={false}
+                    enterKeyHint="go"
                     disabled={!selectedSession}
                     className="w-full pl-10 pr-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
                   />
@@ -1497,8 +1497,8 @@ export default function ScanPage() {
                     </>
                   ) : (
                     <>
-                      <Search className="w-4 h-4" />
-                      Search
+                      {scanMode === 'view' ? <Search className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+                      {scanMode === 'view' ? 'Search' : 'Record'}
                     </>
                   )}
                 </button>

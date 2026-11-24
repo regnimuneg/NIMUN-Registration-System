@@ -1,7 +1,8 @@
 import express, { type Request, type Response } from 'express'
 import { query } from '../config/index.js'
 import { scanTime } from '../lib/scan-time.js'
-import { trackingBlockedReason, isInactiveMember, INACTIVE_ERROR } from '../middleware/auth.js'
+import { INACTIVE_ERROR } from '../middleware/auth.js'
+import { lookupPerson, blockedFor } from '../lib/person.js'
 
 const router = express.Router()
 
@@ -34,33 +35,21 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     // Access control from the server-side session (requesterId from the browser is ignored)
-    const blocked = await trackingBlockedReason(req, participantId, 'food')
+    // One lookup for access, inactive, type and user (was five separate queries)
+    const person = await lookupPerson(participantId)
+    const blocked = blockedFor(req, person, 'food')
     if (blocked) return res.status(403).json({ error: blocked })
-    if (await isInactiveMember(participantId)) return res.status(403).json({ error: INACTIVE_ERROR, inactive: true })
+    if (person?.inactive) return res.status(403).json({ error: INACTIVE_ERROR, inactive: true })
 
     const timestamp = scanTime(req.body.scannedAt)
 
-    // Get user_id for this participant (delegate, member, or invitation)
-    const participantCheck = await query(`
-      SELECT user_id FROM delegates WHERE id = $1
-      UNION ALL
-      SELECT user_id FROM members WHERE id = $1
-      UNION ALL
-      SELECT user_id FROM invitations WHERE id = $1
-      LIMIT 1
-    `, [participantId])
-
-    if (participantCheck.rows.length === 0) {
+    if (!person) {
       return res.status(404).json({ error: 'Participant not found' })
     }
 
-    const userId = participantCheck.rows[0].user_id
-
-    // Check if participant is delegate or invitation
-    const delegateCheck = await query('SELECT id FROM delegates WHERE id = $1', [participantId])
-    const isDelegate = delegateCheck.rows.length > 0
-    const invitationCheck = await query('SELECT id FROM invitations WHERE id = $1', [participantId])
-    const isInvitation = invitationCheck.rows.length > 0
+    const userId = person.userId
+    const isDelegate = person.source === 'delegate'
+    const isInvitation = person.source === 'invitation'
 
     // '27: refuse a second food claim for the same meal and say when the first was
     const dupField = FOOD_FIELDS[`${dayKey}.${meal}`]
@@ -77,6 +66,7 @@ router.post('/', async (req: Request, res: Response) => {
         return res.status(409).json({
           error: 'Food already claimed',
           duplicate: true,
+          name: person.name,
           claimedAt: last.rows[0]?.created_at ?? null,
         })
       }
@@ -136,7 +126,8 @@ router.post('/', async (req: Request, res: Response) => {
     res.json({
       success: true,
       message: `Food tracking updated for ${participantId}: ${dayKey}.${meal} = ${value}`,
-      timestamp: timestamp.toISOString()
+      timestamp: timestamp.toISOString(),
+      name: person.name
     })
   } catch (error) {
     console.error('Food tracking update error:', error)
