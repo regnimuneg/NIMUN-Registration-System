@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Html5Qrcode } from 'html5-qrcode'
-import { api, ApiError } from '../../lib/api'
+import { api, ApiError, tokenManager } from '../../lib/api'
 import { serverNow, fmtTime, todayDayKey, cairoDate, useClockSync, LiveClock } from '../../lib/clock'
 import { QrCode, Search, CheckCircle, XCircle, RefreshCw, User, Camera, CameraOff, Calendar, UtensilsCrossed, Clock, LogIn, LogOut, MessageSquare, CheckSquare, Square, ChevronDown, Check, GlassWater, AlertTriangle, Undo2, WifiOff, CloudUpload, Loader2 } from 'lucide-react'
 
@@ -1547,6 +1547,7 @@ export default function ScanPage() {
                   <p className="text-sm text-gray-600 mb-1">ID</p>
                   <p className="font-semibold">{participant.id}</p>
                 </div>
+                {tokenManager.getUserRole() === 'admin' && (
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <p className="text-sm text-gray-600 mb-1">Phone</p>
                   <p className="font-semibold break-all text-sm">
@@ -1555,6 +1556,7 @@ export default function ScanPage() {
                       : 'N/A'}
                   </p>
                 </div>
+                )}
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <p className="text-sm text-gray-600 mb-1">
                     {participant.council ? 'Council' : 'Committee'}

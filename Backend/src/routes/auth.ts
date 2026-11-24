@@ -112,6 +112,9 @@ router.post('/login', async (req: Request, res: Response) => {
     failedLogins.delete(throttleKey)
 
     const { access, council } = accessFor(user.permissions, user.member_role)
+    if (!access) {
+      return res.status(403).json({ success: false, error: 'This account cannot sign in to the portal' })
+    }
     const userRole = ROLE_FOR_ACCESS[access]
     const userName = `${user.first_name} ${user.last_name}`.trim()
 

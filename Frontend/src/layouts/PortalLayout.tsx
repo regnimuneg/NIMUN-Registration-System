@@ -71,8 +71,8 @@ export default function PortalLayout() {
     { href: '/member/scanner', label: 'Scanner', icon: Smartphone, paths: ['/member/scanner', '/scan'] }
   ]
 
+  // Scanning desks: scanner only
   const memberLinks = [
-    { href: '/member/participants', label: 'Participants', icon: Users, paths: ['/member/participants'] },
     { href: '/member/scanner', label: 'Scanner', icon: Smartphone, paths: ['/member/scanner', '/scan'] }
   ]
 
@@ -212,17 +212,6 @@ export default function PortalLayout() {
 
               {isMember && (
                 <>
-                  <a
-                    href="/member/participants"
-                    className="flex items-center px-4 py-3 rounded-2xl text-base font-extrabold text-[var(--jn-blue)] hover:bg-blue-50 transition-colors"
-                    onClick={() => {
-                      setIsMobileMenuOpen(false)
-                      setMobileMemberOpen(false)
-                    }}
-                  >
-                    <Users className="w-5 h-5 mr-3" />
-                    Participants
-                  </a>
                   <a
                     href="/member/scanner"
                     className="flex items-center px-4 py-3 rounded-2xl text-base font-extrabold text-[var(--jn-blue)] hover:bg-blue-50 transition-colors"

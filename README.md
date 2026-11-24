@@ -39,8 +39,9 @@ Everyone signs in with an account ID and password. Passwords are never stored in
 | `OC-UNICEF` | UNICEF Secretariat | Live Board for UNICEF only |
 | `OC-CCPCJ` | CCPCJ Secretariat | Live Board for CCPCJ only |
 | `OC-IAEA` | IAEA Secretariat | Live Board for IAEA only |
+| `OC-DESK1`, `OC-DESK2`, `OC-DESK3` | Scanning desks 1 to 3 | Scanner only: check people in by QR or ID. No participant list, Live Board, export, clears, phone numbers or emails |
 
-Any other account gets scanner access only.
+Any other account (including the OC members themselves) cannot sign in.
 
 The backend checks a server-side session on every request (the `auth_sessions` table, 7-day sessions, revoked on logout), so these limits hold even if someone calls the API directly. Council accounts are locked to their own council on the board, the log, the search and the export, and never see phone numbers.
 

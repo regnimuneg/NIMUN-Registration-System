@@ -5,7 +5,8 @@ import { query } from '../config/index.js'
 /**
  * Access levels:
  *   full       Highboard, Registration Affairs, admins: every endpoint
- *   scan       scanner staff: look people up and record check-ins
+ *   scan       scanning desks: scan a QR / type an ID and record check-ins.
+ *              No participant list, no phone numbers or emails, no analytics.
  *   analytics  Press Head, Secretariats: scan analytics for their own council
  */
 export type AccessLevel = 'full' | 'scan' | 'analytics'
@@ -38,8 +39,12 @@ export function newToken() {
   return { token, tokenHash: hashToken(token), expiresAt }
 }
 
-/** Work out an account's access level from members.permissions and role. */
-export function accessFor(permissions: any, role: string | null): { access: AccessLevel; council: string | null } {
+/**
+ * Work out an account's access level from members.permissions and role.
+ * Returns access null for accounts with no access set (for example the
+ * 105 OC members, who are people to scan, not staff): they cannot sign in.
+ */
+export function accessFor(permissions: any, role: string | null): { access: AccessLevel | null; council: string | null } {
   const p = permissions && typeof permissions === 'object' ? permissions : {}
   if (p.access === 'full' || p.access === 'scan' || p.access === 'analytics') {
     return { access: p.access, council: p.access === 'analytics' ? (p.council ?? null) : null }
@@ -47,7 +52,7 @@ export function accessFor(permissions: any, role: string | null): { access: Acce
   // NIMUN'26 accounts: {"admin": true, ...} or a role containing "admin"
   if (p.admin === true || p.super_admin === true || /admin/i.test(role ?? '')) return { access: 'full', council: null }
   if (p.check_in === true) return { access: 'scan', council: null }
-  return { access: 'scan', council: null }
+  return { access: null, council: null }
 }
 
 const mockAuthEnabled = () => process.env.NODE_ENV !== 'production' && process.env.MOCK_AUTH_ENABLED === 'true'
@@ -78,6 +83,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     if (!row || !row.member_id) return res.status(401).json({ error: 'Session expired. Please sign in again.' })
 
     const { access, council } = accessFor(row.permissions, row.role)
+    if (!access) return res.status(403).json({ error: 'This account has no access' })
     if (access === 'analytics' && !council) return res.status(403).json({ error: 'Account has no council assigned' })
     req.auth = { userId: row.user_id, memberId: row.member_id, name: row.name, access, council }
     next()

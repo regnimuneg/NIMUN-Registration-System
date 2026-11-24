@@ -21,7 +21,7 @@ Re-running is safe: people are matched by council and phone number and keep thei
 
 ## Staff accounts and access
 
-From `Backend/`, run `npm run oc27:accounts`. It creates six accounts and prints each password once (also saved to the git-ignored `Backend/private/oc27-accounts.csv`). Only bcrypt hashes are stored in the database. Sign in with the account ID.
+From `Backend/`, run `npm run oc27:accounts`. It creates nine accounts and prints each password once (also saved to the git-ignored `Backend/private/oc27-accounts.csv`). Only bcrypt hashes are stored in the database. Sign in with the account ID.
 
 | Account ID | Who | Access |
 |---|---|---|
@@ -31,6 +31,7 @@ From `Backend/`, run `npm run oc27:accounts`. It creates six accounts and prints
 | OC-UNICEF | UNICEF Secretariat | Scan Analytics, UNICEF only |
 | OC-CCPCJ | CCPCJ Secretariat | Scan Analytics, CCPCJ only |
 | OC-IAEA | IAEA Secretariat | Scan Analytics, IAEA only |
+| OC-DESK1, OC-DESK2, OC-DESK3 | Scanning desks | Scanner only (no lists, analytics or phone numbers) |
 
 The backend checks a server-side session on every request (`auth_sessions` table), so these limits hold even if someone calls the API directly. `npm run oc27:accounts -- --reset OC-PRESS` (or `--reset all`) issues a new password and signs that account out everywhere.
 

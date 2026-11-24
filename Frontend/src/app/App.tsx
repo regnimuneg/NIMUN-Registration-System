@@ -10,7 +10,7 @@ import ScanAnalyticsPage from '../features/analytics/ScanAnalyticsPage'
 import { tokenManager } from '../lib/api'
 
 // Protected Route Component
-// Roles: admin (full access), member (scanner), analyst (scan analytics only).
+// Roles: admin (full access), member (scanning desk: scanner page only), analyst (scan analytics only).
 // The backend enforces the same rules; this only decides which pages to show.
 function ProtectedRoute({ children, requireAdmin = false, allow }: { children: React.ReactNode, requireAdmin?: boolean, allow?: string[] }) {
   const token = tokenManager.getToken()
@@ -48,8 +48,8 @@ export default function App() {
         <Route path="/analytics/scans" element={<ProtectedRoute allow={['admin', 'analyst']}><ScanAnalyticsPage /></ProtectedRoute>} />
 
         {/* Member routes */}
-        <Route path="/member" element={<ProtectedRoute><MemberDashboardPage /></ProtectedRoute>} />
-        <Route path="/member/participants" element={<ProtectedRoute><MemberParticipantsPage /></ProtectedRoute>} />
+        <Route path="/member" element={<ProtectedRoute requireAdmin><MemberDashboardPage /></ProtectedRoute>} />
+        <Route path="/member/participants" element={<ProtectedRoute requireAdmin><MemberParticipantsPage /></ProtectedRoute>} />
         <Route path="/member/scanner" element={<ProtectedRoute><ScanPage /></ProtectedRoute>} />
         <Route path="/scan" element={<ProtectedRoute><ScanPage /></ProtectedRoute>} />
       </Route>

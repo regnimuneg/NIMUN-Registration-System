@@ -1,5 +1,5 @@
 /**
- * OC Conference '27: create the six staff accounts.
+ * OC Conference '27: create the staff accounts (6 staff + 3 scanning desks).
  *
  *   npm run oc27:accounts                 create any that are missing
  *   npm run oc27:accounts -- --reset ID   new password for one account (or --reset all)
@@ -33,7 +33,8 @@ interface Account {
   permissions: Record<string, unknown>
 }
 
-// full = everything; analytics = scan analytics for one council only
+// full = everything; analytics = scan analytics for one council only;
+// scan = scanning desk: scanner page only (no lists, analytics or phone numbers)
 export const ACCOUNTS: Account[] = [
   { id: 'OC-REG', firstName: 'Registration', lastName: 'Affairs', userType: 'member', role: 'Registration Affairs', committee: 'Registration Affairs', permissions: { access: 'full' } },
   { id: 'OC-HB', firstName: 'High', lastName: 'Board', userType: 'high board', role: 'Highboard', committee: 'High Board', permissions: { access: 'full' } },
@@ -41,6 +42,9 @@ export const ACCOUNTS: Account[] = [
   { id: 'OC-UNICEF', firstName: 'UNICEF', lastName: 'Secretariat', userType: 'executive', role: 'UNICEF Secretariat', committee: 'Executive', permissions: { access: 'analytics', council: 'UNICEF' } },
   { id: 'OC-CCPCJ', firstName: 'CCPCJ', lastName: 'Secretariat', userType: 'executive', role: 'CCPCJ Secretariat', committee: 'Executive', permissions: { access: 'analytics', council: 'CCPCJ' } },
   { id: 'OC-IAEA', firstName: 'IAEA', lastName: 'Secretariat', userType: 'executive', role: 'IAEA Secretariat', committee: 'Executive', permissions: { access: 'analytics', council: 'IAEA' } },
+  { id: 'OC-DESK1', firstName: 'Scanning', lastName: 'Desk 1', userType: 'member', role: 'Scanning Desk', committee: 'Registration Affairs', permissions: { access: 'scan' } },
+  { id: 'OC-DESK2', firstName: 'Scanning', lastName: 'Desk 2', userType: 'member', role: 'Scanning Desk', committee: 'Registration Affairs', permissions: { access: 'scan' } },
+  { id: 'OC-DESK3', firstName: 'Scanning', lastName: 'Desk 3', userType: 'member', role: 'Scanning Desk', committee: 'Registration Affairs', permissions: { access: 'scan' } },
 ]
 
 const USER_NAMESPACE = '6ba7b811-9dad-11d1-80b4-00c04fd430c8'
@@ -130,7 +134,7 @@ async function main() {
   }
 
   if (issued.length === 0) {
-    console.log('All 6 accounts already exist. Nothing changed. Use --reset <ID|all> for new passwords.')
+    console.log(`All ${ACCOUNTS.length} accounts already exist. Nothing changed. Use --reset <ID|all> for new passwords.`)
     return
   }
   const outFile = path.join(BACKEND_DIR, 'private/oc27-accounts.csv')

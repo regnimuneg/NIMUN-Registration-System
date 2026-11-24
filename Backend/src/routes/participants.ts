@@ -5,6 +5,16 @@ import { query } from '../config/index.js'
 
 const router = express.Router()
 
+/**
+ * Scanning desk (access "scan") accounts may only look up one person by ID
+ * to scan them. The full list, tracking and history are full-access only,
+ * and contact details are never sent to them.
+ */
+const fullOnly = (req: Request, res: Response, next: () => void) => {
+  if (req.auth?.access === 'full') return next()
+  res.status(403).json({ error: 'Your account does not have access to this' })
+}
+
 type ParticipantSource = 'delegate' | 'member' | 'invitation'
 
 interface ParticipantLookupRow extends QueryResultRow {
@@ -28,7 +38,7 @@ interface ParticipantLookupRow extends QueryResultRow {
 }
 
 // Get all participants (delegates and members)
-router.get('/', async (_req: Request, res: Response) => {
+router.get('/', fullOnly, async (_req: Request, res: Response) => {
   try {
     // Get all delegates (using users table as single source of truth)
     const delegates = await query(`
@@ -206,6 +216,14 @@ router.get('/:id', async (req: Request, res: Response) => {
       position: participantData.position || null
     }
     delete normalizedData.sortOrder
+    delete normalizedData.phonenumber
+    delete normalizedData.phone_number
+    if (req.auth?.access !== 'full') {
+      // Scanning desks never see contact details
+      normalizedData.phoneNumber = null
+      normalizedData.email = null
+      delete normalizedData.userId
+    }
 
     // Determine if this is a delegate:
     // - Delegates have council in position field (like "PRESS", "DISEC", etc.)
@@ -262,7 +280,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 })
 
 // Get participant tracking data
-router.get('/:id/tracking', async (req: Request, res: Response) => {
+router.get('/:id/tracking', fullOnly, async (req: Request, res: Response) => {
   try {
     const { id } = req.params
     const tracking = await getParticipantTrackingData(id)
@@ -274,7 +292,7 @@ router.get('/:id/tracking', async (req: Request, res: Response) => {
 })
 
 // Get participant history
-router.get('/:id/history', async (req: Request, res: Response) => {
+router.get('/:id/history', fullOnly, async (req: Request, res: Response) => {
   try {
     const { id } = req.params
 
