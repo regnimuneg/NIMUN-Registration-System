@@ -25,6 +25,8 @@ interface Person {
   food?: boolean
   manual?: boolean
   checkedInBy?: string | null
+  outManual?: boolean
+  checkedOutBy?: string | null
   kind?: 'member' | 'delegate'
 }
 
@@ -210,16 +212,21 @@ export default function ScanAnalyticsPage() {
   // Manual check-in: admins and Secretariats, on today or a day that has passed
   const canManualDay = !!data?.canManual && !!selected && (!selected.date || !data?.today || selected.date <= data.today)
 
-  const markPresent = async (p: Person) => {
+  const markPresent = (p: Person) => markManual(p, 'checkin')
+  const markCheckedOut = (p: Person) => markManual(p, 'checkout')
+  const markManual = async (p: Person, action: 'checkin' | 'checkout') => {
     if (!selected || marking) return
-    setMarking(p.id)
+    setMarking(`${p.id}:${action}`)
     setNotice(null)
     try {
-      await api.manualCheckIn({ id: p.id, session: selected.key, action: 'checkin' })
-      setNotice({ ok: true, text: `${p.name} (${p.id}) marked present by hand for ${selected.label}.` })
+      await api.manualCheckIn({ id: p.id, session: selected.key, action })
+      setNotice({ ok: true, text: `${p.name} (${p.id}) ${action === 'checkin' ? 'marked present' : 'checked out'} by hand for ${selected.label}.` })
     } catch (e: any) {
-      const already = e instanceof ApiError && e.status === 409
-      setNotice({ ok: already, text: already ? `${p.name} (${p.id}) is already marked present.` : `${p.name}: ${e?.message || 'could not mark present'}` })
+      const conflict = e instanceof ApiError && e.status === 409
+      const msg = !conflict ? `${p.name}: ${e?.message || 'could not save'}`
+        : e.data?.notCheckedIn ? `${p.name} (${p.id}) is not checked in on this day.`
+        : action === 'checkin' ? `${p.name} (${p.id}) is already marked present.` : `${p.name} (${p.id}) is already checked out.`
+      setNotice({ ok: conflict && !e.data?.notCheckedIn, text: msg })
     } finally {
       setMarking(null)
       void load()
@@ -228,8 +235,8 @@ export default function ScanAnalyticsPage() {
 
   const exportDay = () => {
     if (!selected) return
-    const rows: (string | boolean | null)[][] = [['ID', 'Name', 'Council', 'Committee', 'Present', 'Scanned at', 'Checked in how', 'Checked in by', 'Checked out at', ...(hasFood ? ['Food'] : [])]]
-    for (const p of allPeople) rows.push([p.id, p.name, p.council, p.committee, isIn(p), p.checkIn ? stamp(p.checkIn) : '', isIn(p) ? (p.manual ? 'Manual' : 'QR scan') : '', isIn(p) ? (p.checkedInBy ?? '') : '', p.checkOut ? stamp(p.checkOut) : '', ...(hasFood ? [!!p.food] : [])])
+    const rows: (string | boolean | null)[][] = [['ID', 'Name', 'Council', 'Committee', 'Present', 'Scanned at', 'Checked in how', 'Checked in by', 'Checked out at', 'Checked out how', 'Checked out by', ...(hasFood ? ['Food'] : [])]]
+    for (const p of allPeople) rows.push([p.id, p.name, p.council, p.committee, isIn(p), p.checkIn ? stamp(p.checkIn) : '', isIn(p) ? (p.manual ? 'Manual' : 'QR scan') : '', isIn(p) ? (p.checkedInBy ?? '') : '', p.checkOut ? stamp(p.checkOut) : '', p.checkOut ? (p.outManual ? 'Manual' : 'QR scan') : '', p.checkOut ? (p.checkedOutBy ?? '') : '', ...(hasFood ? [!!p.food] : [])])
     downloadCsv(`oc27-${selected.key}-${(data?.scope.council ?? 'all').toLowerCase()}.csv`, rows)
   }
 
@@ -240,7 +247,7 @@ export default function ScanAnalyticsPage() {
       const sessions: { key: string; label: string; meals: string[] }[] = res.sessions
       const header = ['ID', 'First name', 'Last name', 'Council', 'Committee']
       for (const s of sessions) {
-        header.push(`${s.label} present`, `${s.label} scanned at`, `${s.label} checked in how`, `${s.label} checked in by`, `${s.label} checked out at`)
+        header.push(`${s.label} present`, `${s.label} scanned at`, `${s.label} checked in how`, `${s.label} checked in by`, `${s.label} checked out at`, `${s.label} checked out how`, `${s.label} checked out by`)
         for (const m of s.meals) header.push(`${s.label} ${m}`)
       }
       const rows: unknown[][] = [header]
@@ -254,6 +261,8 @@ export default function ScanAnalyticsPage() {
             present ? (p[`${s.key}.inManual`] ? 'Manual' : 'QR scan') : '',
             present ? (p[`${s.key}.inBy`] ?? '') : '',
             p[`${s.key}.checkOut`] ? stamp(p[`${s.key}.checkOut`]) : '',
+            p[`${s.key}.checkOut`] ? (p[`${s.key}.outManual`] ? 'Manual' : 'QR scan') : '',
+            p[`${s.key}.checkOut`] ? (p[`${s.key}.outBy`] ?? '') : '',
           )
           for (const m of s.meals) r.push(!!p[`${s.key}.${m}`])
         }
@@ -395,6 +404,9 @@ export default function ScanAnalyticsPage() {
               {canManualDay && filter === 'missing' && (
                 <p className="text-xs text-gray-600 mb-2 flex items-center gap-1"><Hand className="w-3.5 h-3.5" /> No QR? Tap <b>Mark present</b> to check someone in by hand. It is logged with your name.</p>
               )}
+              {canManualDay && filter === 'in' && (
+                <p className="text-xs text-gray-600 mb-2 flex items-center gap-1"><LogOut className="w-3.5 h-3.5" /> Leaving without a QR? Tap <b>Mark checked out</b>. It is logged with your name.</p>
+              )}
               {notice && (
                 <div className={`mb-3 border px-3 py-2 text-sm ${notice.ok ? 'border-[#0f5c38] bg-[#eaf6ef] text-[#0f5c38]' : 'border-red-700 bg-red-50 text-red-800'}`} role="status">{notice.text}</div>
               )}
@@ -434,12 +446,27 @@ export default function ScanAnalyticsPage() {
                               onClick={(e) => { e.stopPropagation(); void markPresent(p) }}
                               title="Check this person in without their QR"
                             >
-                              {marking === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Hand className="w-3.5 h-3.5" />} Mark present
+                              {marking === `${p.id}:checkin` ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Hand className="w-3.5 h-3.5" />} Mark present
                             </button>
                           ) : <span className="text-gray-400">—</span>}
                         </td>
                         <td className="py-2 px-2 whitespace-nowrap">
-                          {p.checkOut ? <span className="text-[#6b21a8] font-bold">{clock(p.checkOut)}</span> : <span className="text-gray-400">—</span>}
+                          {p.checkOut ? (
+                            <span className="text-[#6b21a8] font-bold">
+                              {clock(p.checkOut)}
+                              {p.outManual && <span className="ml-1 text-[10px] uppercase tracking-wider font-bold text-[#7a4b00] border border-[#7a4b00] px-1" title={`Checked out by hand${p.checkedOutBy ? ` by ${p.checkedOutBy}` : ''}`}>manual</span>}
+                            </span>
+                          ) : isIn(p) && canManualDay && p.kind !== 'delegate' ? (
+                            <button
+                              type="button"
+                              className="btn-secondary !px-2 !py-1 text-xs flex items-center gap-1 whitespace-nowrap"
+                              disabled={!!marking}
+                              onClick={(e) => { e.stopPropagation(); void markCheckedOut(p) }}
+                              title="Check this person out without their QR"
+                            >
+                              {marking === `${p.id}:checkout` ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LogOut className="w-3.5 h-3.5" />} Mark checked out
+                            </button>
+                          ) : <span className="text-gray-400">—</span>}
                         </td>
                         {hasFood && <td className="py-2 pl-2">{p.food ? <span className="text-[#c2410c] font-bold">Yes</span> : <span className="text-gray-400">—</span>}</td>}
                       </tr>

@@ -4,7 +4,7 @@ import { api, ApiError } from '../../lib/api'
 import { fmtTime, fmtStamp } from '../../lib/clock'
 
 interface Hit { id: string; name: string; council: string | null; committee: string | null }
-interface Day { key: string; label: string; attended: boolean; checkIn: string | null; checkOut: string | null; meals: Record<string, boolean>; date?: string; manual?: boolean; checkedInBy?: string | null }
+interface Day { key: string; label: string; attended: boolean; checkIn: string | null; checkOut: string | null; meals: Record<string, boolean>; date?: string; manual?: boolean; checkedInBy?: string | null; outManual?: boolean; checkedOutBy?: string | null }
 interface HistoryRow { type: 'attendance' | 'food'; value: boolean; checkOut?: boolean; dayKey: string | null; scannedBy: string | null; scannedByName: string | null; manual?: boolean; at: string }
 interface PersonData { person: Hit; days: Day[]; attendedDays: number; totalDays: number; history: HistoryRow[]; canManual?: boolean; today?: string }
 type ManualAction = 'checkin' | 'checkout' | 'undo-checkin' | 'undo-checkout'
@@ -167,6 +167,9 @@ export default function MemberLookup({ council, openId, onOpened, refreshKey, on
                     <LogOut className="w-3.5 h-3.5" /> Out {fmtTime(d.checkOut)}
                   </p>
                 )}
+                {d.checkOut && d.outManual && (
+                  <p className="text-xs mt-1 text-[#7a4b00]">Out by hand{d.checkedOutBy ? ` · ${d.checkedOutBy}` : ''}</p>
+                )}
                 {d.attended && d.manual && (
                   <p className="text-xs mt-1 text-[#7a4b00]">By hand{d.checkedInBy ? ` · ${d.checkedInBy}` : ''}</p>
                 )}
@@ -180,7 +183,7 @@ export default function MemberLookup({ council, openId, onOpened, refreshKey, on
                     {(!d.attended
                       ? [['checkin', 'Mark present']]
                       : [
-                          d.checkOut ? ['undo-checkout', 'Undo check-out'] : ['checkout', 'Check out'],
+                          d.checkOut ? ['undo-checkout', 'Undo check-out'] : ['checkout', 'Mark checked out'],
                           ['undo-checkin', 'Undo check-in'],
                         ]
                     ).map(([action, label]) => {

@@ -56,6 +56,22 @@ const lastCheckInJoin = (s: SessionDef) => `
     ORDER BY a.created_at DESC
     LIMIT 1
   ) li_${s.key} ON COALESCE(p.${s.attended}, FALSE) OR p.${s.key}_checkin IS NOT NULL`
+/** Same for the current check-out: columns "<key>.outManual" and "<key>.outBy". */
+const lastCheckOutJoin = (s: SessionDef) => `
+  LEFT JOIN LATERAL (
+    SELECT COALESCE((a.metadata->>'manual')::boolean, FALSE) AS manual,
+           COALESCE(NULLIF(CONCAT(su.first_name, ' ', su.last_name), ' '), a.metadata->>'scannedBy') AS by
+    FROM activity_timeline a
+    LEFT JOIN members sm ON sm.id = a.metadata->>'scannedBy'
+    LEFT JOIN users su ON su.id = sm.user_id
+    WHERE a.user_id = p.user_id AND a.activity_type = 'attendance'
+      AND a.metadata->>'dayKey' = '${s.dayKey}'
+      AND COALESCE((a.metadata->>'checkOut')::boolean, FALSE)
+      AND COALESCE((a.metadata->>'value')::boolean, TRUE)
+    ORDER BY a.created_at DESC
+    LIMIT 1
+  ) lo_${s.key} ON p.${s.key}_checkout IS NOT NULL`
+const lastCheckOutCols = (s: SessionDef) => `COALESCE(lo_${s.key}.manual, FALSE) AS "${s.key}.outManual", lo_${s.key}.by AS "${s.key}.outBy"`
 const lastCheckInCols = (s: SessionDef) => `COALESCE(li_${s.key}.manual, FALSE) AS "${s.key}.inManual", li_${s.key}.by AS "${s.key}.inBy"`
 
 const sessionColumns = SESSIONS.flatMap((s) => [s.attended, `${s.key}_checkin`, `${s.key}_checkout`, ...Object.values(s.meals)])
@@ -134,9 +150,11 @@ router.get('/', async (req: Request, res: Response) => {
          SELECT p.id, CONCAT(u.first_name, ' ', u.last_name) AS name, p.council, p.committee, p.kind,
                 COALESCE(p.${selected.attended}, FALSE) AS attended,
                 p.${selected.key}_checkin AS "checkIn", p.${selected.key}_checkout AS "checkOut"${Object.entries(selected.meals).map(([meal, col]) => `, COALESCE(p.${col}, FALSE) AS "${meal}"`).join('')},
-                COALESCE(li_${selected.key}.manual, FALSE) AS "manual", li_${selected.key}.by AS "checkedInBy"
+                COALESCE(li_${selected.key}.manual, FALSE) AS "manual", li_${selected.key}.by AS "checkedInBy",
+                COALESCE(lo_${selected.key}.manual, FALSE) AS "outManual", lo_${selected.key}.by AS "checkedOutBy"
          FROM scoped p JOIN users u ON u.id = p.user_id
          ${lastCheckInJoin(selected)}
+         ${lastCheckOutJoin(selected)}
          ORDER BY p.id`,
         [council],
       )
@@ -234,12 +252,14 @@ router.get('/export', async (req: Request, res: Response) => {
       `p.${s.key}_checkout AS "${s.key}.checkOut"`,
       ...Object.entries(s.meals).map(([meal, col]) => `COALESCE(p.${col}, FALSE) AS "${s.key}.${meal}"`),
       lastCheckInCols(s),
+      lastCheckOutCols(s),
     ]).join(', ')
     const r = await query(
       `${PEOPLE_CTE}
        SELECT p.id, u.first_name AS "firstName", u.last_name AS "lastName", p.council, p.committee, ${cols}
        FROM scoped p JOIN users u ON u.id = p.user_id
        ${SESSIONS.map(lastCheckInJoin).join('\n')}
+       ${SESSIONS.map(lastCheckOutJoin).join('\n')}
        ORDER BY p.id`,
       [council],
     )
@@ -292,9 +312,10 @@ router.get('/person/:id', async (req: Request, res: Response) => {
     const id = String(req.params.id || '').trim().slice(0, 40)
     const r = await query(
       `${PEOPLE_CTE}
-       SELECT p.*, CONCAT(u.first_name, ' ', u.last_name) AS name, ${SESSIONS.map(lastCheckInCols).join(', ')}
+       SELECT p.*, CONCAT(u.first_name, ' ', u.last_name) AS name, ${SESSIONS.map(lastCheckInCols).join(', ')}, ${SESSIONS.map(lastCheckOutCols).join(', ')}
        FROM scoped p JOIN users u ON u.id = p.user_id
        ${SESSIONS.map(lastCheckInJoin).join('\n')}
+       ${SESSIONS.map(lastCheckOutJoin).join('\n')}
        WHERE UPPER(p.id) = UPPER($2)
        LIMIT 1`,
       [council, id],
@@ -330,6 +351,8 @@ router.get('/person/:id', async (req: Request, res: Response) => {
       date: s.date,
       manual: !!p[`${s.key}.inManual`],
       checkedInBy: p[`${s.key}.inBy`] ?? null,
+      outManual: !!p[`${s.key}.outManual`],
+      checkedOutBy: p[`${s.key}.outBy`] ?? null,
     }))
     res.set('Cache-Control', 'no-store')
     res.json({
