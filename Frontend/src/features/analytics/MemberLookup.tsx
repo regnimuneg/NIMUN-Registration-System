@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { Search, X, UserCheck, Utensils, Undo2, CircleDashed } from 'lucide-react'
+import { Search, X, UserCheck, Utensils, Undo2, CircleDashed, LogOut } from 'lucide-react'
 import { api } from '../../lib/api'
 import { fmtTime, fmtStamp } from '../../lib/clock'
 
 interface Hit { id: string; name: string; council: string | null; committee: string | null }
 interface Day { key: string; label: string; attended: boolean; checkIn: string | null; checkOut: string | null; meals: Record<string, boolean> }
-interface HistoryRow { type: 'attendance' | 'food'; value: boolean; dayKey: string | null; scannedBy: string | null; scannedByName: string | null; at: string }
+interface HistoryRow { type: 'attendance' | 'food'; value: boolean; checkOut?: boolean; dayKey: string | null; scannedBy: string | null; scannedByName: string | null; at: string }
 interface PersonData { person: Hit; days: Day[]; attendedDays: number; totalDays: number; history: HistoryRow[] }
 
 const DAY_LABELS: Record<string, string> = {
@@ -118,6 +118,11 @@ export default function MemberLookup({ council, openId, onOpened, refreshKey }: 
                   {d.attended ? <UserCheck className="w-4 h-4" /> : <CircleDashed className="w-4 h-4" />}
                   {d.attended ? (d.checkIn ? fmtTime(d.checkIn) : 'Present') : 'Not scanned'}
                 </p>
+                {d.checkOut && (
+                  <p className="text-sm mt-1 flex items-center gap-1.5 text-[#6b21a8] font-bold">
+                    <LogOut className="w-3.5 h-3.5" /> Out {fmtTime(d.checkOut)}
+                  </p>
+                )}
                 {'food' in d.meals && (
                   <p className={`text-sm mt-1 flex items-center gap-1.5 ${d.meals.food ? 'text-[#c2410c] font-bold' : 'text-gray-400'}`}>
                     <Utensils className="w-3.5 h-3.5" /> {d.meals.food ? 'Got food' : 'No food yet'}
@@ -137,7 +142,8 @@ export default function MemberLookup({ council, openId, onOpened, refreshKey }: 
                   <span className="min-w-0">
                     <span className="flex items-center gap-1">
                       {!h.value && <Undo2 className="w-3.5 h-3.5 text-[#7a4b00]" />}
-                      {h.type === 'food' ? 'Food' : 'Attendance'}{h.dayKey ? ` · ${DAY_LABELS[h.dayKey] ?? h.dayKey}` : ''}{!h.value ? ' · undone' : ''}
+                      {h.value && h.checkOut && <LogOut className="w-3.5 h-3.5 text-[#6b21a8]" />}
+                      {h.type === 'food' ? 'Food' : h.checkOut ? 'Check-out' : 'Check-in'}{h.dayKey ? ` · ${DAY_LABELS[h.dayKey] ?? h.dayKey}` : ''}{!h.value ? ' · undone' : ''}
                     </span>
                     <span className="block text-xs text-gray-500">by {h.scannedByName ?? h.scannedBy ?? 'unknown'}</span>
                   </span>

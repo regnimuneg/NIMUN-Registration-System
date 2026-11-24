@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { RefreshCw, Download, Search, UserX, UserCheck, Utensils, History, Undo2 } from 'lucide-react'
+import { RefreshCw, Download, Search, UserX, UserCheck, Utensils, History, Undo2, LogOut } from 'lucide-react'
 import { api, tokenManager } from '../../lib/api'
 import { serverNow, fmtTime, fmtStamp, todayDayKey, LiveClock } from '../../lib/clock'
 import MemberLookup from './MemberLookup'
@@ -40,6 +40,7 @@ interface LogEntry {
   council: string | null
   type: 'attendance' | 'food'
   value: boolean
+  checkOut?: boolean
   dayKey: string | null
   scannedBy: string | null
   scannedByName: string | null
@@ -57,6 +58,7 @@ const DAY_LABELS: Record<string, string> = {
 const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 100) : 0)
 const clock = (iso: string | null) => (iso ? fmtTime(iso) : '—')
 const stamp = (iso: string) => fmtStamp(iso)
+const scanKind = (r: { type: string; checkOut?: boolean }) => (r.type === 'food' ? 'Food' : r.checkOut ? 'Check-out' : 'Check-in')
 
 const todayKey = todayDayKey
 
@@ -188,11 +190,12 @@ export default function ScanAnalyticsPage() {
   const missing = Math.max(0, total - present)
   const hasFood = (data?.meals ?? []).includes('food')
   const fed = allPeople.filter((p) => p.food).length
+  const left = allPeople.filter((p) => !!p.checkOut).length
 
   const exportDay = () => {
     if (!selected) return
-    const rows: (string | boolean | null)[][] = [['ID', 'Name', 'Council', 'Committee', 'Present', 'Scanned at', ...(hasFood ? ['Food'] : [])]]
-    for (const p of allPeople) rows.push([p.id, p.name, p.council, p.committee, isIn(p), p.checkIn ? stamp(p.checkIn) : '', ...(hasFood ? [!!p.food] : [])])
+    const rows: (string | boolean | null)[][] = [['ID', 'Name', 'Council', 'Committee', 'Present', 'Scanned at', 'Checked out at', ...(hasFood ? ['Food'] : [])]]
+    for (const p of allPeople) rows.push([p.id, p.name, p.council, p.committee, isIn(p), p.checkIn ? stamp(p.checkIn) : '', p.checkOut ? stamp(p.checkOut) : '', ...(hasFood ? [!!p.food] : [])])
     downloadCsv(`oc27-${selected.key}-${(data?.scope.council ?? 'all').toLowerCase()}.csv`, rows)
   }
 
@@ -203,14 +206,18 @@ export default function ScanAnalyticsPage() {
       const sessions: { key: string; label: string; meals: string[] }[] = res.sessions
       const header = ['ID', 'First name', 'Last name', 'Council', 'Committee']
       for (const s of sessions) {
-        header.push(`${s.label} present`, `${s.label} scanned at`)
+        header.push(`${s.label} present`, `${s.label} scanned at`, `${s.label} checked out at`)
         for (const m of s.meals) header.push(`${s.label} ${m}`)
       }
       const rows: unknown[][] = [header]
       for (const p of res.people) {
         const r: unknown[] = [p.id, p.firstName, p.lastName, p.council, p.committee]
         for (const s of sessions) {
-          r.push(p[`${s.key}.attended`] || !!p[`${s.key}.checkIn`], p[`${s.key}.checkIn`] ? stamp(p[`${s.key}.checkIn`]) : '')
+          r.push(
+            p[`${s.key}.attended`] || !!p[`${s.key}.checkIn`],
+            p[`${s.key}.checkIn`] ? stamp(p[`${s.key}.checkIn`]) : '',
+            p[`${s.key}.checkOut`] ? stamp(p[`${s.key}.checkOut`]) : '',
+          )
           for (const m of s.meals) r.push(!!p[`${s.key}.${m}`])
         }
         rows.push(r)
@@ -300,6 +307,7 @@ export default function ScanAnalyticsPage() {
               <p className="text-xs uppercase tracking-widest text-gray-600 flex items-center gap-2"><UserCheck className="w-4 h-4" /> Scanned in</p>
               <p className="oc-big-number mt-2 text-[var(--oc-blue)]"><AnimatedNumber value={present} /></p>
               <p className="text-xs text-gray-500 mt-1">of {total}</p>
+              <p className="text-xs text-[#6b21a8] mt-1 flex items-center gap-1"><LogOut className="w-3.5 h-3.5" /> {left} checked out · {Math.max(0, present - left)} still here</p>
             </div>
             <div className="card !p-4">
               <p className="text-xs uppercase tracking-widest text-gray-600 flex items-center gap-2"><UserX className="w-4 h-4" /> Not yet</p>
@@ -359,6 +367,7 @@ export default function ScanAnalyticsPage() {
                       <th className="py-2 px-2">Name</th>
                       <th className="py-2 px-2 hidden sm:table-cell">Committee</th>
                       <th className="py-2 px-2">In</th>
+                      <th className="py-2 px-2">Out</th>
                       {hasFood && <th className="py-2 pl-2">Food</th>}
                     </tr>
                   </thead>
@@ -371,11 +380,14 @@ export default function ScanAnalyticsPage() {
                         <td className="py-2 px-2 whitespace-nowrap">
                           {isIn(p) ? <span className="text-[#0f5c38] font-bold">{p.checkIn ? clock(p.checkIn) : 'Yes'}</span> : <span className="text-gray-400">—</span>}
                         </td>
+                        <td className="py-2 px-2 whitespace-nowrap">
+                          {p.checkOut ? <span className="text-[#6b21a8] font-bold">{clock(p.checkOut)}</span> : <span className="text-gray-400">—</span>}
+                        </td>
                         {hasFood && <td className="py-2 pl-2">{p.food ? <span className="text-[#c2410c] font-bold">Yes</span> : <span className="text-gray-400">—</span>}</td>}
                       </tr>
                     ))}
                     {people.length === 0 && (
-                      <tr><td colSpan={5} className="py-10 text-center text-gray-500">{filter === 'missing' && !search ? 'Everyone is scanned in.' : 'No one matches.'}</td></tr>
+                      <tr><td colSpan={6} className="py-10 text-center text-gray-500">{filter === 'missing' && !search ? 'Everyone is scanned in.' : 'No one matches.'}</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -397,14 +409,15 @@ export default function ScanAnalyticsPage() {
                       </div>
                       <p className="text-gray-700 truncate flex items-center gap-1">
                         {!r.value && <Undo2 className="w-3.5 h-3.5 text-[#7a4b00]" />}
-                        <span>{r.id} · {r.type === 'food' ? 'Food' : 'Attendance'}{r.dayKey ? ` · ${DAY_LABELS[r.dayKey] ?? r.dayKey}` : ''}{!r.value ? ' · undone' : ''}</span>
+                        {r.value && r.checkOut && <LogOut className="w-3.5 h-3.5 text-[#6b21a8]" />}
+                        <span>{r.id} · {scanKind(r)}{r.dayKey ? ` · ${DAY_LABELS[r.dayKey] ?? r.dayKey}` : ''}{!r.value ? ' · undone' : ''}</span>
                       </p>
                       <p className="text-xs text-gray-500">by {r.scannedByName ?? r.scannedBy ?? 'unknown'}</p>
                     </li>
                   ))}
                 </ul>
               )}
-              {isAdmin && <p className="text-xs text-gray-500 mt-3">To undo a scan, tap Undo in the scanner right after it, or switch off Attendance or Food in Manual / View Details.</p>}
+              {isAdmin && <p className="text-xs text-gray-500 mt-3">To undo a scan, tap Undo in the scanner right after it, or switch off Attendance, Check-out or Food in Manual / View Details.</p>}
             </div>
           </div>
         </>

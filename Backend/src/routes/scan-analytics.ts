@@ -166,6 +166,7 @@ router.get('/log', async (req: Request, res: Response) => {
        SELECT p.id, CONCAT(u.first_name, ' ', u.last_name) AS name, p.council,
               a.activity_type AS type, a.title, a.description,
               COALESCE((a.metadata->>'value')::boolean, TRUE) AS value,
+              COALESCE((a.metadata->>'checkOut')::boolean, FALSE) AS "checkOut",
               a.metadata->>'dayKey' AS "dayKey",
               a.metadata->>'scannedBy' AS "scannedBy",
               NULLIF(CONCAT(su.first_name, ' ', su.last_name), ' ') AS "scannedByName",
@@ -196,6 +197,7 @@ router.get('/export', async (req: Request, res: Response) => {
     const cols = SESSIONS.flatMap((s) => [
       `COALESCE(p.${s.attended}, FALSE) AS "${s.key}.attended"`,
       `p.${s.key}_checkin AS "${s.key}.checkIn"`,
+      `p.${s.key}_checkout AS "${s.key}.checkOut"`,
       ...Object.entries(s.meals).map(([meal, col]) => `COALESCE(p.${col}, FALSE) AS "${s.key}.${meal}"`),
     ]).join(', ')
     const r = await query(
@@ -266,6 +268,7 @@ router.get('/person/:id', async (req: Request, res: Response) => {
     const history = await query(
       `SELECT a.activity_type AS type, a.title,
               COALESCE((a.metadata->>'value')::boolean, TRUE) AS value,
+              COALESCE((a.metadata->>'checkOut')::boolean, FALSE) AS "checkOut",
               a.metadata->>'dayKey' AS "dayKey",
               a.metadata->>'scannedBy' AS "scannedBy",
               NULLIF(CONCAT(su.first_name, ' ', su.last_name), ' ') AS "scannedByName",

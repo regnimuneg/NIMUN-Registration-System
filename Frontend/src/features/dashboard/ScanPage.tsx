@@ -109,7 +109,7 @@ function ToggleSwitch({ checked, disabled = false, label, onChange }: ToggleSwit
 }
 
 // ---------- '27 quick scan helpers: offline queue ----------
-type QuickMode = 'attendance' | 'lunch'
+type QuickMode = 'attendance' | 'checkout' | 'lunch'
 interface QueuedScan { id: string; dayKey: string; mode: QuickMode; value: boolean; at: string }
 const QUEUE_KEY = 'oc27_scan_queue'
 function readQueue(): QueuedScan[] {
@@ -125,10 +125,17 @@ function sendScan(item: QueuedScan) {
       ...(item.value ? { checkIn: true } : {}), scannedAt: item.at,
     })
   }
+  if (item.mode === 'checkout') {
+    // value false = undo the check-out (attendance itself stays)
+    return api.updateAttendance({
+      participantId: item.id, dayKey: item.dayKey, field: 'attended', value: item.value, checkOut: true, scannedAt: item.at,
+    })
+  }
   return api.updateFood({ participantId: item.id, dayKey: item.dayKey, meal: 'lunch', value: item.value, scannedAt: item.at })
 }
 const buzz = (pattern: number | number[]) => { try { navigator.vibrate?.(pattern) } catch { /* not supported */ } }
 const timeOf = (iso?: string | null) => fmtTime(iso)
+const modeLabel = (m: QuickMode) => (m === 'lunch' ? 'Food' : m === 'checkout' ? 'Check-out' : 'Attendance')
 
 function sessionForToday(): SessionOption {
   const key = todayDayKey()
@@ -454,9 +461,9 @@ export default function ScanPage() {
     if (!selectedSession) return
     const code = rawCode.trim().toUpperCase()
     if (!code) return
-    const mode: QuickMode = scanMode === 'lunch' ? 'lunch' : 'attendance'
+    const mode: QuickMode = scanMode === 'lunch' ? 'lunch' : scanMode === 'checkout' ? 'checkout' : 'attendance'
     const item: QueuedScan = { id: code, dayKey: selectedSession.dayKey, mode, value: true, at: serverNow().toISOString() }
-    const what = mode === 'lunch' ? 'Food' : 'Attendance'
+    const what = modeLabel(mode)
     showStatus({ type: 'pending', message: 'Checking…', name: code })
     let name = code
     try {
@@ -469,9 +476,19 @@ export default function ScanPage() {
         showStatus({ type: 'warning', message: 'Already marked present', name, detail: `${code}${dayData.checkin ? ` · scanned at ${timeOf(dayData.checkin)}` : ''}` }, 3200)
         return
       }
+      if (mode === 'checkout' && !dayData?.attended && !dayData?.checkin) {
+        playAudioFeedback('error'); buzz([200, 80, 200])
+        showStatus({ type: 'error', message: 'Not checked in today', name, detail: `${code} · Scan them in with Attendance first. No check-out saved.` }, 4500)
+        return
+      }
+      if (mode === 'checkout' && dayData?.checkout) {
+        playAudioFeedback('warning'); buzz([60, 60, 60])
+        showStatus({ type: 'warning', message: 'Already checked out', name, detail: `${code} · checked out at ${timeOf(dayData.checkout)}` }, 4000)
+        return
+      }
       await sendScan(item)
       playAudioFeedback('success'); buzz(40)
-      showStatus({ type: 'success', message: mode === 'lunch' ? 'Food logged' : 'Marked present', name, detail: `${code} · ${selectedSession.label}` })
+      showStatus({ type: 'success', message: mode === 'lunch' ? 'Food logged' : mode === 'checkout' ? 'Checked out' : 'Marked present', name, detail: `${code} · ${selectedSession.label}` })
       setLastAction({ ...item, name })
       setScanHistory(prev => [{ id: code, name: `${name} · ${what}`, time: fmtTime(serverNow(), true) }, ...prev.slice(0, 19)])
     } catch (e: any) {
@@ -480,6 +497,12 @@ export default function ScanPage() {
         playAudioFeedback('success'); buzz([30, 40, 30])
         showStatus({ type: 'queued', message: 'Saved offline', name: code, detail: 'It will sync when the connection is back' }, 2600)
         setScanHistory(prev => [{ id: code, name: `${code} · ${what} (offline)`, time: fmtTime(serverNow(), true) }, ...prev.slice(0, 19)])
+      } else if (e instanceof ApiError && e.status === 409 && e.data?.notCheckedIn) {
+        playAudioFeedback('error'); buzz([200, 80, 200])
+        showStatus({ type: 'error', message: 'Not checked in today', name: name === code ? code : `${name} · ${code}`, detail: 'Scan them in with Attendance first. No check-out saved.' }, 4500)
+      } else if (e instanceof ApiError && e.status === 409 && e.data?.duplicate && mode === 'checkout') {
+        playAudioFeedback('warning'); buzz([60, 60, 60])
+        showStatus({ type: 'warning', message: 'Already checked out', name: name === code ? code : `${name} · ${code}`, detail: e.data.checkedOutAt ? `Checked out at ${timeOf(e.data.checkedOutAt)}` : undefined }, 4000)
       } else if (e instanceof ApiError && e.status === 409 && e.data?.duplicate) {
         playAudioFeedback('error'); buzz([200, 80, 200])
         showStatus({ type: 'duplicate', message: 'Already got food', name: name === code ? code : `${name} · ${code}`, detail: e.data.claimedAt ? `First claimed at ${timeOf(e.data.claimedAt)}. Do not serve again.` : 'Do not serve again.' }, 4500)
@@ -510,7 +533,7 @@ export default function ScanPage() {
     try {
       await sendScan(item)
       playAudioFeedback('warning')
-      showStatus({ type: 'warning', message: 'Scan undone', name: lastAction.name, detail: `${lastAction.id} · ${lastAction.mode === 'lunch' ? 'Food' : 'Attendance'} removed` })
+      showStatus({ type: 'warning', message: 'Scan undone', name: lastAction.name, detail: `${lastAction.id} · ${modeLabel(lastAction.mode)} removed` })
     } catch (e: any) {
       if (e instanceof ApiError && e.network) {
         enqueue(item)
@@ -910,6 +933,30 @@ export default function ScanPage() {
     }
   }
 
+  // Manual / View Details: switch check-out on (record now) or off (undo it)
+  const handleToggleCheckOut = async (value: boolean) => {
+    if (!participant || !selectedSession) return
+    if (value && !attendance && !checkInTime) {
+      alert('Not checked in today. Switch on Attendance first.')
+      return
+    }
+    try {
+      setSaving(true)
+      await api.updateAttendance({
+        participantId: participant.id,
+        dayKey: selectedSession.dayKey,
+        field: 'attended',
+        value,
+        checkOut: true
+      })
+      setCheckOutTime(value ? serverNow().toISOString() : null)
+    } catch (err: any) {
+      alert(`Failed to update check-out: ${err.message}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const handleCheckOut = async () => {
     if (!participant || !selectedSession) return
 
@@ -991,6 +1038,11 @@ export default function ScanPage() {
       setAttendance(value)
       if (value && !checkInTime) {
         setCheckInTime(serverNow().toISOString())
+      }
+      if (!value) {
+        // switching attendance off also clears that day's check-in and check-out
+        setCheckInTime(null)
+        setCheckOutTime(null)
       }
     } catch (err: any) {
       alert(`Failed to update attendance: ${err.message}`)
@@ -1140,7 +1192,8 @@ export default function ScanPage() {
   const getAvailableScanModes = () => {
     if (!selectedSession) return []
     const modes = [
-      { value: 'attendance', label: 'Attendance' }
+      { value: 'attendance', label: 'Attendance' },
+      { value: 'checkout', label: 'Check-out' }
     ]
     if (selectedSession.dayKey.startsWith('conference.')) {
       modes.push({ value: 'lunch', label: 'Food' })
@@ -1370,7 +1423,7 @@ export default function ScanPage() {
             {lastAction && (
               <div className="oc-last-action">
                 <span className="truncate">
-                  Last: <strong>{lastAction.name}</strong> · {lastAction.mode === 'lunch' ? 'Food' : 'Attendance'}
+                  Last: <strong>{lastAction.name}</strong> · {modeLabel(lastAction.mode)}
                 </span>
                 <button type="button" onClick={() => void undoLast()} className="oc-chip-btn">
                   <Undo2 className="w-4 h-4" /> Undo
@@ -1534,12 +1587,27 @@ export default function ScanPage() {
                     <div className="flex items-center gap-3">
                       <Calendar className="w-5 h-5 text-blue-500" />
                       <span className="font-medium">Attendance</span>
+                      {attendance && checkInTime && <span className="text-xs text-gray-500">in at {timeOf(checkInTime)}</span>}
                     </div>
                     <ToggleSwitch
                       checked={attendance}
                       disabled={saving}
                       label="Toggle attendance"
                       onChange={handleToggleAttendance}
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <LogOut className="w-5 h-5 text-purple-600" />
+                      <span className="font-medium">Check-out</span>
+                      {checkOutTime && <span className="text-xs text-gray-500">left at {timeOf(checkOutTime)}</span>}
+                    </div>
+                    <ToggleSwitch
+                      checked={!!checkOutTime}
+                      disabled={saving || (!attendance && !checkInTime && !checkOutTime)}
+                      label="Toggle check-out"
+                      onChange={handleToggleCheckOut}
                     />
                   </label>
 

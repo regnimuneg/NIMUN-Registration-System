@@ -62,6 +62,17 @@ router.post('/', async (req: Request, res: Response) => {
       await updateParticipantAttendanceField(participantId, sessionType, true, isDelegate, isInvitation)
     } else if (checkOut) {
       // Handle check-out - checkout does NOT mean absent, they were present and left
+      if (value) {
+        // '27: only someone who checked in can check out, and only once per day.
+        // Checked here too so phones replaying offline scans get the same answer.
+        const state = await getDayState(participantId, sessionType, isDelegate, isInvitation)
+        if (state && !state.attended && !state.checkin) {
+          return res.status(409).json({ error: 'Not checked in today', notCheckedIn: true })
+        }
+        if (state?.checkout) {
+          return res.status(409).json({ error: 'Already checked out', duplicate: true, checkedOutAt: new Date(state.checkout).toISOString() })
+        }
+      }
       if (isDelegate) {
         await query(`
           UPDATE attendance_records
@@ -72,7 +83,8 @@ router.post('/', async (req: Request, res: Response) => {
 
       // Update delegates/members/invitations table check-out time
       // Note: We do NOT change attendance status - they were present, they just checked out
-      await updateParticipantCheckOut(participantId, sessionType, timestamp, isDelegate, isInvitation)
+      // value false = undo the check-out
+      await updateParticipantCheckOut(participantId, sessionType, value ? timestamp : null, isDelegate, isInvitation)
     } else if (value) {
       // Toggle attendance on
       if (isDelegate) {
@@ -108,6 +120,7 @@ router.post('/', async (req: Request, res: Response) => {
       await updateParticipantAttendanceField(participantId, sessionType, false, isDelegate, isInvitation)
       // '27 undo: forget the check-in time too
       await updateParticipantCheckIn(participantId, sessionType, null, isDelegate, isInvitation)
+      await updateParticipantCheckOut(participantId, sessionType, null, isDelegate, isInvitation)
     }
 
     // Get user_id for activity timeline
@@ -129,7 +142,7 @@ router.post('/', async (req: Request, res: Response) => {
       if (checkIn) {
         description = 'Checked in'
       } else if (checkOut) {
-        description = 'Checked out' // Checkout != absent, they were present and left
+        description = value ? 'Checked out' : 'Check-out undone' // Checkout != absent, they were present and left
       } else {
         description = value ? `Marked as present` : `Marked as absent`
       }
@@ -250,6 +263,38 @@ async function updateParticipantCheckIn(
     await query(`UPDATE invitations SET ${field} = $1 WHERE id = $2`, [timestamp, participantId])
   } else {
     await query(`UPDATE members SET ${field} = $1 WHERE id = $2`, [timestamp, participantId])
+  }
+}
+
+// Current attendance / check-in / check-out of one person for one day
+async function getDayState(
+  participantId: string,
+  sessionType: string,
+  isDelegate: boolean,
+  isInvitation: boolean
+): Promise<{ attended: boolean; checkin: Date | null; checkout: Date | null } | null> {
+  const attendedMap: Record<string, string> = {
+    'day1': 'day1_session_attended',
+    'day2': 'day2_session_attended',
+    'day3': 'day3_session_attended',
+    'day4': 'day4_session_attended',
+    'opening_ceremony': 'opening_ceremony_attended',
+    'conf_day1': 'conf_day1_attended',
+    'conf_day2': 'conf_day2_attended',
+    'conf_day3': 'conf_day3_attended'
+  }
+  const attendedCol = attendedMap[sessionType]
+  if (!attendedCol) return null
+  // Column names come from the fixed map above only
+  const table = isDelegate ? 'delegates' : isInvitation ? 'invitations' : 'members'
+  try {
+    const r = await query(
+      `SELECT COALESCE(${attendedCol}, FALSE) AS attended, ${sessionType}_checkin AS checkin, ${sessionType}_checkout AS checkout FROM ${table} WHERE id = $1`,
+      [participantId]
+    )
+    return (r.rows[0] as any) ?? null
+  } catch {
+    return null // e.g. a table without these columns: skip the check
   }
 }
 
