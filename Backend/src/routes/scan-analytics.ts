@@ -216,4 +216,89 @@ router.get('/export', async (req: Request, res: Response) => {
   }
 })
 
+// Find people in scope by name, ID (CCJ-10) or username (their login email)
+router.get('/search', async (req: Request, res: Response) => {
+  try {
+    const auth = req.auth!
+    const requested = typeof req.query.council === 'string' && req.query.council.trim() ? req.query.council.trim() : null
+    const council = auth.access === 'analytics' ? auth.council : requested
+    const q = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 60) : ''
+    if (q.length < 2) return res.json({ results: [] })
+    const like = `%${q.toLowerCase().replace(/[\\%_]/g, (c) => '\\' + c)}%`
+    const r = await query(
+      `${PEOPLE_CTE}
+       SELECT p.id, CONCAT(u.first_name, ' ', u.last_name) AS name, p.council, p.committee, p.kind
+       FROM scoped p JOIN users u ON u.id = p.user_id
+       WHERE LOWER(p.id) LIKE $2
+          OR LOWER(CONCAT(u.first_name, ' ', u.last_name)) LIKE $2
+          OR LOWER(split_part(COALESCE(u.email, ''), '@', 1)) LIKE $2
+          OR LOWER(COALESCE(u.email, '')) = LOWER($3)
+       ORDER BY (LOWER(p.id) = LOWER($3)) DESC, (LOWER(p.id) LIKE LOWER($3) || '%') DESC,
+                CASE WHEN LOWER(p.id) LIKE LOWER($3) || '%' THEN p.id ELSE CONCAT(u.first_name, ' ', u.last_name) END
+       LIMIT 12`,
+      [council, like, q],
+    )
+    res.set('Cache-Control', 'no-store')
+    res.json({ results: r.rows })
+  } catch (error) {
+    console.error('Scan search error:', error)
+    res.status(500).json({ error: 'Search failed' })
+  }
+})
+
+// One person's analytics: every day's attendance and scan time, food, and full scan history
+router.get('/person/:id', async (req: Request, res: Response) => {
+  try {
+    const auth = req.auth!
+    const council = auth.access === 'analytics' ? auth.council : null
+    const id = String(req.params.id || '').trim().slice(0, 40)
+    const r = await query(
+      `${PEOPLE_CTE}
+       SELECT p.*, CONCAT(u.first_name, ' ', u.last_name) AS name
+       FROM scoped p JOIN users u ON u.id = p.user_id
+       WHERE UPPER(p.id) = UPPER($2)
+       LIMIT 1`,
+      [council, id],
+    )
+    const p: any = r.rows[0]
+    if (!p) return res.status(404).json({ error: 'No one with that ID in your council' })
+
+    const history = await query(
+      `SELECT a.activity_type AS type, a.title,
+              COALESCE((a.metadata->>'value')::boolean, TRUE) AS value,
+              a.metadata->>'dayKey' AS "dayKey",
+              a.metadata->>'scannedBy' AS "scannedBy",
+              NULLIF(CONCAT(su.first_name, ' ', su.last_name), ' ') AS "scannedByName",
+              a.created_at AS "at"
+       FROM activity_timeline a
+       LEFT JOIN members sm ON sm.id = a.metadata->>'scannedBy'
+       LEFT JOIN users su ON su.id = sm.user_id
+       WHERE a.user_id = $1 AND a.activity_type IN ('attendance', 'food')
+       ORDER BY a.created_at DESC
+       LIMIT 100`,
+      [p.user_id],
+    )
+
+    const days = SESSIONS.map((s) => ({
+      key: s.key,
+      label: s.label,
+      attended: !!p[s.attended] || !!p[`${s.key}_checkin`],
+      checkIn: p[`${s.key}_checkin`] ?? null,
+      checkOut: p[`${s.key}_checkout`] ?? null,
+      meals: Object.fromEntries(Object.entries(s.meals).map(([meal, col]) => [meal, !!p[col]])),
+    }))
+    res.set('Cache-Control', 'no-store')
+    res.json({
+      person: { id: p.id, name: p.name, council: p.council, committee: p.committee, kind: p.kind },
+      days,
+      attendedDays: days.filter((d) => d.attended).length,
+      totalDays: days.length,
+      history: history.rows,
+    })
+  } catch (error) {
+    console.error('Scan person error:', error)
+    res.status(500).json({ error: 'Failed to load this person' })
+  }
+})
+
 export default router

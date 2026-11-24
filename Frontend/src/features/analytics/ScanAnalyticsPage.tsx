@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { RefreshCw, Download, Search, UserX, UserCheck, Utensils, History, Undo2 } from 'lucide-react'
 import { api, tokenManager } from '../../lib/api'
 import { serverNow, fmtTime, fmtStamp, todayDayKey, LiveClock } from '../../lib/clock'
+import MemberLookup from './MemberLookup'
 
 interface SessionStat {
   key: string
@@ -110,6 +111,8 @@ export default function ScanAnalyticsPage() {
   const [filter, setFilter] = useState<'missing' | 'in' | 'all'>('missing')
   const [search, setSearch] = useState('')
   const [exporting, setExporting] = useState(false)
+  const [openPerson, setOpenPerson] = useState<string | null>(null)
+  const clearOpenPerson = useCallback(() => setOpenPerson(null), [])
 
   const load = useCallback(async () => {
     try {
@@ -280,6 +283,8 @@ export default function ScanAnalyticsPage() {
 
       {data && selected && (
         <>
+          <MemberLookup council={council || undefined} openId={openPerson} onOpened={clearOpenPerson} refreshKey={updatedAt?.getTime()} />
+
           {/* Headline numbers */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 oc-stagger">
             <div className="card !p-4 flex items-center gap-4 col-span-2 lg:col-span-1">
@@ -359,7 +364,7 @@ export default function ScanAnalyticsPage() {
                   </thead>
                   <tbody>
                     {people.map((p) => (
-                      <tr key={p.id} className="border-b border-black/10 last:border-0">
+                      <tr key={p.id} className="border-b border-black/10 last:border-0 cursor-pointer hover:bg-[#f3ead9]" onClick={() => setOpenPerson(p.id)} title="Show this person's analytics">
                         <td className="py-2 pr-2 whitespace-nowrap font-bold">{p.id}</td>
                         <td className="py-2 px-2">{p.name}</td>
                         <td className="py-2 px-2 hidden sm:table-cell text-gray-600">{p.committee ?? '—'}</td>

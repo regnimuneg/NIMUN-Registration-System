@@ -181,6 +181,12 @@ export const api = {
     if (params.limit) q.set('limit', String(params.limit))
     return callApi(`/api/scan-analytics/log${q.toString() ? `?${q}` : ''}`)
   },
+  searchScanPeople: (q: string, council?: string) => {
+    const p = new URLSearchParams({ q })
+    if (council) p.set('council', council)
+    return callApi(`/api/scan-analytics/search?${p}`)
+  },
+  getScanPerson: (id: string) => callApi(`/api/scan-analytics/person/${encodeURIComponent(id)}`),
   getScanExport: (council?: string) =>
     callApi(`/api/scan-analytics/export${council ? `?council=${encodeURIComponent(council)}` : ''}`),
   sendQrEmail: (body: { participantId?: string; all?: boolean; testTo?: string }) =>
