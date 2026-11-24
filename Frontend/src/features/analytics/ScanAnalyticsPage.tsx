@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { RefreshCw, Download, Search, UserX, UserCheck, Utensils, History, Undo2, LogOut, Hand, Loader2 } from 'lucide-react'
+import { RefreshCw, Download, Search, UserX, UserCheck, Utensils, History, Undo2, LogOut, Hand, Loader2, DoorOpen, CalendarClock, PartyPopper } from 'lucide-react'
 import { api, ApiError, tokenManager } from '../../lib/api'
 import { serverNow, fmtTime, fmtStamp, todayDayKey, LiveClock } from '../../lib/clock'
+import { dayMeta, dayStatus, missingWord, fmtWhen, ago, pct, cairoIso } from '../../lib/days'
+import { downloadCsv } from '../../lib/csv'
+import { PageHeader, DayTabs, StatTile, StatGrid, Panel, Summary, Ring, ProgressRow, Notice, EmptyState, Badge, LoadingPage } from '../../components/ui'
+import type { Attention } from '../../components/ui'
 import MemberLookup from './MemberLookup'
 
 interface SessionStat {
@@ -60,56 +64,10 @@ interface LogEntry {
 
 const POLL_MS = 2_000          // quick change check
 const FULL_REFRESH_MS = 30_000  // full reload even without changes
-const DAY_LABELS: Record<string, string> = {
-  'sessions.day1': 'Session Day One',
-  'sessions.day2': 'Session Day Two',
-  'sessions.day3': 'Session Day Three',
-  'conference.day1': 'Conference Day',
-}
-const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 100) : 0)
-const clock = (iso: string | null) => (iso ? fmtTime(iso) : '—')
 const stamp = (iso: string) => fmtStamp(iso)
 const scanKind = (r: { type: string; checkOut?: boolean }) => (r.type === 'food' ? 'Food' : r.checkOut ? 'Check-out' : 'Check-in')
 
 const todayKey = todayDayKey
-
-/** CSV that Excel and Google Sheets open directly (UTF-8 with BOM). */
-function downloadCsv(filename: string, rows: (string | number | boolean | null | undefined)[][]) {
-  const cell = (v: unknown) => {
-    const s = v === null || v === undefined ? '' : typeof v === 'boolean' ? (v ? 'Yes' : 'No') : String(v)
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-  }
-  const csv = '﻿' + rows.map((r) => r.map(cell).join(',')).join('\r\n')
-  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
-}
-
-function AnimatedNumber({ value }: { value: number }) {
-  const [shown, setShown] = useState(value)
-  const from = useRef(value)
-  useEffect(() => {
-    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    if (reduce || from.current === value) { setShown(value); from.current = value; return }
-    const start = performance.now()
-    const a = from.current
-    let raf = 0
-    const tick = (t: number) => {
-      const k = Math.min(1, (t - start) / 500)
-      setShown(Math.round(a + (value - a) * (1 - Math.pow(1 - k, 3))))
-      if (k < 1) raf = requestAnimationFrame(tick)
-      else from.current = value
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [value])
-  return <>{shown}</>
-}
 
 export default function ScanAnalyticsPage() {
   const user = tokenManager.getUser()
@@ -220,7 +178,7 @@ export default function ScanAnalyticsPage() {
     setNotice(null)
     try {
       await api.manualCheckIn({ id: p.id, session: selected.key, action })
-      setNotice({ ok: true, text: `${p.name} (${p.id}) ${action === 'checkin' ? 'marked present' : 'checked out'} by hand for ${selected.label}.` })
+      setNotice({ ok: true, text: `${p.name} (${p.id}) ${action === 'checkin' ? 'marked present' : 'checked out'} by hand for ${dayMeta(selected.key)?.name ?? selected.label}.` })
     } catch (e: any) {
       const conflict = e instanceof ApiError && e.status === 409
       const msg = !conflict ? `${p.name}: ${e?.message || 'could not save'}`
@@ -276,235 +234,241 @@ export default function ScanAnalyticsPage() {
     }
   }
 
-  if (loading && !data) {
-    return (
-      <div className="jn-shell">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {[0, 1, 2, 3].map((i) => <div key={i} className="oc-skeleton h-28" />)}
-        </div>
-        <div className="oc-skeleton h-72" />
-      </div>
-    )
-  }
+
+  if (loading && !data) return <LoadingPage tiles={4} />
 
   const scopeLabel = data?.scope.council ?? 'All councils'
+  const today = data?.today ?? cairoIso()
+  const meta = selected ? dayMeta(selected.key) : null
+  const status = selected ? dayStatus(selected.key, today) : 'today'
+  const missWord = missingWord(status)
+  const stillHere = Math.max(0, present - left)
+  const byHand = allPeople.filter((p) => isIn(p) && p.manual).length
+  const dayLog = meta ? log.filter((r) => r.dayKey === meta.dayKey && r.value) : []
+  const lastScan = dayLog[0]?.at ?? null
+  const lastScanMins = lastScan ? (serverNow().getTime() - new Date(lastScan).getTime()) / 60_000 : null
+
+  // What needs attention on this day
+  const attention: Attention[] = []
+  if (selected && status !== 'upcoming') {
+    const ranked = byCouncil.map(([name, v]) => ({ name, ...v, p: pct(v.present, v.total) })).sort((a, b) => a.p - b.p)
+    const overall = pct(present, total)
+    if (ranked.length > 1 && present > 0 && ranked[0].p < overall - 10) {
+      attention.push({ tone: 'warn', text: <>Lowest council: <b>{ranked[0].name}</b>, {ranked[0].present} of {ranked[0].total} in ({ranked[0].p}%).</> })
+    }
+    if (status === 'today' && present === 0) attention.push({ tone: 'info', text: 'No one has been scanned in yet today.' })
+    else if (status === 'today' && lastScanMins !== null && lastScanMins > 30 && missing > 0) {
+      attention.push({ tone: 'warn', text: <>No scans for {ago(lastScan)}: last at {fmtTime(lastScan)}. Is every desk open?</> })
+    }
+    if (byHand > 0) attention.push({ tone: 'info', text: <>{byHand} checked in by hand (no QR) on this day.</> })
+    if (hasFood && present > 0 && fed < present) attention.push({ tone: 'info', text: <>{present - fed} people who are in have not had food yet.</> })
+    if (total > 0 && missing === 0) attention.push({ tone: 'good', text: 'Everyone is in.' })
+  }
+
+  const headline = !selected || !meta ? null
+    : status === 'upcoming' ? <>{meta.name} is on <b>{meta.date}</b>. Nothing to show until it starts.</>
+    : status === 'today' ? <><b>{present} of {total}</b> are in today ({pct(present, total)}%). <b>{stillHere}</b> still here, <b>{missing}</b> not in yet.</>
+    : <><b>{present} of {total}</b> came on {meta.name} ({pct(present, total)}%). <b>{missing}</b> absent.</>
 
   return (
     <div className="jn-shell">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-4 mb-5">
-        <div className="min-w-0">
-          <p className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] mb-2">
-            <span className="oc-live-dot" aria-hidden="true" /> Live · <LiveClock />
-          </p>
-          <h1 className="text-2xl sm:text-4xl font-bold">Live Board</h1>
-          <p className="text-gray-600 mt-3 text-sm">
-            {scopeLabel}
-            {user?.name ? ` · ${user.name}` : ''}
-            {updatedAt ? ` · updated ${fmtTime(updatedAt, true)}` : ''}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2 w-full lg:w-auto">
+      <PageHeader
+        eyebrow={<><span className="oc-live-dot" aria-hidden="true" /> Live · <LiveClock /></>}
+        title="Live Board"
+        meta={<>{scopeLabel}{user?.name ? ` · ${user.name}` : ''}{updatedAt ? ` · updated ${fmtTime(updatedAt, true)}` : ''}</>}
+        actions={<>
           {data && !data.scope.locked && (
-            <select value={council} onChange={(e) => setCouncil(e.target.value)} className="px-3 py-2 flex-1 sm:flex-none" aria-label="Council">
+            <select value={council} onChange={(e) => setCouncil(e.target.value)} className="px-3 py-2" aria-label="Council">
               <option value="">All councils</option>
               {data.councils.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           )}
-          <button onClick={exportDay} className="btn-secondary flex items-center gap-2 px-3 py-2 flex-1 sm:flex-none justify-center">
+          <button onClick={exportDay} className="btn-secondary flex items-center gap-2 px-3 py-2" title="Download this day as a spreadsheet">
             <Download className="w-4 h-4" /> This day
           </button>
-          <button onClick={() => void exportAll()} disabled={exporting} className="btn-secondary flex items-center gap-2 px-3 py-2 flex-1 sm:flex-none justify-center">
+          <button onClick={() => void exportAll()} disabled={exporting} className="btn-secondary flex items-center gap-2 px-3 py-2" title="Download all four days as a spreadsheet">
             <Download className="w-4 h-4" /> {exporting ? 'Preparing…' : 'All days'}
           </button>
-          <button onClick={() => void load()} className="btn-primary flex items-center gap-2 px-4 py-2 justify-center" aria-label="Refresh now">
+          <button onClick={() => void load()} className="btn-primary flex items-center gap-2 px-4 py-2" aria-label="Refresh now" title="Refresh now">
             <RefreshCw className="w-4 h-4" />
           </button>
-        </div>
-      </div>
+        </>}
+      />
 
-      {/* Day tabs */}
-      <div className="flex flex-wrap gap-2 mb-6" role="group" aria-label="Day">
-        {data?.sessions.map((s) => (
-          <button key={s.key} className="oc-tab" aria-pressed={s.key === sessionKey} onClick={() => setSessionKey(s.key)}>
-            {s.label}{s.key === todayKey() ? ' · today' : ''}
-          </button>
-        ))}
-      </div>
+      <DayTabs value={sessionKey} onChange={setSessionKey} today={todayKey()} keys={data?.sessions.map((s) => s.key)} />
 
-      {error && <div className="mb-6 border border-red-700 bg-red-50 text-red-800 px-4 py-3">{error}</div>}
+      {error && <Notice tone="bad">{error}</Notice>}
 
-      {data && selected && (
+      {data && selected && meta && (
         <>
-          <MemberLookup council={council || undefined} openId={openPerson} onOpened={clearOpenPerson} refreshKey={updatedAt?.getTime()} onChanged={load} />
+          <Summary
+            headline={headline}
+            facts={status === 'upcoming' ? [] : [
+              <>Checked out <b>{left}</b></>,
+              ...(hasFood ? [<>Got food <b>{fed}</b></>] : []),
+              <>Last scan <b>{lastScan ? `${fmtTime(lastScan)} (${ago(lastScan)})` : 'none yet'}</b></>,
+            ]}
+            attention={attention}
+            aside={status === 'upcoming' ? <CalendarClock className="w-14 h-14 text-[var(--oc-blue)]" /> : <Ring value={pct(present, total)} label="present" />}
+          />
 
-          {/* Headline numbers */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 oc-stagger">
-            <div className="card !p-4 flex items-center gap-4 col-span-2 lg:col-span-1">
-              <div className="oc-ring" style={{ ['--p' as any]: pct(present, total) }}>
-                <div><span className="oc-big-number !text-2xl">{pct(present, total)}%</span></div>
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs uppercase tracking-widest text-gray-600">Present</p>
-                <p className="text-sm mt-1">{selected.label}</p>
-              </div>
-            </div>
-            <div className="card !p-4">
-              <p className="text-xs uppercase tracking-widest text-gray-600 flex items-center gap-2"><UserCheck className="w-4 h-4" /> Scanned in</p>
-              <p className="oc-big-number mt-2 text-[var(--oc-blue)]"><AnimatedNumber value={present} /></p>
-              <p className="text-xs text-gray-500 mt-1">of {total}</p>
-              <p className="text-xs text-[#6b21a8] mt-1 flex items-center gap-1"><LogOut className="w-3.5 h-3.5" /> {left} checked out · {Math.max(0, present - left)} still here</p>
-            </div>
-            <div className="card !p-4">
-              <p className="text-xs uppercase tracking-widest text-gray-600 flex items-center gap-2"><UserX className="w-4 h-4" /> Not yet</p>
-              <p className="oc-big-number mt-2"><AnimatedNumber value={missing} /></p>
-              <p className="text-xs text-gray-500 mt-1">still to scan</p>
-            </div>
-            <div className="card !p-4">
-              <p className="text-xs uppercase tracking-widest text-gray-600 flex items-center gap-2"><Utensils className="w-4 h-4" /> Food</p>
-              <p className="oc-big-number mt-2 text-[#c2410c]">{hasFood ? <AnimatedNumber value={fed} /> : '—'}</p>
-              <p className="text-xs text-gray-500 mt-1">{hasFood ? `of ${total}` : 'Conference Day only'}</p>
-            </div>
-          </div>
-
-          {/* Council progress */}
-          {byCouncil.length > 1 && (
-            <div className="card !p-4 sm:!p-5 mb-6">
-              <h2 className="text-lg mb-4">By council</h2>
-              <div className="grid sm:grid-cols-2 gap-x-8 gap-y-4">
-                {byCouncil.map(([name, v]) => (
-                  <button key={name} className="text-left group" onClick={() => !data.scope.locked && setCouncil(name)} title={`Show only ${name}`}>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="font-bold group-hover:underline">{name}</span>
-                      <span className="tabular-nums">{v.present} / {v.total} · {pct(v.present, v.total)}%</span>
-                    </div>
-                    <div className="oc-bar"><span style={{ width: `${pct(v.present, v.total)}%` }} /></div>
-                    {hasFood && (
-                      <div className="oc-bar is-food mt-1" title="Food"><span style={{ width: `${pct(v.food, v.total)}%` }} /></div>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
+          {status !== 'upcoming' && (
+            <StatGrid cols={hasFood ? 5 : 4}>
+              <StatTile label="Present" icon={<UserCheck />} tone="blue" value={present} sub={`of ${total} · ${pct(present, total)}%`} onClick={() => setFilter('in')} active={filter === 'in'} />
+              <StatTile label="Still here" icon={<DoorOpen />} tone="good" value={stillHere} sub="in, not checked out" />
+              <StatTile label="Checked out" icon={<LogOut />} tone="out" value={left} sub={`of ${present} who came`} />
+              <StatTile label={missWord} icon={<UserX />} tone={status === 'past' ? 'bad' : 'warn'} value={missing} sub={status === 'past' ? 'no check-in that day' : 'still to scan'} onClick={() => setFilter('missing')} active={filter === 'missing'} />
+              {hasFood && <StatTile label="Got food" icon={<Utensils />} tone="food" value={fed} sub={`of ${total}`} />}
+            </StatGrid>
           )}
 
-          <div className="grid lg:grid-cols-3 gap-6">
-            {/* People / not yet scanned */}
-            <div className="card !p-4 sm:!p-5 lg:col-span-2 min-w-0">
-              <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-                <h2 className="text-lg">{filter === 'missing' ? 'Not yet scanned' : filter === 'in' ? 'Scanned in' : 'Everyone'} · {selected.label}</h2>
-                <div className="flex gap-1">
+          <MemberLookup council={council || undefined} openId={openPerson} onOpened={clearOpenPerson} refreshKey={updatedAt?.getTime()} onChanged={load} />
+
+          {byCouncil.length > 1 && status !== 'upcoming' && (
+            <Panel title="By council" actions={data.scope.locked ? undefined : <span className="text-xs text-gray-600">Tap a council to show only it</span>}>
+              <div className="grid sm:grid-cols-2 gap-x-8 gap-y-4">
+                {byCouncil.map(([name, v]) => (
+                  <ProgressRow
+                    key={name}
+                    label={name}
+                    n={v.present}
+                    d={v.total}
+                    onClick={data.scope.locked ? undefined : () => setCouncil(name)}
+                    title={data.scope.locked ? undefined : `Show only ${name}`}
+                    second={hasFood ? { n: v.food, tone: 'food', label: 'Got food' } : undefined}
+                    sub={`${v.total - v.present} ${missWord.toLowerCase()}${hasFood ? ` · ${v.food} got food` : ''}`}
+                  />
+                ))}
+              </div>
+            </Panel>
+          )}
+
+          <div className="grid lg:grid-cols-3 gap-x-6">
+            {/* People */}
+            <Panel
+              className="lg:col-span-2"
+              title={<>{filter === 'missing' ? missWord : filter === 'in' ? 'Present' : 'Everyone'} · {meta.short}</>}
+              actions={
+                <div className="oc-seg" role="group" aria-label="Show">
                   {(['missing', 'in', 'all'] as const).map((f) => (
                     <button key={f} className="oc-tab" aria-pressed={filter === f} onClick={() => setFilter(f)}>
-                      {f === 'missing' ? `Not yet (${missing})` : f === 'in' ? `In (${present})` : 'All'}
+                      {f === 'missing' ? `${missWord} (${missing})` : f === 'in' ? `Present (${present})` : `Everyone (${total})`}
                     </button>
                   ))}
                 </div>
-              </div>
+              }
+            >
               {canManualDay && filter === 'missing' && (
-                <p className="text-xs text-gray-600 mb-2 flex items-center gap-1"><Hand className="w-3.5 h-3.5" /> No QR? Tap <b>Mark present</b> to check someone in by hand. It is logged with your name.</p>
+                <p className="text-xs text-gray-600 mb-2 flex items-center gap-1"><Hand className="w-3.5 h-3.5 shrink-0" /> No QR? Tap <b>Mark present</b> to check someone in by hand. It is logged with your name.</p>
               )}
               {canManualDay && filter === 'in' && (
-                <p className="text-xs text-gray-600 mb-2 flex items-center gap-1"><LogOut className="w-3.5 h-3.5" /> Leaving without a QR? Tap <b>Mark checked out</b>. It is logged with your name.</p>
+                <p className="text-xs text-gray-600 mb-2 flex items-center gap-1"><LogOut className="w-3.5 h-3.5 shrink-0" /> Leaving without a QR? Tap <b>Mark checked out</b>. It is logged with your name.</p>
               )}
-              {notice && (
-                <div className={`mb-3 border px-3 py-2 text-sm ${notice.ok ? 'border-[#0f5c38] bg-[#eaf6ef] text-[#0f5c38]' : 'border-red-700 bg-red-50 text-red-800'}`} role="status">{notice.text}</div>
-              )}
+              {notice && <Notice tone={notice.ok ? 'good' : 'bad'} onClose={() => setNotice(null)}>{notice.text}</Notice>}
               <div className="relative mb-3">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, ID or committee" className="w-full pl-9 pr-3 py-2 text-sm" />
+                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, ID or committee" className="w-full pl-9 pr-3 py-2 text-sm" aria-label="Search the list" />
               </div>
-              <div className="overflow-x-auto max-h-[30rem] overflow-y-auto">
-                <table className="w-full text-sm">
-                  <thead className="sticky top-0 bg-[#faf6f0]">
-                    <tr className="text-left border-b border-black">
-                      <th className="py-2 pr-2">ID</th>
-                      <th className="py-2 px-2">Name</th>
-                      <th className="py-2 px-2 hidden sm:table-cell">Committee</th>
-                      <th className="py-2 px-2">In</th>
-                      <th className="py-2 px-2">Out</th>
-                      {hasFood && <th className="py-2 pl-2">Food</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {people.map((p) => (
-                      <tr key={p.id} className="border-b border-black/10 last:border-0 cursor-pointer hover:bg-[#f3ead9]" onClick={() => setOpenPerson(p.id)} title="Show this person's analytics">
-                        <td className="py-2 pr-2 whitespace-nowrap font-bold">{p.id}</td>
-                        <td className="py-2 px-2">{p.name}</td>
-                        <td className="py-2 px-2 hidden sm:table-cell text-gray-600">{p.committee ?? '—'}</td>
-                        <td className="py-2 px-2 whitespace-nowrap">
-                          {isIn(p) ? (
-                            <span className="text-[#0f5c38] font-bold">
-                              {p.checkIn ? clock(p.checkIn) : 'Yes'}
-                              {p.manual && <span className="ml-1 text-[10px] uppercase tracking-wider font-bold text-[#7a4b00] border border-[#7a4b00] px-1" title={`Checked in by hand${p.checkedInBy ? ` by ${p.checkedInBy}` : ''}`}>manual</span>}
-                            </span>
-                          ) : canManualDay && p.kind !== 'delegate' ? (
-                            <button
-                              type="button"
-                              className="btn-secondary !px-2 !py-1 text-xs flex items-center gap-1 whitespace-nowrap"
-                              disabled={!!marking}
-                              onClick={(e) => { e.stopPropagation(); void markPresent(p) }}
-                              title="Check this person in without their QR"
-                            >
-                              {marking === `${p.id}:checkin` ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Hand className="w-3.5 h-3.5" />} Mark present
-                            </button>
-                          ) : <span className="text-gray-400">—</span>}
-                        </td>
-                        <td className="py-2 px-2 whitespace-nowrap">
-                          {p.checkOut ? (
-                            <span className="text-[#6b21a8] font-bold">
-                              {clock(p.checkOut)}
-                              {p.outManual && <span className="ml-1 text-[10px] uppercase tracking-wider font-bold text-[#7a4b00] border border-[#7a4b00] px-1" title={`Checked out by hand${p.checkedOutBy ? ` by ${p.checkedOutBy}` : ''}`}>manual</span>}
-                            </span>
-                          ) : isIn(p) && canManualDay && p.kind !== 'delegate' ? (
-                            <button
-                              type="button"
-                              className="btn-secondary !px-2 !py-1 text-xs flex items-center gap-1 whitespace-nowrap"
-                              disabled={!!marking}
-                              onClick={(e) => { e.stopPropagation(); void markCheckedOut(p) }}
-                              title="Check this person out without their QR"
-                            >
-                              {marking === `${p.id}:checkout` ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LogOut className="w-3.5 h-3.5" />} Mark checked out
-                            </button>
-                          ) : <span className="text-gray-400">—</span>}
-                        </td>
-                        {hasFood && <td className="py-2 pl-2">{p.food ? <span className="text-[#c2410c] font-bold">Yes</span> : <span className="text-gray-400">—</span>}</td>}
+              {people.length === 0 || (status === 'upcoming' && filter !== 'all') ? (
+                status === 'upcoming' && filter !== 'all'
+                  ? <EmptyState icon={<CalendarClock className="w-6 h-6" />} title={`${meta.name} has not started`} text={`It is on ${meta.date}.`} />
+                  : filter === 'missing' && !search
+                    ? <EmptyState icon={<PartyPopper className="w-6 h-6" />} title="Everyone is in" text="No one is missing on this day." />
+                    : filter === 'in' && !search
+                      ? <EmptyState icon={<UserX className="w-6 h-6" />} title="No one is in yet" text="People show up here as soon as they are scanned." />
+                      : <EmptyState title="No one matches" text="Try a different name, ID or committee." />
+              ) : (
+                <div className="oc-scroll">
+                  <table className="oc-table">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th className="hidden sm:table-cell">Committee</th>
+                        <th>Check-in</th>
+                        <th>Check-out</th>
+                        {hasFood && <th>Food</th>}
                       </tr>
-                    ))}
-                    {people.length === 0 && (
-                      <tr><td colSpan={6} className="py-10 text-center text-gray-500">{filter === 'missing' && !search ? 'Everyone is scanned in.' : 'No one matches.'}</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                    </thead>
+                    <tbody>
+                      {people.map((p) => (
+                        <tr key={p.id} className="is-link" onClick={() => setOpenPerson(p.id)} title="Show this person's days">
+                          <td className="is-id">{p.id}</td>
+                          <td>{p.name}<span className="block sm:hidden text-xs text-gray-500">{p.committee ?? ''}</span></td>
+                          <td className="hidden sm:table-cell is-muted">{p.committee ?? '—'}</td>
+                          <td className="oc-time">
+                            {isIn(p) ? (
+                              <span className="oc-yes">
+                                {p.checkIn ? fmtTime(p.checkIn) : 'Yes'}
+                                {p.manual && <> <Badge tone="warn" title={`Checked in by hand${p.checkedInBy ? ` by ${p.checkedInBy}` : ''}`}>manual</Badge></>}
+                              </span>
+                            ) : canManualDay && p.kind !== 'delegate' ? (
+                              <button
+                                type="button"
+                                className="btn-secondary !px-2 !py-1 text-xs flex items-center gap-1 whitespace-nowrap"
+                                disabled={!!marking}
+                                onClick={(e) => { e.stopPropagation(); void markPresent(p) }}
+                                title="Check this person in without their QR"
+                              >
+                                {marking === `${p.id}:checkin` ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Hand className="w-3.5 h-3.5" />} Mark present
+                              </button>
+                            ) : <span className="oc-none">—</span>}
+                          </td>
+                          <td className="oc-time">
+                            {p.checkOut ? (
+                              <span className="oc-outc">
+                                {fmtTime(p.checkOut)}
+                                {p.outManual && <> <Badge tone="warn" title={`Checked out by hand${p.checkedOutBy ? ` by ${p.checkedOutBy}` : ''}`}>manual</Badge></>}
+                              </span>
+                            ) : isIn(p) && canManualDay && p.kind !== 'delegate' ? (
+                              <button
+                                type="button"
+                                className="btn-secondary !px-2 !py-1 text-xs flex items-center gap-1 whitespace-nowrap"
+                                disabled={!!marking}
+                                onClick={(e) => { e.stopPropagation(); void markCheckedOut(p) }}
+                                title="Check this person out without their QR"
+                              >
+                                {marking === `${p.id}:checkout` ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LogOut className="w-3.5 h-3.5" />} Mark checked out
+                              </button>
+                            ) : <span className="oc-none">—</span>}
+                          </td>
+                          {hasFood && <td>{p.food ? <span className="oc-foodc">Yes</span> : <span className="oc-none">—</span>}</td>}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <p className="text-xs text-gray-500 mt-3">Showing {people.length} of {total}. Tap a row to see that person's four days.</p>
+            </Panel>
 
-            {/* Scan log */}
-            <div className="card !p-4 sm:!p-5 min-w-0">
-              <h2 className="text-lg mb-3 flex items-center gap-2"><History className="w-5 h-5" /> Scan log</h2>
+            {/* Recent scans */}
+            <Panel title="Recent scans" icon={<History />}>
               {log.length === 0 ? (
-                <p className="text-gray-500 text-sm">No scans yet.</p>
+                <EmptyState compact icon={<History className="w-6 h-6" />} title="No scans yet" text="Each check-in, check-out and food scan shows up here with who scanned it." />
               ) : (
                 <ul className="max-h-[34rem] overflow-y-auto divide-y divide-black/10">
                   {log.map((r, i) => (
                     <li key={`${r.id}-${r.at}-${i}`} className="py-2.5 text-sm">
                       <div className="flex justify-between gap-2">
                         <span className="font-bold truncate">{r.name}</span>
-                        <span className="text-gray-500 whitespace-nowrap tabular-nums">{stamp(r.at)}</span>
+                        <span className="text-gray-500 oc-time">{fmtWhen(r.at)}</span>
                       </div>
-                      <p className="text-gray-700 truncate flex items-center gap-1">
-                        {!r.value && <Undo2 className="w-3.5 h-3.5 text-[#7a4b00]" />}
-                        {r.value && r.checkOut && <LogOut className="w-3.5 h-3.5 text-[#6b21a8]" />}
-                        <span>{r.id} · {scanKind(r)}{r.manual ? ' (manual)' : ''}{r.dayKey ? ` · ${DAY_LABELS[r.dayKey] ?? r.dayKey}` : ''}{!r.value ? ' · undone' : ''}</span>
+                      <p className="text-gray-700 flex flex-wrap items-center gap-1">
+                        {!r.value && <Undo2 className="w-3.5 h-3.5 text-[var(--oc-warn)]" />}
+                        {r.value && r.checkOut && <LogOut className="w-3.5 h-3.5 text-[var(--oc-out)]" />}
+                        <span>{r.id} · {scanKind(r)}{r.dayKey ? ` · ${dayMeta(r.dayKey)?.short ?? r.dayKey}` : ''}</span>
+                        {r.manual && <Badge tone="warn">manual</Badge>}
+                        {!r.value && <Badge tone="warn">undone</Badge>}
                       </p>
-                      <p className="text-xs text-gray-500">{r.manual ? 'by hand, by' : 'by'} {r.scannedByName ?? r.scannedBy ?? 'unknown'}</p>
+                      <p className="text-xs text-gray-500">by {r.scannedByName ?? r.scannedBy ?? 'unknown'}</p>
                     </li>
                   ))}
                 </ul>
               )}
               {isAdmin && <p className="text-xs text-gray-500 mt-3">To undo a scan, tap Undo in the scanner right after it, or switch off Attendance, Check-out or Food in Manual / View Details.</p>}
               {data.canManual && <p className="text-xs text-gray-500 mt-3">To undo a check-in or check-out, open the person (Find a member or tap their row) and use the buttons on that day.</p>}
-            </div>
+            </Panel>
           </div>
         </>
       )}

@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Search, X, UserCheck, Utensils, Undo2, CircleDashed, LogOut, Hand, Loader2 } from 'lucide-react'
 import { api, ApiError } from '../../lib/api'
-import { fmtTime, fmtStamp } from '../../lib/clock'
+import { fmtTime } from '../../lib/clock'
+import { dayMeta, dayStatus, missingWord, fmtWhen } from '../../lib/days'
+import { Badge, EmptyState } from '../../components/ui'
 
 interface Hit { id: string; name: string; council: string | null; committee: string | null }
 interface Day { key: string; label: string; attended: boolean; checkIn: string | null; checkOut: string | null; meals: Record<string, boolean>; date?: string; manual?: boolean; checkedInBy?: string | null; outManual?: boolean; checkedOutBy?: string | null }
@@ -15,13 +17,7 @@ const ACTION_DONE: Record<ManualAction, string> = {
   'undo-checkout': 'Check-out removed',
 }
 
-const DAY_LABELS: Record<string, string> = {
-  'sessions.day1': 'Session Day One',
-  'sessions.day2': 'Session Day Two',
-  'sessions.day3': 'Session Day Three',
-  'conference.day1': 'Conference Day',
-}
-const shortDay = (label: string) => label.replace(/^Session Day (\w+) \((.*)\)$/, 'Day $1 · $2').replace(/^Conference Day \((.*)\)$/, 'Conference · $1')
+const shortDay = (key: string, label: string) => { const m = dayMeta(key); return m ? `${m.short} · ${m.date}` : label }
 
 /** Search one member by name, ID or username and show their own attendance, food and scan history. */
 export default function MemberLookup({ council, openId, onOpened, refreshKey, onChanged }: { council?: string; openId?: string | null; onOpened?: () => void; refreshKey?: string | number; onChanged?: () => void }) {
@@ -95,7 +91,7 @@ export default function MemberLookup({ council, openId, onOpened, refreshKey, on
     setNotice(null)
     try {
       await api.manualCheckIn({ id: data.person.id, session: d.key, action })
-      setNotice({ ok: true, text: `${ACTION_DONE[action]} · ${shortDay(d.label)}` })
+      setNotice({ ok: true, text: `${ACTION_DONE[action]} · ${shortDay(d.key, d.label)}` })
     } catch (e: any) {
       setNotice({ ok: e instanceof ApiError && e.status === 409, text: e?.message || 'Could not save' })
     } finally {
@@ -107,8 +103,8 @@ export default function MemberLookup({ council, openId, onOpened, refreshKey, on
   const dayOpen = (d: Day) => !d.date || !data?.today || d.date <= data.today
 
   return (
-    <div ref={cardRef} className="card !p-4 sm:!p-5 mb-6 scroll-mt-4 !z-30">
-      <h2 className="text-lg mb-3">Find a member</h2>
+    <div ref={cardRef} className="oc-panel scroll-mt-32 relative z-30">
+      <h2 className="oc-panel-title mb-3">Find a member</h2>
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
         <input
@@ -157,10 +153,10 @@ export default function MemberLookup({ council, openId, onOpened, refreshKey, on
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mt-4">
             {data.days.map((d) => (
               <div key={d.key} className={`border p-3 ${d.attended ? 'border-[#0f5c38] bg-[#eaf6ef]' : 'border-black/20'}`}>
-                <p className="text-xs uppercase tracking-wider text-gray-600">{shortDay(d.label)}</p>
+                <p className="text-xs uppercase tracking-wider text-gray-600">{shortDay(d.key, d.label)}</p>
                 <p className={`mt-1 font-bold flex items-center gap-1.5 ${d.attended ? 'text-[#0f5c38]' : 'text-gray-400'}`}>
                   {d.attended ? <UserCheck className="w-4 h-4" /> : <CircleDashed className="w-4 h-4" />}
-                  {d.attended ? (d.checkIn ? fmtTime(d.checkIn) : 'Present') : 'Not scanned'}
+                  {d.attended ? (d.checkIn ? `In ${fmtTime(d.checkIn)}` : 'Present') : missingWord(dayStatus(d.key, data.today))}
                 </p>
                 {d.checkOut && (
                   <p className="text-sm mt-1 flex items-center gap-1.5 text-[#6b21a8] font-bold">
@@ -215,7 +211,7 @@ export default function MemberLookup({ council, openId, onOpened, refreshKey, on
 
           <h3 className="text-sm font-bold mt-4 mb-1">Scan history</h3>
           {data.history.length === 0 ? (
-            <p className="text-sm text-gray-500">No scans yet.</p>
+            <EmptyState compact title="No scans yet" text="Check-ins, check-outs and food for this person show up here." />
           ) : (
             <ul className="divide-y divide-black/10 max-h-64 overflow-y-auto">
               {data.history.map((h, i) => (
@@ -224,11 +220,12 @@ export default function MemberLookup({ council, openId, onOpened, refreshKey, on
                     <span className="flex items-center gap-1">
                       {!h.value && <Undo2 className="w-3.5 h-3.5 text-[#7a4b00]" />}
                       {h.value && h.checkOut && <LogOut className="w-3.5 h-3.5 text-[#6b21a8]" />}
-                      {h.type === 'food' ? 'Food' : h.checkOut ? 'Check-out' : 'Check-in'}{h.manual ? ' (manual)' : ''}{h.dayKey ? ` · ${DAY_LABELS[h.dayKey] ?? h.dayKey}` : ''}{!h.value ? ' · undone' : ''}
+                      {h.type === 'food' ? 'Food' : h.checkOut ? 'Check-out' : 'Check-in'}{h.dayKey ? ` · ${dayMeta(h.dayKey)?.short ?? h.dayKey}` : ''}
+                      {h.manual && <Badge tone="warn">manual</Badge>}{!h.value && <Badge tone="warn">undone</Badge>}
                     </span>
-                    <span className="block text-xs text-gray-500">{h.manual ? 'by hand, by' : 'by'} {h.scannedByName ?? h.scannedBy ?? 'unknown'}</span>
+                    <span className="block text-xs text-gray-500">by {h.scannedByName ?? h.scannedBy ?? 'unknown'}</span>
                   </span>
-                  <span className="text-gray-500 whitespace-nowrap tabular-nums">{fmtStamp(h.at)}</span>
+                  <span className="text-gray-500 whitespace-nowrap tabular-nums">{fmtWhen(h.at)}</span>
                 </li>
               ))}
             </ul>

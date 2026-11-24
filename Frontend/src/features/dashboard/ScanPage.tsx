@@ -13,10 +13,10 @@ interface SessionOption {
 
 // OC Conference '27 days (24-27 November 2026)
 const SESSION_OPTIONS: SessionOption[] = [
-  { id: 'sessions-day1', label: 'Session Day One', date: 'November 24th', dayKey: 'sessions.day1' },
-  { id: 'sessions-day2', label: 'Session Day Two', date: 'November 25th', dayKey: 'sessions.day2' },
-  { id: 'sessions-day3', label: 'Session Day Three', date: 'November 26th', dayKey: 'sessions.day3' },
-  { id: 'conference-day1', label: 'Conference Day', date: 'November 27th', dayKey: 'conference.day1' }
+  { id: 'sessions-day1', label: 'Session Day One', date: 'Tue 24 Nov', dayKey: 'sessions.day1' },
+  { id: 'sessions-day2', label: 'Session Day Two', date: 'Wed 25 Nov', dayKey: 'sessions.day2' },
+  { id: 'sessions-day3', label: 'Session Day Three', date: 'Thu 26 Nov', dayKey: 'sessions.day3' },
+  { id: 'conference-day1', label: 'Conference Day', date: 'Fri 27 Nov', dayKey: 'conference.day1' }
 ]
 
 // One shared AudioContext. Phones start it muted until a tap, so it is
@@ -1240,8 +1240,8 @@ export default function ScanPage() {
       <div className="jn-shell">
         <div className="max-w-4xl mx-auto w-full overflow-x-hidden">
           <div className="mb-6 sm:mb-8 relative">
-            <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold mb-2">QR Code Scanner</h1>
-            <p className="text-gray-600 text-sm sm:text-base md:text-lg">Select a session, then scan QR code or enter participant ID</p>
+            <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold mb-2">Scanner</h1>
+            <p className="text-gray-600 text-sm sm:text-base md:text-lg">Pick the day and mode, then scan a QR code or type an ID.</p>
             <p className="mt-1 text-xs uppercase tracking-[0.15em] text-gray-600"><LiveClock /></p>
           </div>
 
@@ -1252,7 +1252,7 @@ export default function ScanPage() {
               <div>
                 <div className="flex items-center gap-2 mb-4">
                   <Calendar className="w-5 h-5 text-[var(--color-primary-blue)]" />
-                  <h2 className="text-lg sm:text-xl font-black">Select Session</h2>
+                  <h2 className="text-lg sm:text-xl font-black">Day</h2>
                 </div>
                 <div className="w-full relative" ref={dropdownRef}>
                   {/* Custom Dropdown Button */}

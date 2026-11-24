@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import type { CSSProperties } from 'react'
 import { api } from '../../lib/api'
+import { fmtWhen, pct } from '../../lib/days'
+import { PageHeader, StatGrid, StatTile } from '../../components/ui'
 import { Users, Search, Edit, Trash2, QrCode, Eye, Plus, RefreshCw, X, Download, Calendar, UtensilsCrossed, Gamepad2, Ticket, Mail, Send } from 'lucide-react'
 
 interface Participant {
@@ -235,6 +237,12 @@ export default function ParticipantsPage() {
     }
   }
 
+  const councilCounts = Object.entries(participants.reduce<Record<string, number>>((acc, p) => {
+    const c = p.council || p.role?.match(/^OC Member \((.*)\)$/)?.[1]
+    if (c) acc[c] = (acc[c] ?? 0) + 1
+    return acc
+  }, {})).sort((a, b) => a[0].localeCompare(b[0])).slice(0, 4)
+
   const filteredParticipants = participants.filter(p => {
     const searchFields = [
       p.name.toLowerCase(),
@@ -306,7 +314,7 @@ export default function ParticipantsPage() {
                           {history.attendance.map((a: any, idx: number) => (
                             <tr key={idx} className="border-b">
                               <td className="px-3 py-2">{a.session_name || a.session_type}</td>
-                              <td className="px-3 py-2">{new Date(a.session_date || a.check_in_time).toLocaleString()}</td>
+                              <td className="px-3 py-2">{fmtWhen(a.session_date || a.check_in_time)}</td>
                               <td className="px-3 py-2">
                                 <span className="text-green-600">Present</span>
                               </td>
@@ -338,7 +346,7 @@ export default function ParticipantsPage() {
                             <tr key={idx} className="border-b">
                               <td className="px-3 py-2">{f.meal_type}</td>
                               <td className="px-3 py-2">{f.meal_day}</td>
-                              <td className="px-3 py-2">{new Date(f.claimed_at).toLocaleString()}</td>
+                              <td className="px-3 py-2">{fmtWhen(f.claimed_at)}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -403,7 +411,7 @@ export default function ParticipantsPage() {
                                 {displayDescription}
                               </p>
                               <p className="text-xs text-gray-500 mt-1">
-                                {new Date(item.timestamp || item.created_at).toLocaleString()}
+                                {fmtWhen(item.timestamp || item.created_at)}
                               </p>
                             </div>
                           )
@@ -433,21 +441,22 @@ export default function ParticipantsPage() {
     <div className="jn-page">
       <div className="jn-shell px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto w-full overflow-x-hidden">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-            <div>
-              <h1 className="text-2xl sm:text-4xl font-bold mb-2">Participants Management</h1>
-              <p className="text-gray-600 text-sm sm:text-base">OC Conference '27 members</p>
-            </div>
-            <div className="flex gap-2 w-full sm:w-auto">
-              <button
-                onClick={loadParticipants}
-                className="btn-secondary flex items-center gap-2 text-sm sm:text-base px-4 py-2 sm:px-6 sm:py-3"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Refresh
+          <PageHeader
+            title="Participants"
+            meta="OC Conference '27 members: list, QR codes and edits"
+            actions={
+              <button onClick={loadParticipants} className="btn-primary flex items-center gap-2 px-4 py-2">
+                <RefreshCw className="w-4 h-4" /> Refresh
               </button>
-            </div>
-          </div>
+            }
+          />
+
+          <StatGrid cols={5}>
+            <StatTile label="OC members" icon={<Users />} tone="ink" value={participants.length} sub={`${participants.filter((p) => p.email && p.email.trim()).length} have an email`} />
+            {councilCounts.map(([name, n]) => (
+              <StatTile key={name} label={name} tone="blue" value={n} sub={`${pct(n, participants.length)}% of members`} onClick={() => setSearchTerm(searchTerm === name ? '' : name)} active={searchTerm === name} />
+            ))}
+          </StatGrid>
 
           {/* QR email */}
           <div className="jn-card p-4 sm:p-5 mb-6" style={{ '--card-color': 'var(--jn-blue)' } as CSSProperties}>

@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import type { CSSProperties } from 'react'
 import { useLocation, useNavigate, Outlet } from 'react-router-dom'
-import { Home, Settings, Smartphone, User, BarChart3, Users, Menu, LogOut, X, ClipboardList } from 'lucide-react'
+import { Home, Smartphone, User, BarChart3, Users, Menu, LogOut, X, ClipboardList } from 'lucide-react'
 import { tokenManager, api } from '../lib/api'
 
 export default function PortalLayout() {
@@ -145,60 +145,17 @@ export default function PortalLayout() {
           {/* Sidebar Navigation */}
           <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4">
             <div className="flex flex-col space-y-1 px-2 min-w-0">
-              {isAdmin && (
-                <>
-                  <a
-                    href="/admin/dashboard"
-                    className="flex items-center px-4 py-3 rounded-2xl text-base font-extrabold text-[var(--jn-blue)] hover:bg-blue-50 transition-colors"
-                    onClick={() => {
-                      setIsMobileMenuOpen(false)
-                      setMobileAdminOpen(false)
-                    }}
-                  >
-                    <Home className="w-5 h-5 mr-3" />
-                    Dashboard
-                  </a>
-
-                  <div>
-                    <button
-                      className="w-full flex items-center justify-between px-4 py-3 rounded-2xl text-base font-extrabold text-[var(--jn-blue)] hover:bg-blue-50 transition-colors"
-                      onClick={() => setMobileAdminOpen(!mobileAdminOpen)}
-                    >
-                      <div className="flex items-center">
-                        <Settings className="w-5 h-5 mr-3" />
-                        Admin
-                      </div>
-                      <svg
-                        className={`w-4 h-4 transition-transform duration-200 ${mobileAdminOpen ? 'rotate-180' : ''}`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-
-                    {mobileAdminOpen && (
-                      <div className="ml-4 mt-1 space-y-1 animate-in slide-in-from-top-2 duration-200">
-                        {adminLinks.map(({ href, label, icon: Icon, paths }) => (
-                          <a
-                            key={href}
-                            href={href}
-                            className={`flex items-center px-4 py-2.5 rounded-2xl text-sm font-bold transition-colors ${isActive(paths) ? 'bg-[var(--jn-pink)] text-white' : 'text-gray-700 hover:bg-blue-50 hover:text-[var(--jn-blue)]'}`}
-                            onClick={() => {
-                              setIsMobileMenuOpen(false)
-                              setMobileAdminOpen(false)
-                            }}
-                          >
-                            <Icon className="w-4 h-4 mr-3" />
-                            {label}
-                          </a>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
+              {isAdmin && adminLinks.map(({ href, label, icon: Icon, paths }) => (
+                <a
+                  key={href}
+                  href={href}
+                  className={`flex items-center px-4 py-3 text-base font-extrabold transition-colors ${isActive(paths) ? 'bg-[var(--oc-blue)] text-[var(--oc-white)]' : 'text-[var(--jn-blue)] hover:bg-blue-50'}`}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <Icon className="w-5 h-5 mr-3" />
+                  {label}
+                </a>
+              ))}
 
               {isAnalyst && (
                 <a
@@ -271,59 +228,39 @@ export default function PortalLayout() {
                 </div>
               </a>
               <div className="hidden md:flex items-center space-x-2">
-                {isAdmin && (
-                  <>
-                    <a
-                      href="/admin/dashboard"
-                      className={`nav-link flex items-center border-2 border-white/80 ${isActive(['/admin/dashboard', '/admin', '/dashboard']) ? 'bg-[var(--oc-white)] !text-[var(--oc-blue)]' : 'bg-white/0'}`}
-                    >
-                      <Home className="w-4 h-4" />
-                      <span className="ml-2 hidden lg:inline text-base">Dashboard</span>
-                    </a>
-                    <div className="relative group">
-                      <button className="nav-link flex items-center">
-                        <Settings className="w-4 h-4" />
-                        <span className="ml-2 hidden lg:inline text-base">Admin</span>
-                        <svg className="ml-1 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </button>
-                      <div className="absolute right-0 w-60 bg-white/95 backdrop-blur-md text-gray-900 rounded-3xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 border-2 border-[var(--jn-blue)] mt-3 overflow-hidden">
-                        {adminLinks.map(({ href, label, icon: Icon, paths }) => (
-                          <a
-                            key={href}
-                            href={href}
-                            className={`flex items-center px-4 py-3 text-base font-extrabold transition-colors ${isActive(paths) ? 'bg-[var(--jn-pink)] text-white' : 'hover:bg-blue-50 text-gray-800'}`}
-                          >
-                            <Icon className="w-5 h-5 mr-3" />
-                            {label}
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                )}
+                {isAdmin && adminLinks.map(({ href, label, icon: Icon, paths }) => (
+                  <a
+                    key={href}
+                    href={href}
+                    title={label}
+                    className={`nav-link !px-3 whitespace-nowrap flex items-center border-2 ${isActive(paths) ? 'border-white/80 bg-[var(--oc-white)] !text-[var(--oc-blue)]' : 'border-transparent'}`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span className="ml-2 hidden xl:inline text-sm">{label}</span>
+                  </a>
+                ))}
                 {isAnalyst && (
                   <a href="/analytics/scans" className={`nav-link flex items-center border-2 border-white/80 ${isActive(['/analytics/scans']) ? 'bg-[var(--oc-white)] !text-[var(--oc-blue)]' : ''}`}>
                     <BarChart3 className="w-4 h-4" />
-                    <span className="ml-2 hidden lg:inline text-base">Live Board</span>
+                    <span className="ml-2 hidden lg:inline text-sm">Live Board</span>
                   </a>
                 )}
                 {isMember && (
                   memberLinks.map(({ href, label, icon: Icon, paths }) => (
                     <a key={href} href={href} className={`nav-link flex items-center border-2 border-white/80 ${isActive(paths) ? 'bg-[var(--oc-white)] !text-[var(--oc-blue)]' : ''}`}>
                       <Icon className="w-4 h-4" />
-                      <span className="ml-2 hidden lg:inline text-base">{label}</span>
+                      <span className="ml-2 hidden lg:inline text-sm">{label}</span>
                     </a>
                   ))
                 )}
                 {isAuthenticated && (
                   <button
                     onClick={handleSignOut}
-                    className="nav-link flex items-center border-2 border-white/80 ml-2"
+                    className="nav-link !px-3 whitespace-nowrap flex items-center border-2 border-white/80 ml-2"
+                    title="Sign out"
                   >
                     <LogOut className="w-4 h-4" />
-                    <span className="ml-2 hidden lg:inline text-base">Sign Out</span>
+                    <span className="ml-2 hidden lg:inline text-sm">Sign Out</span>
                   </button>
                 )}
               </div>
