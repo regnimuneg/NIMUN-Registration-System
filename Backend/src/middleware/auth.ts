@@ -18,6 +18,8 @@ export interface AuthContext {
   access: AccessLevel
   /** For analytics accounts: the only council they may see. */
   council: string | null
+  /** May mark people present / checked out by hand (no QR), see canManualCheckin. */
+  manualCheckin: boolean
 }
 
 declare global {
@@ -55,6 +57,21 @@ export function accessFor(permissions: any, role: string | null): { access: Acce
   return { access: null, council: null }
 }
 
+/**
+ * Manual check-in (mark someone present without scanning their QR) is for
+ * full-access accounts (Highboard, Registration Affairs, admins) and the
+ * council Secretariat accounts, inside their own council. Scanning desks and
+ * other analytics accounts (Press Head) do not get it.
+ * permissions.manualCheckin true/false overrides this per account.
+ */
+export function canManualCheckin(access: AccessLevel | null, permissions: any, role: string | null): boolean {
+  const p = permissions && typeof permissions === 'object' ? permissions : {}
+  if (p.manualCheckin === true || p.manualCheckin === false) return p.manualCheckin && (access === 'full' || access === 'analytics')
+  if (access === 'full') return true
+  if (access === 'analytics') return /secretariat/i.test(role ?? '')
+  return false
+}
+
 const mockAuthEnabled = () => process.env.NODE_ENV !== 'production' && process.env.MOCK_AUTH_ENABLED === 'true'
 
 /** Rejects any request without a valid, unexpired, unrevoked session token. */
@@ -66,7 +83,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
     if (token.startsWith('mock-')) {
       if (!mockAuthEnabled()) return res.status(401).json({ error: 'Session expired. Please sign in again.' })
-      req.auth = { userId: 'mock-admin', memberId: 'MOCK-ADMIN', name: 'Local Admin', access: 'full', council: null }
+      req.auth = { userId: 'mock-admin', memberId: 'MOCK-ADMIN', name: 'Local Admin', access: 'full', council: null, manualCheckin: true }
       return next()
     }
 
@@ -85,7 +102,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     const { access, council } = accessFor(row.permissions, row.role)
     if (!access) return res.status(403).json({ error: 'This account has no access' })
     if (access === 'analytics' && !council) return res.status(403).json({ error: 'Account has no council assigned' })
-    req.auth = { userId: row.user_id, memberId: row.member_id, name: row.name, access, council }
+    req.auth = { userId: row.user_id, memberId: row.member_id, name: row.name, access, council, manualCheckin: canManualCheckin(access, row.permissions, row.role) }
     next()
   } catch (error) {
     console.error('[AUTH] Session check failed:', error)

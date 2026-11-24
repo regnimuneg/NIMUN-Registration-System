@@ -20,6 +20,7 @@ Live portal: **https://reg.nimuneg.org**
 
 - **Live Board** (`/analytics/scans`). Counts per day, a list of who is not scanned yet, and a scan log that shows who scanned whom and when. It checks for new scans every 2 seconds and updates within about 2 seconds of a scan.
 - **Find a member.** A search box at the top of the Live Board finds a member by name, ID or username and opens their own view: the four days, food, and their scan history with the scanner's name. Clicking a row in any table opens the same view.
+- **Manual check-in.** Admin accounts (`OC-REG`, `OC-HB`) and the Secretariats (`OC-UNICEF`, `OC-CCPCJ`, `OC-IAEA`, own council only) can check someone in without their QR: tap **Mark present** in the Live Board's "Not yet scanned" list, or open the person and use **Mark present**, **Check out**, **Undo check-out** or **Undo check-in** on a day (undos need a second tap). Only today or past days. Every manual change is saved in the scan log with the account's name and shown as "manual" on the board, in the person's history and in the CSV exports ("checked in how" and "checked in by" columns). Scanning desks and Press Head do not get it.
 - **Offline scanning.** If a phone loses its connection, scans are queued on the phone and sent automatically when it is back online. Live scans use the server's time; offline scans keep the time they were made (accepted from 30 seconds up to 3 days old).
 - **Undo last scan.** The scanner can undo the scan it just made, in case of a wrong person or a double tap.
 - **Duplicate food warning.** A second food scan for the same person on the same day is refused and shows a red "Already got food".
@@ -33,12 +34,12 @@ Everyone signs in with an account ID and password. Passwords are never stored in
 
 | Account | Who | Access |
 |---|---|---|
-| `OC-REG` | Registration Affairs | Everything: dashboard, participants, scanner, Live Board, clears |
+| `OC-REG` | Registration Affairs | Everything: dashboard, participants, scanner, Live Board, manual check-in, clears |
 | `OC-HB` | Highboard | Everything |
 | `OC-PRESS` | Press Head | Live Board for Press only |
-| `OC-UNICEF` | UNICEF Secretariat | Live Board for UNICEF only |
-| `OC-CCPCJ` | CCPCJ Secretariat | Live Board for CCPCJ only |
-| `OC-IAEA` | IAEA Secretariat | Live Board for IAEA only |
+| `OC-UNICEF` | UNICEF Secretariat | Live Board and manual check-in for UNICEF only |
+| `OC-CCPCJ` | CCPCJ Secretariat | Live Board and manual check-in for CCPCJ only |
+| `OC-IAEA` | IAEA Secretariat | Live Board and manual check-in for IAEA only |
 | `OC-DESK1`, `OC-DESK2`, `OC-DESK3` | Scanning desks 1 to 3 | Scanner only: check people in by QR or ID. No participant list, Live Board, export, clears, phone numbers or emails |
 
 Any other account (including the OC members themselves) cannot sign in.

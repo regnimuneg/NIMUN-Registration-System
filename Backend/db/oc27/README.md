@@ -28,9 +28,9 @@ From `Backend/`, run `npm run oc27:accounts`. It creates nine accounts and print
 | OC-REG | Registration Affairs | Everything |
 | OC-HB | Highboard | Everything |
 | OC-PRESS | Press Head | Scan Analytics, Press only |
-| OC-UNICEF | UNICEF Secretariat | Scan Analytics, UNICEF only |
-| OC-CCPCJ | CCPCJ Secretariat | Scan Analytics, CCPCJ only |
-| OC-IAEA | IAEA Secretariat | Scan Analytics, IAEA only |
+| OC-UNICEF | UNICEF Secretariat | Scan Analytics + manual check-in, UNICEF only |
+| OC-CCPCJ | CCPCJ Secretariat | Scan Analytics + manual check-in, CCPCJ only |
+| OC-IAEA | IAEA Secretariat | Scan Analytics + manual check-in, IAEA only |
 | OC-DESK1, OC-DESK2, OC-DESK3 | Scanning desks | Scanner only (no lists, analytics or phone numbers) |
 
 The backend checks a server-side session on every request (`auth_sessions` table), so these limits hold even if someone calls the API directly. `npm run oc27:accounts -- --reset OC-PRESS` (or `--reset all`) issues a new password and signs that account out everywhere.

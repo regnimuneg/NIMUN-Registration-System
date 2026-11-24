@@ -1,7 +1,7 @@
 import express, { type Request, type Response } from 'express'
 import { query } from '../config/index.js'
 import bcrypt from 'bcrypt'
-import { accessFor, hashToken, newToken, requireAuth } from '../middleware/auth.js'
+import { accessFor, canManualCheckin, hashToken, newToken, requireAuth } from '../middleware/auth.js'
 
 const router = express.Router()
 
@@ -141,7 +141,8 @@ router.post('/login', async (req: Request, res: Response) => {
         access,
         email: user.email,
         committee: user.committee || null,
-        council
+        council,
+        manualCheckin: canManualCheckin(access, user.permissions, user.member_role)
       }
     })
   } catch (error) {
@@ -169,7 +170,7 @@ router.post('/logout', async (req: Request, res: Response) => {
 
 router.get('/verify', requireAuth, (req: Request, res: Response) => {
   const a = req.auth!
-  res.json({ valid: true, role: ROLE_FOR_ACCESS[a.access], access: a.access, council: a.council, id: a.memberId, name: a.name })
+  res.json({ valid: true, role: ROLE_FOR_ACCESS[a.access], access: a.access, council: a.council, manualCheckin: a.manualCheckin, id: a.memberId, name: a.name })
 })
 
 export default router

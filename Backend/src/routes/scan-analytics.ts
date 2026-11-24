@@ -20,15 +20,43 @@ interface SessionDef {
   label: string
   attended: string
   meals: Record<string, string>
+  /** dayKey the scanner stores in activity_timeline.metadata */
+  dayKey: string
+  /** Cairo date of the day (YYYY-MM-DD) */
+  date: string
 }
 
 // Fixed whitelist: column names below are the only ones ever put into SQL.
 const SESSIONS: SessionDef[] = [
-  { key: 'day1', label: 'Session Day One (Nov 24)', attended: 'day1_session_attended', meals: {} },
-  { key: 'day2', label: 'Session Day Two (Nov 25)', attended: 'day2_session_attended', meals: {} },
-  { key: 'day3', label: 'Session Day Three (Nov 26)', attended: 'day3_session_attended', meals: {} },
-  { key: 'conf_day1', label: 'Conference Day (Nov 27)', attended: 'conf_day1_attended', meals: { food: 'conf_day1_lunch' } },
+  { key: 'day1', label: 'Session Day One (Nov 24)', attended: 'day1_session_attended', meals: {}, dayKey: 'sessions.day1', date: '2026-11-24' },
+  { key: 'day2', label: 'Session Day Two (Nov 25)', attended: 'day2_session_attended', meals: {}, dayKey: 'sessions.day2', date: '2026-11-25' },
+  { key: 'day3', label: 'Session Day Three (Nov 26)', attended: 'day3_session_attended', meals: {}, dayKey: 'sessions.day3', date: '2026-11-26' },
+  { key: 'conf_day1', label: 'Conference Day (Nov 27)', attended: 'conf_day1_attended', meals: { food: 'conf_day1_lunch' }, dayKey: 'conference.day1', date: '2026-11-27' },
 ]
+
+/** Today's date in Cairo as YYYY-MM-DD, from the server clock. */
+const cairoToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Cairo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+
+/**
+ * How this person's current check-in for one day was recorded: the newest
+ * check-in entry in the scan log for that day (QR scan or manual) and who did it.
+ * Adds columns "<key>.inManual" and "<key>.inBy". Joined LATERAL on p.
+ */
+const lastCheckInJoin = (s: SessionDef) => `
+  LEFT JOIN LATERAL (
+    SELECT COALESCE((a.metadata->>'manual')::boolean, FALSE) AS manual,
+           COALESCE(NULLIF(CONCAT(su.first_name, ' ', su.last_name), ' '), a.metadata->>'scannedBy') AS by
+    FROM activity_timeline a
+    LEFT JOIN members sm ON sm.id = a.metadata->>'scannedBy'
+    LEFT JOIN users su ON su.id = sm.user_id
+    WHERE a.user_id = p.user_id AND a.activity_type = 'attendance'
+      AND a.metadata->>'dayKey' = '${s.dayKey}'
+      AND NOT COALESCE((a.metadata->>'checkOut')::boolean, FALSE)
+      AND COALESCE((a.metadata->>'value')::boolean, TRUE)
+    ORDER BY a.created_at DESC
+    LIMIT 1
+  ) li_${s.key} ON COALESCE(p.${s.attended}, FALSE) OR p.${s.key}_checkin IS NOT NULL`
+const lastCheckInCols = (s: SessionDef) => `COALESCE(li_${s.key}.manual, FALSE) AS "${s.key}.inManual", li_${s.key}.by AS "${s.key}.inBy"`
 
 const sessionColumns = SESSIONS.flatMap((s) => [s.attended, `${s.key}_checkin`, `${s.key}_checkout`, ...Object.values(s.meals)])
 const colList = (alias: string) => sessionColumns.map((c) => `${alias}.${c}`).join(', ')
@@ -92,6 +120,7 @@ router.get('/', async (req: Request, res: Response) => {
     const sessions = SESSIONS.map((s) => ({
       key: s.key,
       label: s.label,
+      date: s.date,
       attended: n(t[`${s.key}.attended`]),
       checkedIn: n(t[`${s.key}.checkedIn`]),
       checkedOut: n(t[`${s.key}.checkedOut`]),
@@ -102,10 +131,12 @@ router.get('/', async (req: Request, res: Response) => {
     if (selected) {
       const r = await query(
         `${PEOPLE_CTE}
-         SELECT p.id, CONCAT(u.first_name, ' ', u.last_name) AS name, p.council, p.committee,
+         SELECT p.id, CONCAT(u.first_name, ' ', u.last_name) AS name, p.council, p.committee, p.kind,
                 COALESCE(p.${selected.attended}, FALSE) AS attended,
-                p.${selected.key}_checkin AS "checkIn", p.${selected.key}_checkout AS "checkOut"${Object.entries(selected.meals).map(([meal, col]) => `, COALESCE(p.${col}, FALSE) AS "${meal}"`).join('')}
+                p.${selected.key}_checkin AS "checkIn", p.${selected.key}_checkout AS "checkOut"${Object.entries(selected.meals).map(([meal, col]) => `, COALESCE(p.${col}, FALSE) AS "${meal}"`).join('')},
+                COALESCE(li_${selected.key}.manual, FALSE) AS "manual", li_${selected.key}.by AS "checkedInBy"
          FROM scoped p JOIN users u ON u.id = p.user_id
+         ${lastCheckInJoin(selected)}
          ORDER BY p.id`,
         [council],
       )
@@ -114,6 +145,8 @@ router.get('/', async (req: Request, res: Response) => {
 
     res.json({
       scope: { council, locked: auth.access === 'analytics' },
+      canManual: auth.manualCheckin,
+      today: cairoToday(),
       councils: councilsRes.rows.map((r: any) => r.council),
       total: n(t.total),
       sessions,
@@ -170,6 +203,7 @@ router.get('/log', async (req: Request, res: Response) => {
               a.metadata->>'dayKey' AS "dayKey",
               a.metadata->>'scannedBy' AS "scannedBy",
               NULLIF(CONCAT(su.first_name, ' ', su.last_name), ' ') AS "scannedByName",
+              COALESCE((a.metadata->>'manual')::boolean, FALSE) AS "manual",
               a.created_at AS "at"
        FROM activity_timeline a
        JOIN scoped p ON p.user_id = a.user_id
@@ -199,11 +233,13 @@ router.get('/export', async (req: Request, res: Response) => {
       `p.${s.key}_checkin AS "${s.key}.checkIn"`,
       `p.${s.key}_checkout AS "${s.key}.checkOut"`,
       ...Object.entries(s.meals).map(([meal, col]) => `COALESCE(p.${col}, FALSE) AS "${s.key}.${meal}"`),
+      lastCheckInCols(s),
     ]).join(', ')
     const r = await query(
       `${PEOPLE_CTE}
        SELECT p.id, u.first_name AS "firstName", u.last_name AS "lastName", p.council, p.committee, ${cols}
        FROM scoped p JOIN users u ON u.id = p.user_id
+       ${SESSIONS.map(lastCheckInJoin).join('\n')}
        ORDER BY p.id`,
       [council],
     )
@@ -256,8 +292,9 @@ router.get('/person/:id', async (req: Request, res: Response) => {
     const id = String(req.params.id || '').trim().slice(0, 40)
     const r = await query(
       `${PEOPLE_CTE}
-       SELECT p.*, CONCAT(u.first_name, ' ', u.last_name) AS name
+       SELECT p.*, CONCAT(u.first_name, ' ', u.last_name) AS name, ${SESSIONS.map(lastCheckInCols).join(', ')}
        FROM scoped p JOIN users u ON u.id = p.user_id
+       ${SESSIONS.map(lastCheckInJoin).join('\n')}
        WHERE UPPER(p.id) = UPPER($2)
        LIMIT 1`,
       [council, id],
@@ -272,6 +309,7 @@ router.get('/person/:id', async (req: Request, res: Response) => {
               a.metadata->>'dayKey' AS "dayKey",
               a.metadata->>'scannedBy' AS "scannedBy",
               NULLIF(CONCAT(su.first_name, ' ', su.last_name), ' ') AS "scannedByName",
+              COALESCE((a.metadata->>'manual')::boolean, FALSE) AS "manual",
               a.created_at AS "at"
        FROM activity_timeline a
        LEFT JOIN members sm ON sm.id = a.metadata->>'scannedBy'
@@ -289,9 +327,14 @@ router.get('/person/:id', async (req: Request, res: Response) => {
       checkIn: p[`${s.key}_checkin`] ?? null,
       checkOut: p[`${s.key}_checkout`] ?? null,
       meals: Object.fromEntries(Object.entries(s.meals).map(([meal, col]) => [meal, !!p[col]])),
+      date: s.date,
+      manual: !!p[`${s.key}.inManual`],
+      checkedInBy: p[`${s.key}.inBy`] ?? null,
     }))
     res.set('Cache-Control', 'no-store')
     res.json({
+      canManual: auth.manualCheckin && p.kind === 'member',
+      today: cairoToday(),
       person: { id: p.id, name: p.name, council: p.council, committee: p.committee, kind: p.kind },
       days,
       attendedDays: days.filter((d) => d.attended).length,
@@ -301,6 +344,101 @@ router.get('/person/:id', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Scan person error:', error)
     res.status(500).json({ error: 'Failed to load this person' })
+  }
+})
+
+/**
+ * Manual check-in: mark an OC member present (or checked out) without their QR.
+ *
+ * POST /api/scan-analytics/manual  { id: "CCJ-10", session: "day1", action }
+ *   action: "checkin" | "checkout" | "undo-checkin" | "undo-checkout"
+ *
+ * Only accounts with manual check-in (full access and the Secretariats, see
+ * canManualCheckin) and only for people in their own scope (a Secretariat's
+ * own council). Not for days that have not started yet. Duplicates get a 409
+ * like the scanner's. Every change goes into the scan log with who did it and
+ * manual: true, so it shows on the Live Board, history and exports.
+ */
+router.post('/manual', async (req: Request, res: Response) => {
+  try {
+    const auth = req.auth!
+    if (!auth.manualCheckin) return res.status(403).json({ error: 'Your account cannot check people in manually' })
+
+    const id = String(req.body?.id ?? '').trim().toUpperCase().slice(0, 40)
+    const s = SESSIONS.find((x) => x.key === req.body?.session)
+    const action = String(req.body?.action ?? '')
+    if (!id || !s || !['checkin', 'checkout', 'undo-checkin', 'undo-checkout'].includes(action)) {
+      return res.status(400).json({ error: 'Need id, session and action' })
+    }
+    if (s.date > cairoToday()) return res.status(400).json({ error: `${s.label} has not started yet`, notYet: true })
+
+    // Scope: same people the account sees on the Live Board (own council for
+    // Secretariats, inactive members hidden). Only OC members are changed here.
+    const council = auth.access === 'analytics' ? auth.council : null
+    const found = await query(
+      `${PEOPLE_CTE}
+       SELECT p.id, p.user_id, p.kind, CONCAT(u.first_name, ' ', u.last_name) AS name
+       FROM scoped p JOIN users u ON u.id = p.user_id
+       WHERE UPPER(p.id) = $2 LIMIT 1`,
+      [council, id],
+    )
+    const person: any = found.rows[0]
+    if (!person) return res.status(404).json({ error: council ? `No one with ID ${id} in ${council}` : `No one with ID ${id}` })
+    if (person.kind !== 'member') return res.status(400).json({ error: 'Manual check-in is for OC members only' })
+
+    const att = s.attended
+    const cin = `${s.key}_checkin`
+    const cout = `${s.key}_checkout`
+    const isIn = `(COALESCE(${att}, FALSE) OR ${cin} IS NOT NULL)`
+    // Each update only applies when the change makes sense, so two people
+    // pressing at the same time (or a QR scan at the same moment) cannot double up.
+    // Column names come from the fixed SESSIONS whitelist only.
+    let sql: string
+    if (action === 'checkin') {
+      sql = `UPDATE members SET ${att} = TRUE, ${cin} = COALESCE(${cin}, NOW()) WHERE id = $1 AND NOT ${isIn} RETURNING ${cin} AS at`
+    } else if (action === 'checkout') {
+      sql = `UPDATE members SET ${cout} = NOW() WHERE id = $1 AND ${isIn} AND ${cout} IS NULL RETURNING ${cout} AS at`
+    } else if (action === 'undo-checkin') {
+      sql = `UPDATE members SET ${att} = FALSE, ${cin} = NULL, ${cout} = NULL WHERE id = $1 AND ${isIn} RETURNING NOW() AS at`
+    } else {
+      sql = `UPDATE members SET ${cout} = NULL WHERE id = $1 AND ${cout} IS NOT NULL RETURNING NOW() AS at`
+    }
+    const upd = await query(sql, [person.id])
+
+    if (upd.rows.length === 0) {
+      const cur: any = (await query(`SELECT ${isIn} AS "in", ${cin} AS "checkIn", ${cout} AS "checkOut" FROM members WHERE id = $1`, [person.id])).rows[0] ?? {}
+      if (action === 'checkin') return res.status(409).json({ error: 'Already marked present', duplicate: true, checkedInAt: cur.checkIn ?? null })
+      if (action === 'checkout' && !cur.in) return res.status(409).json({ error: 'Not checked in on this day', notCheckedIn: true })
+      if (action === 'checkout') return res.status(409).json({ error: 'Already checked out', duplicate: true, checkedOutAt: cur.checkOut ?? null })
+      if (action === 'undo-checkin') return res.status(409).json({ error: 'Not checked in on this day, nothing to undo', nothing: true })
+      return res.status(409).json({ error: 'Not checked out on this day, nothing to undo', nothing: true })
+    }
+
+    const checkOut = action === 'checkout' || action === 'undo-checkout'
+    const value = action === 'checkin' || action === 'checkout'
+    const description = { checkin: 'Checked in (manual)', checkout: 'Checked out (manual)', 'undo-checkin': 'Marked as absent (manual)', 'undo-checkout': 'Check-out undone (manual)' }[action]
+    await query(
+      `INSERT INTO activity_timeline (user_id, activity_type, title, description, metadata, created_at)
+       VALUES ($1, 'attendance', $2, $3, $4, NOW())`,
+      [
+        person.user_id,
+        `${s.dayKey} Attendance`,
+        description,
+        JSON.stringify({
+          dayKey: s.dayKey,
+          field: 'attendance',
+          value,
+          ...(checkOut ? { checkOut: true } : { checkIn: value }),
+          scannedBy: auth.memberId,
+          manual: true,
+        }),
+      ],
+    )
+    console.log(`[MANUAL] ${auth.memberId} ${action} ${person.id} ${s.key}`)
+    res.json({ success: true, id: person.id, name: person.name, session: s.key, action, at: (upd.rows[0] as any).at })
+  } catch (error) {
+    console.error('Manual check-in error:', error)
+    res.status(500).json({ error: 'Manual check-in failed' })
   }
 })
 

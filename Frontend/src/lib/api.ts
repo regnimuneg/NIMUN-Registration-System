@@ -193,6 +193,9 @@ export const api = {
     return callApi(`/api/scan-analytics/search?${p}`)
   },
   getScanPerson: (id: string) => callApi(`/api/scan-analytics/person/${encodeURIComponent(id)}`),
+  /** Admins and Secretariats: mark someone present / checked out without their QR, or undo it. */
+  manualCheckIn: (body: { id: string; session: string; action: 'checkin' | 'checkout' | 'undo-checkin' | 'undo-checkout' }) =>
+    callApi('/api/scan-analytics/manual', { method: 'POST', body: JSON.stringify(body) }),
   getScanExport: (council?: string) =>
     callApi(`/api/scan-analytics/export${council ? `?council=${encodeURIComponent(council)}` : ''}`),
   sendQrEmail: (body: { participantId?: string; all?: boolean; testTo?: string }) =>
