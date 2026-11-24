@@ -57,6 +57,9 @@ async function callApi(endpoint: string, options?: RequestInit, timeoutMs?: numb
 }
 
 export const api = {
+  // Committee attendance report (OC-REG and OC-HB only)
+  getCommitteeAttendance: () => callApi('/api/committee-attendance'),
+
   // Participants
   getParticipants: () => callApi('/api/participants'),
   getParticipant: (id: string, includeTracking = false) =>
@@ -258,6 +261,17 @@ export const tokenManager = {
       }
     }
     return null
+  },
+
+  /** OC-REG and OC-HB only; the server checks this too. */
+  canSeeCommitteeReport: (): boolean => {
+    try {
+      const user = JSON.parse(localStorage.getItem('auth_user') || 'null')
+      if (!user || user.access !== 'full') return false
+      return user.committeeReport === true || ['OC-REG', 'OC-HB'].includes(String(user.id || '').toUpperCase())
+    } catch {
+      return false
+    }
   },
 
   getUser: (): any => {

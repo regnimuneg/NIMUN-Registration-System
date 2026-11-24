@@ -15,7 +15,7 @@ import { query } from '../config/index.js'
  */
 const router = express.Router()
 
-interface SessionDef {
+export interface SessionDef {
   key: string
   label: string
   attended: string
@@ -27,7 +27,7 @@ interface SessionDef {
 }
 
 // Fixed whitelist: column names below are the only ones ever put into SQL.
-const SESSIONS: SessionDef[] = [
+export const SESSIONS: SessionDef[] = [
   { key: 'day1', label: 'Session Day One (Nov 24)', attended: 'day1_session_attended', meals: {}, dayKey: 'sessions.day1', date: '2026-11-24' },
   { key: 'day2', label: 'Session Day Two (Nov 25)', attended: 'day2_session_attended', meals: {}, dayKey: 'sessions.day2', date: '2026-11-25' },
   { key: 'day3', label: 'Session Day Three (Nov 26)', attended: 'day3_session_attended', meals: {}, dayKey: 'sessions.day3', date: '2026-11-26' },
@@ -35,7 +35,7 @@ const SESSIONS: SessionDef[] = [
 ]
 
 /** Today's date in Cairo as YYYY-MM-DD, from the server clock. */
-const cairoToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Cairo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+export const cairoToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Cairo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
 
 /**
  * How this person's current check-in for one day was recorded: the newest

@@ -19,7 +19,8 @@ import analyticsRoutes from './routes/analytics.js'
 import authRoutes from './routes/auth.js'
 import clearTrackingRoutes from './routes/clear-tracking.js'
 import scanAnalyticsRoutes from './routes/scan-analytics.js'
-import { requireAuth, requireAccess, byMethod } from './middleware/auth.js'
+import committeeAttendanceRoutes from './routes/committee-attendance.js'
+import { requireAuth, requireAccess, requireCommitteeReport, byMethod } from './middleware/auth.js'
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -125,6 +126,9 @@ app.use('/api/bus', SCAN, busRoutes)
 
 // Scan analytics: Press Head and Secretariats see only their own council
 app.use('/api/scan-analytics', requireAccess('full', 'analytics'), scanAnalyticsRoutes)
+
+// Committee attendance report: OC-REG and OC-HB only
+app.use('/api/committee-attendance', FULL, requireCommitteeReport, committeeAttendanceRoutes)
 
 // Full power only (Highboard, Registration Affairs)
 app.use('/api/qr-email', FULL, qrEmailRoutes)

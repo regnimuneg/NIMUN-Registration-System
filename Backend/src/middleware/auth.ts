@@ -20,6 +20,8 @@ export interface AuthContext {
   council: string | null
   /** May mark people present / checked out by hand (no QR), see canManualCheckin. */
   manualCheckin: boolean
+  /** May open the committee attendance report, see canViewCommitteeReport. */
+  committeeReport: boolean
 }
 
 declare global {
@@ -72,6 +74,23 @@ export function canManualCheckin(access: AccessLevel | null, permissions: any, r
   return false
 }
 
+/**
+ * The committee attendance report (who attended, who did not, per council and
+ * committee) is only for the Registration Affairs and Highboard accounts.
+ * Every other account is refused on the server, including other full-access
+ * accounts, council Secretariats, Press Head and the scanning desks.
+ */
+export const COMMITTEE_REPORT_IDS = ['OC-REG', 'OC-HB']
+export function canViewCommitteeReport(access: AccessLevel | null, memberId: string | null): boolean {
+  return access === 'full' && !!memberId && COMMITTEE_REPORT_IDS.includes(memberId.toUpperCase())
+}
+
+/** Allow only the committee report accounts (OC-REG, OC-HB). Use after requireAuth. */
+export function requireCommitteeReport(req: Request, res: Response, next: NextFunction) {
+  if (req.auth?.committeeReport) return next()
+  res.status(403).json({ error: 'Only the Registration Affairs and Highboard accounts can see this' })
+}
+
 const mockAuthEnabled = () => process.env.NODE_ENV !== 'production' && process.env.MOCK_AUTH_ENABLED === 'true'
 
 /** Rejects any request without a valid, unexpired, unrevoked session token. */
@@ -83,7 +102,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
     if (token.startsWith('mock-')) {
       if (!mockAuthEnabled()) return res.status(401).json({ error: 'Session expired. Please sign in again.' })
-      req.auth = { userId: 'mock-admin', memberId: 'MOCK-ADMIN', name: 'Local Admin', access: 'full', council: null, manualCheckin: true }
+      req.auth = { userId: 'mock-admin', memberId: 'MOCK-ADMIN', name: 'Local Admin', access: 'full', council: null, manualCheckin: true, committeeReport: false }
       return next()
     }
 
@@ -102,7 +121,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     const { access, council } = accessFor(row.permissions, row.role)
     if (!access) return res.status(403).json({ error: 'This account has no access' })
     if (access === 'analytics' && !council) return res.status(403).json({ error: 'Account has no council assigned' })
-    req.auth = { userId: row.user_id, memberId: row.member_id, name: row.name, access, council, manualCheckin: canManualCheckin(access, row.permissions, row.role) }
+    req.auth = { userId: row.user_id, memberId: row.member_id, name: row.name, access, council, manualCheckin: canManualCheckin(access, row.permissions, row.role), committeeReport: canViewCommitteeReport(access, row.member_id) }
     next()
   } catch (error) {
     console.error('[AUTH] Session check failed:', error)

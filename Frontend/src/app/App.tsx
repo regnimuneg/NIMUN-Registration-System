@@ -7,6 +7,7 @@ import MemberDashboardPage from '../features/member/MemberDashboardPage'
 import MemberParticipantsPage from '../features/member/MemberParticipantsPage'
 import ParticipantsPage from '../features/participants/ParticipantsPage'
 import ScanAnalyticsPage from '../features/analytics/ScanAnalyticsPage'
+import CommitteeAttendancePage from '../features/analytics/CommitteeAttendancePage'
 import { tokenManager } from '../lib/api'
 
 // Protected Route Component
@@ -46,6 +47,9 @@ export default function App() {
 
         {/* Scan analytics: full-access accounts and analysts */}
         <Route path="/analytics/scans" element={<ProtectedRoute allow={['admin', 'analyst']}><ScanAnalyticsPage /></ProtectedRoute>} />
+
+        {/* Committee attendance: OC-REG and OC-HB only (server enforces it too) */}
+        <Route path="/analytics/committees" element={<ProtectedRoute requireAdmin>{tokenManager.canSeeCommitteeReport() ? <CommitteeAttendancePage /> : <Navigate to="/admin/dashboard" replace />}</ProtectedRoute>} />
 
         {/* Member routes */}
         <Route path="/member" element={<ProtectedRoute requireAdmin><MemberDashboardPage /></ProtectedRoute>} />

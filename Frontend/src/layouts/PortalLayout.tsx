@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import type { CSSProperties } from 'react'
 import { useLocation, useNavigate, Outlet } from 'react-router-dom'
-import { Home, Settings, Smartphone, User, BarChart3, Users, Menu, LogOut, X } from 'lucide-react'
+import { Home, Settings, Smartphone, User, BarChart3, Users, Menu, LogOut, X, ClipboardList } from 'lucide-react'
 import { tokenManager, api } from '../lib/api'
 
 export default function PortalLayout() {
@@ -67,6 +67,7 @@ export default function PortalLayout() {
   const adminLinks = [
     { href: '/admin/dashboard', label: 'Dashboard', icon: Home, paths: ['/admin/dashboard', '/admin', '/dashboard'] },
     { href: '/analytics/scans', label: 'Live Board', icon: BarChart3, paths: ['/analytics/scans'] },
+    ...(tokenManager.canSeeCommitteeReport() ? [{ href: '/analytics/committees', label: 'Committees', icon: ClipboardList, paths: ['/analytics/committees'] }] : []),
     { href: '/admin/participants', label: 'Participants', icon: Users, paths: ['/admin/participants'] },
     { href: '/member/scanner', label: 'Scanner', icon: Smartphone, paths: ['/member/scanner', '/scan'] }
   ]
