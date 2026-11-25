@@ -11,9 +11,10 @@ import CommitteeAttendancePage from '../features/analytics/CommitteeAttendancePa
 import { tokenManager } from '../lib/api'
 
 // Protected Route Component
-// Roles: admin (full access), member (scanning desk: scanner page only), analyst (scan analytics only).
+// Roles: admin (full access), member (scanning desk: scanner page only), analyst (scan analytics only;
+// analysts with canScan, the OC team heads, may also open the scanner).
 // The backend enforces the same rules; this only decides which pages to show.
-function ProtectedRoute({ children, requireAdmin = false, allow }: { children: React.ReactNode, requireAdmin?: boolean, allow?: string[] }) {
+function ProtectedRoute({ children, requireAdmin = false, allow, scanner = false }: { children: React.ReactNode, requireAdmin?: boolean, allow?: string[], scanner?: boolean }) {
   const token = tokenManager.getToken()
   const userRole = tokenManager.getUserRole()
 
@@ -22,7 +23,7 @@ function ProtectedRoute({ children, requireAdmin = false, allow }: { children: R
   }
 
   const allowed = allow ?? (requireAdmin ? ['admin'] : ['admin', 'member'])
-  if (!userRole || !allowed.includes(userRole)) {
+  if (!userRole || !(allowed.includes(userRole) || (scanner && tokenManager.canScan()))) {
     return <Navigate to={userRole === 'analyst' ? '/analytics/scans' : '/member/scanner'} replace />
   }
 
@@ -54,8 +55,8 @@ export default function App() {
         {/* Member routes */}
         <Route path="/member" element={<ProtectedRoute requireAdmin><MemberDashboardPage /></ProtectedRoute>} />
         <Route path="/member/participants" element={<ProtectedRoute requireAdmin><MemberParticipantsPage /></ProtectedRoute>} />
-        <Route path="/member/scanner" element={<ProtectedRoute><ScanPage /></ProtectedRoute>} />
-        <Route path="/scan" element={<ProtectedRoute><ScanPage /></ProtectedRoute>} />
+        <Route path="/member/scanner" element={<ProtectedRoute scanner><ScanPage /></ProtectedRoute>} />
+        <Route path="/scan" element={<ProtectedRoute scanner><ScanPage /></ProtectedRoute>} />
       </Route>
     </Routes>
   )

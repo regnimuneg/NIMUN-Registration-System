@@ -168,6 +168,17 @@ export default function PortalLayout() {
                 </a>
               )}
 
+              {isAnalyst && tokenManager.canScan() && (
+                <a
+                  href="/member/scanner"
+                  className="flex items-center px-4 py-3 rounded-2xl text-base font-extrabold text-[var(--jn-blue)] hover:bg-blue-50 transition-colors"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <Smartphone className="w-5 h-5 mr-3" />
+                  Scanner
+                </a>
+              )}
+
               {isMember && (
                 <>
                   <a
@@ -243,6 +254,12 @@ export default function PortalLayout() {
                   <a href="/analytics/scans" className={`nav-link flex items-center border-2 border-white/80 ${isActive(['/analytics/scans']) ? 'bg-[var(--oc-white)] !text-[var(--oc-blue)]' : ''}`}>
                     <BarChart3 className="w-4 h-4" />
                     <span className="ml-2 hidden lg:inline text-sm">Live Board</span>
+                  </a>
+                )}
+                {isAnalyst && tokenManager.canScan() && (
+                  <a href="/member/scanner" className={`nav-link flex items-center border-2 border-white/80 ${isActive(['/member/scanner', '/scan']) ? 'bg-[var(--oc-white)] !text-[var(--oc-blue)]' : ''}`}>
+                    <Smartphone className="w-4 h-4" />
+                    <span className="ml-2 hidden lg:inline text-sm">Scanner</span>
                   </a>
                 )}
                 {isMember && (

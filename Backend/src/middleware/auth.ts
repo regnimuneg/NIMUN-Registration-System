@@ -21,6 +21,8 @@ export interface AuthContext {
   council: string | null
   /** For OC team head accounts: the only OC team (members.committee) they may see. */
   team: string | null
+  /** May use the scanner (scan routes), see canScan. */
+  canScan: boolean
   /** May mark people present / checked out by hand (no QR), see canManualCheckin. */
   manualCheckin: boolean
   /** May open the committee attendance report, see canViewCommitteeReport. */
@@ -67,6 +69,17 @@ export function accessFor(permissions: any, role: string | null): { access: Acce
 }
 
 /**
+ * Scanner use: full and scan accounts always; an analytics account only when
+ * permissions.scan is true (the OC team heads). Such an account scans like a
+ * desk: anyone by QR or ID, no participant list, no contact details.
+ */
+export function canScan(access: AccessLevel | null, permissions: any): boolean {
+  const p = permissions && typeof permissions === 'object' ? permissions : {}
+  if (access === 'full' || access === 'scan') return true
+  return access === 'analytics' && p.scan === true
+}
+
+/**
  * Manual check-in (mark someone present without scanning their QR) is for
  * full-access accounts (Highboard, Registration Affairs, admins) and the
  * council Secretariat accounts, inside their own council. Scanning desks and
@@ -109,7 +122,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
     if (token.startsWith('mock-')) {
       if (!mockAuthEnabled()) return res.status(401).json({ error: 'Session expired. Please sign in again.' })
-      req.auth = { userId: 'mock-admin', memberId: 'MOCK-ADMIN', name: 'Local Admin', access: 'full', council: null, team: null, manualCheckin: true, committeeReport: false }
+      req.auth = { userId: 'mock-admin', memberId: 'MOCK-ADMIN', name: 'Local Admin', access: 'full', council: null, team: null, canScan: true, manualCheckin: true, committeeReport: false }
       return next()
     }
 
@@ -128,7 +141,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     const { access, council, team } = accessFor(row.permissions, row.role)
     if (!access) return res.status(403).json({ error: 'This account has no access' })
     if (access === 'analytics' && !council && !team) return res.status(403).json({ error: 'Account has no council or team assigned' })
-    req.auth = { userId: row.user_id, memberId: row.member_id, name: row.name, access, council, team, manualCheckin: canManualCheckin(access, row.permissions, row.role), committeeReport: canViewCommitteeReport(access, row.member_id) }
+    req.auth = { userId: row.user_id, memberId: row.member_id, name: row.name, access, council, team, canScan: canScan(access, row.permissions), manualCheckin: canManualCheckin(access, row.permissions, row.role), committeeReport: canViewCommitteeReport(access, row.member_id) }
     next()
   } catch (error) {
     console.error('[AUTH] Session check failed:', error)
@@ -136,10 +149,13 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   }
 }
 
-/** Allow only the listed access levels. Use after requireAuth. */
+/**
+ * Allow only the listed access levels. Use after requireAuth.
+ * 'scan' also lets in analytics accounts that may scan (canScan).
+ */
 export const requireAccess = (...levels: AccessLevel[]) =>
   (req: Request, res: Response, next: NextFunction) => {
-    if (req.auth && levels.includes(req.auth.access)) return next()
+    if (req.auth && (levels.includes(req.auth.access) || (levels.includes('scan') && req.auth.canScan))) return next()
     res.status(403).json({ error: 'Your account does not have access to this' })
   }
 

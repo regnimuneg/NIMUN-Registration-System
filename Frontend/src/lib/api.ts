@@ -263,6 +263,17 @@ export const tokenManager = {
     return null
   },
 
+  /** May open the scanner: admins, desks, and analysts with canScan (OC team heads). */
+  canScan: (): boolean => {
+    const role = tokenManager.getUserRole()
+    if (role === 'admin' || role === 'member') return true
+    try {
+      return JSON.parse(localStorage.getItem('auth_user') || 'null')?.canScan === true
+    } catch {
+      return false
+    }
+  },
+
   /** OC-REG and OC-HB only; the server checks this too. */
   canSeeCommitteeReport: (): boolean => {
     try {
