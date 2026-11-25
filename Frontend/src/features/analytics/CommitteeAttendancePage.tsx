@@ -7,6 +7,9 @@ import { dayMeta, missingWord, fmtWhen, pct } from '../../lib/days'
 import { downloadCsv } from '../../lib/csv'
 import { PageHeader, DayTabs, StatTile, StatGrid, Panel, Summary, Ring, ProgressRow, Notice, EmptyState, LoadingPage } from '../../components/ui'
 import type { Attention } from '../../components/ui'
+import { LiveStatus } from '../../components/ui'
+import { useLiveReload } from '../../lib/live'
+import { serverNow } from '../../lib/clock'
 
 /**
  * Committee attendance report (OC-REG and OC-HB only; the server refuses
@@ -23,7 +26,6 @@ interface Report { today: string; generatedAt: string; sessions: Session[]; memb
 
 type GroupBy = 'council' | 'committee'
 const SUMMARY = 'summary'
-const REFRESH_MS = 30_000
 
 const shortLabel = (s: Session) => s.label.replace(/^Session Day /, 'Day ').replace(/ \((.*)\)$/, '')
 const dateLabel = (s: Session) => (s.label.match(/\((.*)\)/)?.[1] ?? s.date)
@@ -72,6 +74,7 @@ export default function CommitteeAttendancePage() {
   const [view, setView] = useState<string>(SUMMARY)
   const [open, setOpen] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -79,6 +82,7 @@ export default function CommitteeAttendancePage() {
       const res: Report = await api.getCommitteeAttendance()
       setData(res)
       setError(null)
+      setUpdatedAt(serverNow())
     } catch (e) {
       const err = e as ApiError
       setError(err.status === 403 ? 'Only the Registration Affairs and Highboard accounts can see this page.' : err.message || 'Could not load the report')
@@ -87,11 +91,8 @@ export default function CommitteeAttendancePage() {
     }
   }, [])
 
-  useEffect(() => {
-    void load()
-    const t = setInterval(() => void load(), REFRESH_MS)
-    return () => clearInterval(t)
-  }, [load])
+  // Updates within ~2 seconds of any scan
+  useLiveReload(load)
 
   // Start on today's day when the conference is on, else the summary
   const [picked, setPicked] = useState(false)
@@ -196,9 +197,9 @@ export default function CommitteeAttendancePage() {
   return (
     <div className="jn-shell">
       <PageHeader
-        eyebrow="Registration Affairs and Highboard only"
+        eyebrow={<LiveStatus updatedAt={updatedAt} error={!!error} />}
         title="Committee Attendance"
-        meta={data ? `${data.members.length} OC members · updated ${fmtWhen(data.generatedAt)}` : 'Loading…'}
+        meta={data ? `${data.members.length} OC members · Registration Affairs and Highboard only` : 'Loading…'}
         actions={<>
           <button onClick={exportSummary} disabled={!data} className="btn-secondary flex items-center gap-2 px-3 py-2" title={`One row per ${groupWord}`}>
             <Download className="w-4 h-4" /> Summary CSV

@@ -1,16 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Users, UserCheck, UserX, LogOut, Smartphone, BarChart3, ClipboardList, Trash2, RefreshCw, ArrowRight, CalendarClock } from 'lucide-react'
 import { api, tokenManager } from '../../lib/api'
 import { LiveClock, todayDayKey, fmtTime } from '../../lib/clock'
 import { DAYS, dayMeta, dayStatus, missingWord, pct, cairoIso, ago } from '../../lib/days'
-import { PageHeader, StatTile, StatGrid, Panel, Summary, Ring, ProgressRow, Notice, LoadingPage } from '../../components/ui'
+import { PageHeader, StatTile, StatGrid, Panel, Summary, Ring, ProgressRow, Notice, LoadingPage, LiveStatus } from '../../components/ui'
+import { useLiveReload } from '../../lib/live'
+import { serverNow } from '../../lib/clock'
 
 interface SessionStat { key: string; label: string; date?: string; attended: number; checkedIn: number; checkedOut: number }
 interface Person { id: string; council: string | null; attended: boolean; checkIn: string | null; checkOut: string | null; kind?: string }
 interface Board { total: number; today?: string; sessions: SessionStat[]; people?: Person[]; recent?: { at: string }[] }
 
-const REFRESH_MS = 30_000
 
 /** The day the dashboard talks about: today during the conference, else the nearest one. */
 function focusDay() {
@@ -23,6 +24,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [clearing, setClearing] = useState<string | null>(null)
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
   const [dayKey] = useState(focusDay)
   const user = tokenManager.getUser()
 
@@ -35,6 +37,7 @@ export default function DashboardPage() {
       ])
       setBoard(res)
       setLastScan(logRes?.entries?.[0]?.at ?? null)
+      setUpdatedAt(serverNow())
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load the dashboard')
     } finally {
@@ -42,11 +45,8 @@ export default function DashboardPage() {
     }
   }, [dayKey])
 
-  useEffect(() => {
-    void load()
-    const t = setInterval(() => { if (!document.hidden) void load() }, REFRESH_MS)
-    return () => clearInterval(t)
-  }, [load])
+  // Updates within ~2 seconds of any scan, like the Live Board
+  useLiveReload(load)
 
   const handleClearTracking = async (dataType: string) => {
     if (!confirm(`Are you sure you want to clear all ${dataType} tracking data? This action cannot be undone.`)) {
@@ -108,7 +108,7 @@ export default function DashboardPage() {
   return (
     <div className="jn-shell">
       <PageHeader
-        eyebrow={<><span className="oc-live-dot" aria-hidden="true" /> <LiveClock /></>}
+        eyebrow={<><LiveStatus updatedAt={updatedAt} error={!!error} /> · <LiveClock /></>}
         title="Dashboard"
         meta={<>OC Conference &apos;27{user?.name ? ` · ${user.name}` : ''}</>}
         actions={

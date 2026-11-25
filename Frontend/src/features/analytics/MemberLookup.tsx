@@ -104,7 +104,7 @@ export default function MemberLookup({ council, openId, onOpened, refreshKey, on
 
   return (
     <div ref={cardRef} className="oc-panel scroll-mt-32 relative z-30">
-      <h2 className="oc-panel-title mb-3">Find a member</h2>
+      <div className="oc-panel-head"><h2 className="oc-panel-title">Find a member</h2></div>
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
         <input
@@ -191,7 +191,7 @@ export default function MemberLookup({ council, openId, onOpened, refreshKey, on
                           type="button"
                           disabled={!!busy}
                           onClick={() => void runManual(d, action as ManualAction)}
-                          className={`${action === 'checkin' ? 'btn-primary' : 'btn-secondary'} !px-2 !py-1 text-xs flex items-center gap-1 ${confirming ? '!bg-[#7a4b00] !text-white' : ''}`}
+                          className={`oc-mini-btn${action === 'checkin' ? ' is-primary' : ''}${confirming ? ' is-confirm' : ''}`}
                         >
                           {busy === tag ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : action === 'checkin' ? <Hand className="w-3.5 h-3.5" /> : action === 'checkout' ? <LogOut className="w-3.5 h-3.5" /> : <Undo2 className="w-3.5 h-3.5" />}
                           {confirming ? 'Tap again to confirm' : label}
@@ -230,7 +230,7 @@ export default function MemberLookup({ council, openId, onOpened, refreshKey, on
               ))}
             </ul>
           )}
-          <button className="mt-3 text-sm underline" onClick={() => setSelectedId(null)}>Close</button>
+          <button className="oc-mini-btn mt-3" onClick={() => setSelectedId(null)}>Close</button>
         </div>
       )}
     </div>

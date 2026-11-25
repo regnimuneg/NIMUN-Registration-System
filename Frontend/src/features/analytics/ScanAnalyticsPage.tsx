@@ -6,6 +6,8 @@ import { dayMeta, dayStatus, missingWord, fmtWhen, ago, pct, cairoIso } from '..
 import { downloadCsv } from '../../lib/csv'
 import { PageHeader, DayTabs, StatTile, StatGrid, Panel, Summary, Ring, ProgressRow, Notice, EmptyState, Badge, LoadingPage } from '../../components/ui'
 import type { Attention } from '../../components/ui'
+import { LiveStatus } from '../../components/ui'
+import { useFreshKeys } from '../../lib/live'
 import MemberLookup from './MemberLookup'
 
 interface SessionStat {
@@ -235,6 +237,13 @@ export default function ScanAnalyticsPage() {
   }
 
 
+  // Flash people who just checked in or out, and new log lines
+  const dataKey = data ? `${data.session ?? sessionKey}:${council}` : undefined
+  const freshIn = useFreshKeys(allPeople.filter(isIn).map((p) => p.id), dataKey)
+  const freshOut = useFreshKeys(allPeople.filter((p) => !!p.checkOut).map((p) => p.id), dataKey)
+  const freshLog = useFreshKeys(log.map((r) => `${r.id}|${r.at}`), data ? council : undefined)
+  const [logLimit, setLogLimit] = useState(12)
+
   if (loading && !data) return <LoadingPage tiles={4} />
 
   const scopeLabel = data?.scope.team ? `${data.scope.team} team` : data?.scope.council ?? 'All councils'
@@ -258,7 +267,7 @@ export default function ScanAnalyticsPage() {
     }
     if (status === 'today' && present === 0) attention.push({ tone: 'info', text: 'No one has been scanned in yet today.' })
     else if (status === 'today' && lastScanMins !== null && lastScanMins > 30 && missing > 0) {
-      attention.push({ tone: 'warn', text: <>No scans for {ago(lastScan)}: last at {fmtTime(lastScan)}. Is every desk open?</> })
+      attention.push({ tone: 'warn', text: <>No scan since {fmtTime(lastScan)} ({ago(lastScan)}). Is every desk open?</> })
     }
     if (byHand > 0) attention.push({ tone: 'info', text: <>{byHand} checked in by hand (no QR) on this day.</> })
     if (hasFood && present > 0 && fed < present) attention.push({ tone: 'info', text: <>{present - fed} people who are in have not had food yet.</> })
@@ -270,12 +279,34 @@ export default function ScanAnalyticsPage() {
     : status === 'today' ? <><b>{present} of {total}</b> are in today ({pct(present, total)}%). <b>{stillHere}</b> still here, <b>{missing}</b> not in yet.</>
     : <><b>{present} of {total}</b> came on {meta.name} ({pct(present, total)}%). <b>{missing}</b> absent.</>
 
+  const inCell = (p: Person) => isIn(p) ? (
+    <span className="oc-yes">
+      {p.checkIn ? fmtTime(p.checkIn) : 'Yes'}
+      {p.manual && <> <Badge tone="warn" title={`Checked in by hand${p.checkedInBy ? ` by ${p.checkedInBy}` : ''}`}>manual</Badge></>}
+    </span>
+  ) : canManualDay && p.kind !== 'delegate' ? (
+    <button type="button" className="oc-mini-btn is-primary" disabled={!!marking} onClick={(e) => { e.stopPropagation(); void markPresent(p) }} title="Check this person in without their QR">
+      {marking === `${p.id}:checkin` ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Hand className="w-3.5 h-3.5" />} Mark present
+    </button>
+  ) : <span className="oc-none">—</span>
+
+  const outCell = (p: Person) => p.checkOut ? (
+    <span className="oc-outc">
+      {fmtTime(p.checkOut)}
+      {p.outManual && <> <Badge tone="warn" title={`Checked out by hand${p.checkedOutBy ? ` by ${p.checkedOutBy}` : ''}`}>manual</Badge></>}
+    </span>
+  ) : isIn(p) && canManualDay && p.kind !== 'delegate' ? (
+    <button type="button" className="oc-mini-btn" disabled={!!marking} onClick={(e) => { e.stopPropagation(); void markCheckedOut(p) }} title="Check this person out without their QR">
+      {marking === `${p.id}:checkout` ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LogOut className="w-3.5 h-3.5" />} Mark checked out
+    </button>
+  ) : <span className="oc-none">—</span>
+
   return (
     <div className="jn-shell">
       <PageHeader
-        eyebrow={<><span className="oc-live-dot" aria-hidden="true" /> Live · <LiveClock /></>}
+        eyebrow={<><LiveStatus updatedAt={updatedAt} error={!!error} /> · <LiveClock /></>}
         title="Live Board"
-        meta={<>{scopeLabel}{user?.name ? ` · ${user.name}` : ''}{updatedAt ? ` · updated ${fmtTime(updatedAt, true)}` : ''}</>}
+        meta={<>{scopeLabel}{user?.name ? ` · ${user.name}` : ''}</>}
         actions={<>
           {data && !data.scope.locked && (
             <select value={council} onChange={(e) => setCouncil(e.target.value)} className="px-3 py-2" aria-label="Council">
@@ -301,6 +332,7 @@ export default function ScanAnalyticsPage() {
 
       {data && selected && meta && (
         <>
+          <div key={`${sessionKey}:${council}`} className="oc-fade-in">
           <Summary
             headline={headline}
             facts={status === 'upcoming' ? [] : [
@@ -321,6 +353,7 @@ export default function ScanAnalyticsPage() {
               {hasFood && <StatTile label="Got food" icon={<Utensils />} tone="food" value={fed} sub={`of ${total}`} />}
             </StatGrid>
           )}
+          </div>
 
           <MemberLookup council={council || undefined} openId={openPerson} onOpened={clearOpenPerson} refreshKey={updatedAt?.getTime()} onChanged={load} />
 
@@ -359,10 +392,10 @@ export default function ScanAnalyticsPage() {
               }
             >
               {canManualDay && filter === 'missing' && (
-                <p className="text-xs text-gray-600 mb-2 flex items-center gap-1"><Hand className="w-3.5 h-3.5 shrink-0" /> No QR? Tap <b>Mark present</b> to check someone in by hand. It is logged with your name.</p>
+                <p className="oc-hint"><Hand />No QR? Tap <b>Mark present</b> to check someone in by hand. It is logged with your name.</p>
               )}
               {canManualDay && filter === 'in' && (
-                <p className="text-xs text-gray-600 mb-2 flex items-center gap-1"><LogOut className="w-3.5 h-3.5 shrink-0" /> Leaving without a QR? Tap <b>Mark checked out</b>. It is logged with your name.</p>
+                <p className="oc-hint"><LogOut />Leaving without a QR? Tap <b>Mark checked out</b>. It is logged with your name.</p>
               )}
               {notice && <Notice tone={notice.ok ? 'good' : 'bad'} onClose={() => setNotice(null)}>{notice.text}</Notice>}
               <div className="relative mb-3">
@@ -378,66 +411,58 @@ export default function ScanAnalyticsPage() {
                       ? <EmptyState icon={<UserX className="w-6 h-6" />} title="No one is in yet" text="People show up here as soon as they are scanned." />
                       : <EmptyState title="No one matches" text="Try a different name, ID or committee." />
               ) : (
-                <div className="oc-scroll">
-                  <table className="oc-table">
-                    <thead>
-                      <tr>
-                        <th>ID</th>
-                        <th>Name</th>
-                        <th className="hidden sm:table-cell">Committee</th>
-                        <th>Check-in</th>
-                        <th>Check-out</th>
-                        {hasFood && <th>Food</th>}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {people.map((p) => (
-                        <tr key={p.id} className="is-link" onClick={() => setOpenPerson(p.id)} title="Show this person's days">
-                          <td className="is-id">{p.id}</td>
-                          <td>{p.name}<span className="block sm:hidden text-xs text-gray-500">{p.committee ?? ''}</span></td>
-                          <td className="hidden sm:table-cell is-muted">{p.committee ?? '—'}</td>
-                          <td className="oc-time">
-                            {isIn(p) ? (
-                              <span className="oc-yes">
-                                {p.checkIn ? fmtTime(p.checkIn) : 'Yes'}
-                                {p.manual && <> <Badge tone="warn" title={`Checked in by hand${p.checkedInBy ? ` by ${p.checkedInBy}` : ''}`}>manual</Badge></>}
-                              </span>
-                            ) : canManualDay && p.kind !== 'delegate' ? (
-                              <button
-                                type="button"
-                                className="btn-secondary !px-2 !py-1 text-xs flex items-center gap-1 whitespace-nowrap"
-                                disabled={!!marking}
-                                onClick={(e) => { e.stopPropagation(); void markPresent(p) }}
-                                title="Check this person in without their QR"
-                              >
-                                {marking === `${p.id}:checkin` ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Hand className="w-3.5 h-3.5" />} Mark present
-                              </button>
-                            ) : <span className="oc-none">—</span>}
-                          </td>
-                          <td className="oc-time">
-                            {p.checkOut ? (
-                              <span className="oc-outc">
-                                {fmtTime(p.checkOut)}
-                                {p.outManual && <> <Badge tone="warn" title={`Checked out by hand${p.checkedOutBy ? ` by ${p.checkedOutBy}` : ''}`}>manual</Badge></>}
-                              </span>
-                            ) : isIn(p) && canManualDay && p.kind !== 'delegate' ? (
-                              <button
-                                type="button"
-                                className="btn-secondary !px-2 !py-1 text-xs flex items-center gap-1 whitespace-nowrap"
-                                disabled={!!marking}
-                                onClick={(e) => { e.stopPropagation(); void markCheckedOut(p) }}
-                                title="Check this person out without their QR"
-                              >
-                                {marking === `${p.id}:checkout` ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LogOut className="w-3.5 h-3.5" />} Mark checked out
-                              </button>
-                            ) : <span className="oc-none">—</span>}
-                          </td>
-                          {hasFood && <td>{p.food ? <span className="oc-foodc">Yes</span> : <span className="oc-none">—</span>}</td>}
+                <>
+                  {/* Wider screens: table */}
+                  <div className="oc-scroll oc-only-wide">
+                    <table className="oc-table">
+                      <thead>
+                        <tr>
+                          <th>ID</th>
+                          <th>Name</th>
+                          <th>Committee</th>
+                          <th>Check-in</th>
+                          <th>Check-out</th>
+                          {hasFood && <th>Food</th>}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {people.map((p) => (
+                          <tr key={p.id} className={`is-link${freshIn.has(p.id) || freshOut.has(p.id) ? ' oc-flash' : ''}`} onClick={() => setOpenPerson(p.id)} title="Show this person's days">
+                            <td className="is-id">{p.id}</td>
+                            <td>{freshIn.has(p.id) && <span className="oc-new-dot" title="Just checked in" />}{p.name}</td>
+                            <td className="is-muted">{p.committee ?? '—'}</td>
+                            <td className="oc-time">{inCell(p)}</td>
+                            <td className="oc-time">{outCell(p)}</td>
+                            {hasFood && <td>{p.food ? <span className="oc-foodc">Yes</span> : <span className="oc-none">—</span>}</td>}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {/* Phones: one card per person, nothing cut off */}
+                  <div className="oc-cards oc-only-phone max-h-[32rem] overflow-y-auto">
+                    {people.map((p) => (
+                      <div key={p.id} role="button" tabIndex={0} className={`oc-card-row${freshIn.has(p.id) || freshOut.has(p.id) ? ' oc-flash' : ''}`} onClick={() => setOpenPerson(p.id)} onKeyDown={(e) => { if (e.key === 'Enter') setOpenPerson(p.id) }}>
+                        <div className="min-w-0">
+                          <p className="oc-card-name">{freshIn.has(p.id) && <span className="oc-new-dot" />}{p.name}</p>
+                          <p className="oc-card-meta">{p.id}{p.committee ? ` · ${p.committee}` : ''}</p>
+                        </div>
+                        <div className="oc-card-side">
+                          {isIn(p) || p.checkOut ? (
+                            <span className="oc-card-times">
+                              {isIn(p) && <span className="oc-yes" title="Check-in">In {p.checkIn ? fmtTime(p.checkIn) : '✓'}</span>}
+                              {p.checkOut && <span className="oc-outc" title="Check-out">Out {fmtTime(p.checkOut)}</span>}
+                              {hasFood && p.food && <span className="oc-foodc">Food</span>}
+                            </span>
+                          ) : <span className="oc-none text-xs">{missWord}</span>}
+                          {(p.manual || p.outManual) && <Badge tone="warn">manual</Badge>}
+                          {!isIn(p) && canManualDay && p.kind !== 'delegate' && inCell(p)}
+                          {isIn(p) && !p.checkOut && canManualDay && p.kind !== 'delegate' && outCell(p)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
               <p className="text-xs text-gray-500 mt-3">Showing {people.length} of {total}. Tap a row to see that person's four days.</p>
             </Panel>
@@ -447,9 +472,9 @@ export default function ScanAnalyticsPage() {
               {log.length === 0 ? (
                 <EmptyState compact icon={<History className="w-6 h-6" />} title="No scans yet" text="Each check-in, check-out and food scan shows up here with who scanned it." />
               ) : (
-                <ul className="max-h-[34rem] overflow-y-auto divide-y divide-black/10">
-                  {log.map((r, i) => (
-                    <li key={`${r.id}-${r.at}-${i}`} className="py-2.5 text-sm">
+                <ul className="max-h-[40rem] overflow-y-auto divide-y divide-black/10">
+                  {log.slice(0, logLimit).map((r, i) => (
+                    <li key={`${r.id}-${r.at}-${i}`} className={`py-2.5 px-1 text-sm${freshLog.has(`${r.id}|${r.at}`) ? ' oc-flash' : ''}`}>
                       <div className="flex justify-between gap-2">
                         <span className="font-bold truncate">{r.name}</span>
                         <span className="text-gray-500 oc-time">{fmtWhen(r.at)}</span>
@@ -466,6 +491,7 @@ export default function ScanAnalyticsPage() {
                   ))}
                 </ul>
               )}
+              {log.length > logLimit && <button type="button" className="oc-more" onClick={() => setLogLimit(log.length)}>Show all {log.length} recent scans</button>}
               {isAdmin && <p className="text-xs text-gray-500 mt-3">To undo a scan, tap Undo in the scanner right after it, or switch off Attendance, Check-out or Food in Manual / View Details.</p>}
               {data.canManual && <p className="text-xs text-gray-500 mt-3">To undo a check-in or check-out, open the person (Find a member or tap their row) and use the buttons on that day.</p>}
             </Panel>

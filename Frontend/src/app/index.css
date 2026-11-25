@@ -904,3 +904,74 @@ main .oc-panel-title { display: flex; align-items: center; gap: 0.5rem; font-siz
 .oc-link-card svg { width: 1.4rem; height: 1.4rem; color: var(--oc-blue); }
 .oc-link-title { font-family: var(--oc-font-display); font-stretch: 125%; font-weight: 800; text-transform: uppercase; font-size: 0.85rem; }
 .oc-link-text { font-size: 0.78rem; color: var(--oc-ink-soft); }
+
+/* =====================================================================
+   Live feel + phone layout (25 Nov)
+   ===================================================================== */
+/* The ring animates between values */
+@property --p { syntax: '<number>'; inherits: false; initial-value: 0; }
+.oc-ring { transition: --p 0.8s cubic-bezier(.2,.8,.2,1); }
+
+/* Numbers that just changed */
+@keyframes oc-bump-kf { 0% { transform: scale(1); } 35% { transform: scale(1.12); } 100% { transform: scale(1); } }
+.oc-bump { display: inline-block; animation: oc-bump-kf 0.5s ease-out; transform-origin: left center; }
+.oc-stat.is-changed { animation: oc-glow-kf 1.6s ease-out; }
+@keyframes oc-glow-kf { 0% { box-shadow: 0 0 0 0 var(--tone); } 30% { box-shadow: 0 0 0 3px var(--tone); } 100% { box-shadow: 0 0 0 0 transparent; } }
+
+/* Rows and log entries that just arrived */
+@keyframes oc-flash-kf { 0% { background-color: rgba(23, 128, 79, 0.28); } 100% { background-color: transparent; } }
+.oc-flash { animation: oc-flash-kf 2.4s ease-out; }
+.oc-new-dot { display: inline-block; width: 0.45rem; height: 0.45rem; border-radius: 50%; background: var(--oc-good); margin-right: 0.35rem; vertical-align: middle; }
+
+/* Content eases in when the day or filter changes */
+.oc-fade-in { animation: oc-rise 0.3s ease-out both; }
+
+/* Small action buttons inside lists */
+.oc-mini-btn {
+  display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap;
+  padding: 0.3rem 0.55rem; min-height: 2rem; font-size: 0.75rem; font-weight: 700;
+  border: 1.5px solid var(--oc-black); background: #fffdf9; color: var(--oc-black);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
+}
+.oc-mini-btn:hover:not(:disabled) { transform: translate(-1px, -1px); box-shadow: 2px 2px 0 var(--oc-black); background: var(--oc-blue-bg); }
+.oc-mini-btn:disabled { opacity: 0.55; cursor: wait; }
+.oc-mini-btn.is-primary { background: var(--oc-blue); color: var(--oc-white); }
+.oc-mini-btn.is-confirm { background: var(--oc-warn); color: #fff; }
+
+/* Filter tabs: equal widths on phones */
+.oc-seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 0.25rem; width: 100%; }
+@media (min-width: 640px) { .oc-seg { display: inline-flex; width: auto; } }
+.oc-seg .oc-tab { padding: 0.45rem 0.3rem; text-align: center; white-space: normal; line-height: 1.15; font-size: 0.64rem; min-width: 0; }
+@media (min-width: 640px) { .oc-seg .oc-tab { padding: 0.55rem 0.85rem; font-size: 0.72rem; white-space: nowrap; } }
+
+/* People list: table on wider screens, cards on phones */
+.oc-cards { display: grid; gap: 0.5rem; }
+.oc-card-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.25rem 0.75rem; align-items: center; padding: 0.65rem 0.75rem; background: #fffdf9; border: 1px solid rgba(32, 32, 32, 0.18); text-align: left; width: 100%; }
+.oc-card-row:active { background: var(--oc-blue-bg); }
+.oc-card-name { font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
+.oc-card-meta { font-size: 0.75rem; color: var(--oc-ink-soft); margin-top: 0.15rem; }
+.oc-card-side { display: flex; flex-direction: column; align-items: flex-end; gap: 0.3rem; }
+.oc-card-times { display: flex; gap: 0.5rem; font-size: 0.8rem; }
+.oc-only-phone { display: block; }
+.oc-only-wide { display: none; }
+@media (min-width: 640px) { .oc-only-phone { display: none; } .oc-only-wide { display: block; } }
+
+/* Hint lines with an icon */
+.oc-hint { font-size: 0.75rem; color: var(--oc-ink-soft); margin-bottom: 0.5rem; line-height: 1.45; }
+.oc-hint svg { display: inline; width: 0.85rem; height: 0.85rem; vertical-align: -0.12rem; margin-right: 0.25rem; }
+
+/* "Show more" under long lists */
+.oc-more { margin-top: 0.6rem; width: 100%; padding: 0.5rem; font-size: 0.78rem; font-weight: 700; border: 1.5px dashed rgba(32, 32, 32, 0.4); background: transparent; }
+.oc-more:hover { border-style: solid; background: var(--oc-blue-bg); }
+
+/* Live status chip in page headers */
+.oc-live-chip { display: inline-flex; align-items: center; gap: 0.4rem; }
+.oc-live-chip.is-stale .oc-live-dot { background: #d48a00; animation: none; }
+.oc-live-chip.is-offline .oc-live-dot { background: var(--oc-bad); animation: none; }
+
+/* Live dot: keep the pulse inside its own space */
+.oc-live-dot { flex-shrink: 0; margin: 0 0.15rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .oc-bump, .oc-flash, .oc-stat.is-changed, .oc-fade-in { animation: none !important; }
+}

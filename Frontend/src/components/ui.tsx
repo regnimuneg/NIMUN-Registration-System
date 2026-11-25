@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTick } from '../lib/live'
+import { serverNow } from '../lib/clock'
 import type { CSSProperties, ReactNode } from 'react'
 import { AlertTriangle, CheckCircle2, Info, Inbox } from 'lucide-react'
 import { DAYS } from '../lib/days'
@@ -85,14 +87,24 @@ export function StatTile({ label, value, sub, icon, tone = 'ink', onClick, activ
   onClick?: () => void
   active?: boolean
 }) {
+  // Glow briefly when the number changes
+  const prev = useRef(value)
+  const [changed, setChanged] = useState(false)
+  useEffect(() => {
+    if (prev.current === value) return
+    prev.current = value
+    setChanged(true)
+    const t = setTimeout(() => setChanged(false), 1600)
+    return () => clearTimeout(t)
+  }, [value])
   const body = (
     <>
       <p className="oc-stat-label">{icon}{label}</p>
-      <p className="oc-stat-value">{typeof value === 'number' ? <AnimatedNumber value={value} /> : value}</p>
+      <p className="oc-stat-value"><span className={changed ? 'oc-bump' : ''}>{typeof value === 'number' ? <AnimatedNumber value={value} /> : value}</span></p>
       {sub && <p className="oc-stat-sub">{sub}</p>}
     </>
   )
-  const cls = `oc-stat oc-tone-${tone}${active ? ' is-active' : ''}`
+  const cls = `oc-stat oc-tone-${tone}${active ? ' is-active' : ''}${changed ? ' is-changed' : ''}`
   return onClick
     ? <button type="button" className={`${cls} oc-stat-button`} onClick={onClick} aria-pressed={!!active}>{body}</button>
     : <div className={cls}>{body}</div>
@@ -220,4 +232,22 @@ export function LoadingPage({ tiles = 4 }: { tiles?: number }) {
       <div className="oc-skeleton h-72" />
     </div>
   )
+}
+
+/** "Live · updated 4 s ago". Turns amber after a minute without an update, red when offline. */
+export function LiveStatus({ updatedAt, error }: { updatedAt: Date | null; error?: boolean }) {
+  useTick(1000)
+  const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine)
+  useEffect(() => {
+    const on = () => setOnline(true), off = () => setOnline(false)
+    window.addEventListener('online', on); window.addEventListener('offline', off)
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
+  }, [])
+  const secs = updatedAt ? Math.max(0, Math.round((serverNow().getTime() - updatedAt.getTime()) / 1000)) : null
+  const state = !online || error ? 'is-offline' : secs !== null && secs > 60 ? 'is-stale' : ''
+  const text = !online ? 'Offline · showing last data'
+    : error ? 'Cannot reach the server · retrying'
+    : secs === null ? 'Connecting…'
+    : `Live · updated ${secs < 5 ? 'just now' : secs < 60 ? `${secs} s ago` : `${Math.floor(secs / 60)} min ago`}`
+  return <span className={`oc-live-chip ${state}`} role="status"><span className="oc-live-dot" aria-hidden="true" />{text}</span>
 }
