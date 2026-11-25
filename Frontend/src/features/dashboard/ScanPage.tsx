@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode'
 import { api, ApiError, tokenManager } from '../../lib/api'
 import { serverNow, fmtTime, todayDayKey, cairoDate, useClockSync, LiveClock } from '../../lib/clock'
+import { PageHeader } from '../../components/ui'
 import { QrCode, Search, CheckCircle, XCircle, RefreshCw, User, Camera, CameraOff, Calendar, UtensilsCrossed, Clock, LogIn, LogOut, MessageSquare, CheckSquare, Square, ChevronDown, Check, GlassWater, AlertTriangle, Undo2, WifiOff, CloudUpload, Loader2 } from 'lucide-react'
 
 interface SessionOption {
@@ -192,6 +193,7 @@ export default function ScanPage() {
   const [newComment, setNewComment] = useState('')
   const [saving, setSaving] = useState(false)
   const [scanMode, setScanMode] = useState<string>('attendance')
+  const deskName: string = tokenManager.getUser()?.name ?? ''
   const [quickScanStatus, setQuickScanStatus] = useState<{ type: 'success' | 'warning' | 'error' | 'queued' | 'duplicate' | 'pending'; message: string; name?: string; detail?: string } | null>(null)
   // '27 quick scan: last action (for undo), offline queue, camera de-bounce
   const [lastAction, setLastAction] = useState<(QueuedScan & { name: string }) | null>(null)
@@ -1239,11 +1241,14 @@ export default function ScanPage() {
     <div className="jn-page">
       <div className="jn-shell">
         <div className="max-w-4xl mx-auto w-full overflow-x-hidden">
-          <div className="mb-6 sm:mb-8 relative">
-            <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold mb-2">Scanner</h1>
-            <p className="text-gray-600 text-sm sm:text-base md:text-lg">Pick the day and mode, then scan a QR code or type an ID.</p>
-            <p className="mt-1 text-xs uppercase tracking-[0.15em] text-gray-600"><LiveClock /></p>
-          </div>
+          <PageHeader
+            eyebrow={<><span className={`oc-live-dot${isOnline ? '' : ' is-off'}`} aria-hidden="true" />{isOnline ? 'Online' : 'Offline · scans saved on this phone'} · <LiveClock /></>}
+            title="Scanner"
+            meta={<>
+              {selectedSession ? <>Scanning <b>{selectedSession.label}</b> · {selectedSession.date} · <b>{getAvailableScanModes().find((m) => m.value === scanMode)?.label ?? scanMode}</b></> : 'Pick the day and mode, then scan a QR code or type an ID.'}
+              {deskName ? <> · {deskName}</> : null}
+            </>}
+          />
 
           {/* Session Selection */}
           <div className="card mb-4 sm:mb-6 relative z-20">

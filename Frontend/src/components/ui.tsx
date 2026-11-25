@@ -13,12 +13,20 @@ import { DAYS } from '../lib/days'
 
 export type Tone = 'blue' | 'good' | 'warn' | 'bad' | 'out' | 'food' | 'ink'
 
+/**
+ * Blue brand banner at the top of every page, in the same style as the
+ * login page: corner brackets, a four-point star and the NIMUN'27 stamp.
+ */
 export function PageHeader({ eyebrow, title, meta, actions }: { eyebrow?: ReactNode; title: string; meta?: ReactNode; actions?: ReactNode }) {
   return (
-    <header className="oc-page-head">
-      <div className="min-w-0">
+    <header className="oc-page-head oc-pop-in">
+      <span className="oc-corner oc-corner-tl" aria-hidden="true" />
+      <span className="oc-corner oc-corner-br" aria-hidden="true" />
+      <img src="/oc27/stamp-light.png" alt="" aria-hidden="true" className="oc-head-stamp" />
+      <img src="/oc27/star-light.png" alt="" aria-hidden="true" className="oc-head-star oc-twinkle" />
+      <div className="oc-page-head-main">
         {eyebrow && <p className="oc-eyebrow">{eyebrow}</p>}
-        <h1 className="text-2xl sm:text-4xl">{title}</h1>
+        <h1 className="unstyled-title oc-page-title">{title}</h1>
         {meta && <p className="oc-page-meta">{meta}</p>}
       </div>
       {actions && <div className="oc-page-actions">{actions}</div>}
@@ -136,6 +144,7 @@ export function Summary({ headline, facts, attention, aside }: { headline: React
   const items = (attention ?? []).filter(Boolean)
   return (
     <section className="oc-summary oc-pop-in" aria-label="At a glance">
+      <img src="/oc27/star-blue.png" alt="" aria-hidden="true" className="oc-summary-star oc-twinkle" />
       <div className="oc-summary-main">
         <p className="oc-eyebrow">At a glance</p>
         <p className="oc-summary-headline">{headline}</p>
@@ -223,8 +232,7 @@ export function Badge({ tone = 'ink', children, title }: { tone?: Tone; children
 export function LoadingPage({ tiles = 4 }: { tiles?: number }) {
   return (
     <div className="jn-shell" aria-busy="true" aria-label="Loading">
-      <div className="oc-skeleton h-10 w-64 mb-3" />
-      <div className="oc-skeleton h-4 w-48 mb-6" />
+      <div className="oc-skeleton oc-skeleton-head h-36 mb-5" />
       <div className="oc-skeleton h-28 mb-4" />
       <div className={`oc-stat-grid oc-cols-${tiles === 3 ? 3 : 4} mb-6`}>
         {Array.from({ length: tiles }, (_, i) => <div key={i} className="oc-skeleton h-24" />)}

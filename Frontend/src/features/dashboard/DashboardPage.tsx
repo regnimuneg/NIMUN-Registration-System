@@ -1,16 +1,17 @@
 import { useCallback, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { Users, UserCheck, UserX, LogOut, Smartphone, BarChart3, ClipboardList, Trash2, RefreshCw, ArrowRight, CalendarClock } from 'lucide-react'
+import { Users, UserCheck, UserX, LogOut, Smartphone, BarChart3, ClipboardList, Trash2, RefreshCw, ArrowRight, CalendarClock, Utensils, History, Undo2 } from 'lucide-react'
 import { api, tokenManager } from '../../lib/api'
 import { LiveClock, todayDayKey, fmtTime } from '../../lib/clock'
-import { DAYS, dayMeta, dayStatus, missingWord, pct, cairoIso, ago } from '../../lib/days'
-import { PageHeader, StatTile, StatGrid, Panel, Summary, Ring, ProgressRow, Notice, LoadingPage, LiveStatus } from '../../components/ui'
+import { DAYS, dayMeta, dayStatus, missingWord, pct, cairoIso, ago, fmtWhen } from '../../lib/days'
+import { PageHeader, StatTile, StatGrid, Panel, Summary, Ring, ProgressRow, Notice, LoadingPage, LiveStatus, EmptyState, Badge } from '../../components/ui'
 import { useLiveReload } from '../../lib/live'
 import { serverNow } from '../../lib/clock'
 
 interface SessionStat { key: string; label: string; date?: string; attended: number; checkedIn: number; checkedOut: number }
-interface Person { id: string; council: string | null; attended: boolean; checkIn: string | null; checkOut: string | null; kind?: string }
-interface Board { total: number; today?: string; sessions: SessionStat[]; people?: Person[]; recent?: { at: string }[] }
+interface Person { id: string; council: string | null; attended: boolean; checkIn: string | null; checkOut: string | null; kind?: string; food?: boolean }
+interface Board { total: number; today?: string; sessions: SessionStat[]; people?: Person[]; meals?: string[] }
+interface LogEntry { id: string; name: string; type: 'attendance' | 'food'; value: boolean; checkOut?: boolean; dayKey: string | null; scannedBy: string | null; scannedByName: string | null; manual?: boolean; at: string }
 
 
 /** The day the dashboard talks about: today during the conference, else the nearest one. */
@@ -20,7 +21,7 @@ function focusDay() {
 
 export default function DashboardPage() {
   const [board, setBoard] = useState<Board | null>(null)
-  const [lastScan, setLastScan] = useState<string | null>(null)
+  const [log, setLog] = useState<LogEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [clearing, setClearing] = useState<string | null>(null)
@@ -33,10 +34,10 @@ export default function DashboardPage() {
       setError(null)
       const [res, logRes] = await Promise.all([
         api.getScanAnalytics({ session: dayKey }),
-        api.getScanLog({ limit: 1 }).catch(() => null),
+        api.getScanLog({ limit: 6 }).catch(() => null),
       ])
       setBoard(res)
-      setLastScan(logRes?.entries?.[0]?.at ?? null)
+      if (logRes?.entries) setLog(logRes.entries)
       setUpdatedAt(serverNow())
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load the dashboard')
@@ -86,6 +87,9 @@ export default function DashboardPage() {
   const present = people.filter(isIn).length
   const out = people.filter((p) => !!p.checkOut).length
   const missing = Math.max(0, total - present)
+  const lastScan = log[0]?.at ?? null
+  const hasFood = (board?.meals ?? []).includes('food')
+  const fed = people.filter((p) => p.food).length
   const today = board?.today ?? cairoIso()
   const status = dayStatus(dayKey, today)
   const meta = dayMeta(dayKey)!
@@ -127,6 +131,7 @@ export default function DashboardPage() {
             facts={status === 'upcoming' ? [] : [
               <>Checked out <b>{out}</b></>,
               <>Still here <b>{Math.max(0, present - out)}</b></>,
+              ...(hasFood ? [<>Got food <b>{fed}</b></>] : []),
               <>Last scan <b>{lastScan ? `${fmtTime(lastScan)} (${ago(lastScan)})` : 'none yet'}</b></>,
             ]}
             attention={status === 'upcoming' ? [] : [
@@ -136,14 +141,15 @@ export default function DashboardPage() {
             aside={status === 'upcoming' ? <CalendarClock className="w-14 h-14 text-[var(--oc-blue)]" /> : <Ring value={pct(present, total)} label="present" />}
           />
 
-          <StatGrid cols={4}>
+          <StatGrid cols={hasFood ? 5 : 4}>
             <StatTile label="OC members" icon={<Users />} tone="ink" value={total} sub="active, all councils" />
             <StatTile label="Present" icon={<UserCheck />} tone="blue" value={status === 'upcoming' ? '—' : present} sub={status === 'upcoming' ? 'not started' : `${meta.short} · ${pct(present, total)}%`} />
             <StatTile label={missWord} icon={<UserX />} tone={status === 'past' ? 'bad' : 'warn'} value={status === 'upcoming' ? '—' : missing} sub={status === 'upcoming' ? meta.date : meta.short} />
             <StatTile label="Checked out" icon={<LogOut />} tone="out" value={status === 'upcoming' ? '—' : out} sub={status === 'upcoming' ? '' : `of ${present} who came`} />
+            {hasFood && <StatTile label="Got food" icon={<Utensils />} tone="food" value={fed} sub={`of ${present} who came`} />}
           </StatGrid>
 
-          <div className="grid lg:grid-cols-2 gap-x-6">
+          <div className="grid lg:grid-cols-3 gap-x-6">
             <Panel title={<>By council · {meta.short}</>}>
               <div className="space-y-4">
                 {byCouncil.map(([name, v]) => (
@@ -169,11 +175,33 @@ export default function DashboardPage() {
                 })}
               </div>
             </Panel>
+            <Panel title="Recent scans" icon={<History />} actions={<a href="/analytics/scans" className="oc-mini-btn">See all</a>}>
+              {log.length === 0 ? (
+                <EmptyState compact icon={<History className="w-6 h-6" />} title="No scans yet" text="Check-ins, check-outs and food scans show up here with who scanned them." />
+              ) : (
+                <ul className="divide-y divide-black/10">
+                  {log.map((r, i) => (
+                    <li key={`${r.id}-${r.at}-${i}`} className="py-2 text-sm">
+                      <div className="flex justify-between gap-2">
+                        <span className="font-bold truncate">{r.name}</span>
+                        <span className="text-gray-500 oc-time">{fmtWhen(r.at)}</span>
+                      </div>
+                      <p className="text-gray-700 flex flex-wrap items-center gap-1 text-xs">
+                        {!r.value && <Undo2 className="w-3.5 h-3.5 text-[var(--oc-warn)]" />}
+                        <span>{r.id} · {r.type === 'food' ? 'Food' : r.checkOut ? 'Check-out' : 'Check-in'}{r.dayKey ? ` · ${dayMeta(r.dayKey)?.short ?? r.dayKey}` : ''} · by {r.scannedByName ?? r.scannedBy ?? 'unknown'}</span>
+                        {r.manual && <Badge tone="warn">manual</Badge>}
+                        {!r.value && <Badge tone="warn">undone</Badge>}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Panel>
           </div>
         </>
       )}
 
-      <h2 className="oc-panel-title mt-2 mb-3">Go to</h2>
+      <h2 className="unstyled-title oc-section-title">Go to</h2>
       <div className="oc-links oc-stagger mb-8">
         {links.map(({ href, icon: Icon, title, text }) => (
           <a key={href} href={href} className="oc-link-card">

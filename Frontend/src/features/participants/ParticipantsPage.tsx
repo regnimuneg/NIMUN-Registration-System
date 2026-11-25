@@ -439,7 +439,7 @@ export default function ParticipantsPage() {
 
   return (
     <div className="jn-page">
-      <div className="jn-shell px-4 sm:px-6 lg:px-8">
+      <div className="jn-shell">
         <div className="max-w-7xl mx-auto w-full overflow-x-hidden">
           <PageHeader
             title="Participants"
@@ -534,7 +534,7 @@ export default function ParticipantsPage() {
           </div>
 
           {/* Participants List */}
-          <div className="overflow-x-auto rounded-3xl border-2 border-[var(--jn-blue)] shadow-sm bg-white">
+          <div className="overflow-x-auto oc-panel oc-table-panel">
             <table className="w-full divide-y divide-gray-200 text-sm min-w-[900px] sm:min-w-0">
               <thead className="bg-gray-50">
                 <tr>
@@ -577,11 +577,7 @@ export default function ParticipantsPage() {
                         {participant.phoneNumber && participant.phoneNumber.trim() !== '' ? participant.phoneNumber : 'N/A'}
                       </td>
                       <td className="px-4 py-4">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${participant.type === 'delegate' ? 'bg-purple-100 text-purple-700' :
-                          participant.type === 'staff' ? 'bg-red-100 text-red-700' :
-                            participant.type === 'invitation' ? 'bg-green-100 text-green-700' :
-                              'bg-blue-100 text-blue-700'
-                          }`}>
+                        <span className={`oc-badge ${participant.type === 'delegate' ? 'oc-tone-out' : participant.type === 'staff' ? 'oc-tone-bad' : participant.type === 'invitation' ? 'oc-tone-good' : 'oc-tone-blue'}`}>
                           {participant.type === 'delegate' ? 'Delegate' :
                             participant.type === 'staff' ? 'Staff' :
                               participant.type === 'invitation' ? 'Invitation' : 'Member'}

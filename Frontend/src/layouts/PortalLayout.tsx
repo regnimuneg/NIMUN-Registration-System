@@ -17,6 +17,8 @@ export default function PortalLayout() {
   const isAdmin = userRole === 'admin'
   const isMember = userRole === 'member'
   const isAnalyst = userRole === 'analyst'
+  const me = tokenManager.getUser()
+  const signedInAs = me ? [me.id, me.name && me.name !== me.id ? me.name : null].filter(Boolean).join(', ') : ''
 
   // Determine if user is on member routes (hide admin links)
   const isMemberRoute = location.pathname.startsWith('/member') || location.pathname === '/scan'
@@ -306,6 +308,15 @@ export default function PortalLayout() {
       <main className="pt-24 sm:pt-28 md:pt-32 pb-4 sm:pb-8 px-2 sm:px-4 md:px-6 overflow-x-hidden w-full max-w-full">
         <div className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden">
           <Outlet />
+          {isAuthenticated && (
+            <footer className="oc-footer">
+              <img src="/oc27/stamp-blue.png" alt="" aria-hidden="true" />
+              <span className="oc-footer-text">
+                <span><b>NIMUN&apos;27</b> · Setting the standard</span>
+                <span>OC Conference Portal{signedInAs ? ` · Signed in as ${signedInAs}` : ''}</span>
+              </span>
+            </footer>
+          )}
         </div>
       </main>
     </div>

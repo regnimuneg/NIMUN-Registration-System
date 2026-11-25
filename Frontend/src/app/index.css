@@ -975,3 +975,108 @@ main .oc-panel-title { display: flex; align-items: center; gap: 0.5rem; font-siz
 @media (prefers-reduced-motion: reduce) {
   .oc-bump, .oc-flash, .oc-stat.is-changed, .oc-fade-in { animation: none !important; }
 }
+
+/* =====================================================================
+   Brand pass (25 Nov evening): every page wears the login page's look.
+   Blue banner with corner brackets, four-point stars and the stamp;
+   paper cards with a hard blue shadow for the key boxes; ruled headings.
+   ===================================================================== */
+
+/* Page banner (PageHeader) */
+.oc-page-head {
+  position: relative; overflow: hidden; isolation: isolate;
+  padding: 1.6rem 1.25rem 1.4rem; margin-bottom: 1.25rem;
+  background: var(--oc-blue); color: var(--oc-white);
+  border: 2px solid var(--oc-black); box-shadow: 6px 6px 0 var(--oc-black);
+}
+@media (min-width: 640px) { .oc-page-head { padding: 2rem 2.2rem 1.8rem; } }
+.oc-page-head-main { position: relative; z-index: 1; min-width: 0; }
+.oc-page-head .oc-eyebrow { color: rgba(243, 236, 228, 0.85); flex-wrap: wrap; row-gap: 0.2rem; }
+.oc-page-head .oc-live-dot { background: #6ee7a8; }
+.oc-page-head .oc-live-chip.is-stale .oc-live-dot { background: #ffc861; }
+.oc-page-head .oc-live-chip.is-offline .oc-live-dot { background: #ff8a8a; }
+.oc-page-title {
+  font-family: var(--oc-font-display); font-stretch: 125%; font-weight: 900;
+  font-size: clamp(1.9rem, 6.4vw, 3.4rem); line-height: 0.95; text-transform: uppercase;
+  color: var(--oc-white); margin: 0; overflow-wrap: anywhere;
+}
+.oc-page-title::after { content: ''; display: block; width: 4.5rem; height: 2px; margin-top: 0.8rem; background: var(--oc-white); opacity: 0.7; }
+.oc-page-head .oc-page-meta { color: rgba(243, 236, 228, 0.9); margin-top: 0.7rem; }
+.oc-page-actions { position: relative; z-index: 1; }
+
+/* Corner brackets and decorations */
+.oc-corner { position: absolute; width: 1.6rem; height: 1.6rem; border: 0 solid var(--oc-white); opacity: 0.9; pointer-events: none; }
+.oc-corner-tl { top: 0.7rem; left: 0.7rem; border-width: 3px 0 0 3px; }
+.oc-corner-br { bottom: 0.7rem; right: 0.7rem; border-width: 0 3px 3px 0; }
+.oc-head-stamp { position: absolute; z-index: 0; right: -2.5rem; top: 50%; width: 11rem; transform: translateY(-50%) rotate(-12deg); opacity: 0.13; pointer-events: none; user-select: none; }
+.oc-head-star { position: absolute; z-index: 0; top: 0.9rem; right: 1.4rem; width: 1.9rem; opacity: 0.85; pointer-events: none; user-select: none; }
+@media (min-width: 1024px) {
+  .oc-head-stamp { right: 1.5rem; width: 12.5rem; opacity: 0.16; }
+  .oc-head-star { right: 15rem; top: 1.1rem; width: 2.3rem; }
+  .oc-page-head:has(.oc-page-actions) .oc-head-stamp { right: auto; left: 52%; }
+  .oc-page-head:has(.oc-page-actions) .oc-head-star { right: auto; left: calc(52% - 3.5rem); }
+}
+
+/* Buttons and fields inside the blue banner: paper on blue */
+.oc-page-head .btn-primary,
+.oc-page-head .btn-secondary,
+.oc-page-head .jn-sticker-button {
+  background: var(--oc-white) !important; color: var(--oc-blue) !important;
+  border: 1.5px solid var(--oc-black) !important; box-shadow: 3px 3px 0 var(--oc-black) !important;
+}
+.oc-page-head .btn-secondary { background: transparent !important; color: var(--oc-white) !important; border-color: var(--oc-white) !important; box-shadow: none !important; }
+.oc-page-head .btn-secondary:hover { background: rgba(243, 236, 228, 0.14) !important; }
+.oc-page-head .btn-primary:disabled, .oc-page-head .btn-secondary:disabled { opacity: 0.6; }
+main .oc-page-head select { border-color: var(--oc-black) !important; background-color: var(--oc-white) !important; color: var(--oc-black); }
+
+/* Key boxes: paper card with a hard blue shadow, like the sign-in card */
+.oc-summary { position: relative; border: 1.5px solid var(--oc-black); border-left-width: 1.5px; box-shadow: 6px 6px 0 var(--oc-blue); margin-right: 6px; }
+.oc-summary-star { position: absolute; top: -1rem; right: -0.9rem; width: 2.2rem; pointer-events: none; user-select: none; }
+.oc-summary .oc-eyebrow { color: var(--oc-black); }
+.oc-summary .oc-eyebrow::after, .login-eyebrow::after { content: ''; flex: 1; height: 1px; background: currentColor; opacity: 0.8; }
+.oc-summary-headline { font-size: clamp(1.05rem, 3.8vw, 1.35rem); }
+
+/* Panels: ruled heading, like the "Staff portal" line on the login card */
+.oc-panel-head { padding-bottom: 0.65rem; border-bottom: 1.5px solid var(--oc-black); }
+.oc-panel-title svg { color: var(--oc-blue); }
+
+/* Number tiles: square marker in the tone colour + a hard shadow on hover */
+.oc-stat { position: relative; border-top-width: 1.5px; box-shadow: inset 0 4px 0 var(--tone); }
+.oc-stat-value { font-weight: 900; }
+@media (hover: hover) { .oc-stat:not(.oc-stat-button):hover { box-shadow: inset 0 4px 0 var(--tone), 3px 3px 0 var(--oc-black); } }
+.oc-stat.is-active { box-shadow: inset 0 4px 0 var(--tone), 3px 3px 0 var(--oc-black); }
+
+/* Link cards: blue icon box */
+.oc-link-card svg { width: 2.4rem; height: 2.4rem; padding: 0.45rem; background: var(--oc-blue); color: var(--oc-white); border: 1.5px solid var(--oc-black); }
+
+/* Section title outside panels */
+.oc-section-title { display: flex; align-items: center; gap: 0.75rem; font-family: var(--oc-font-display); font-stretch: 125%; font-weight: 800; text-transform: uppercase; font-size: 0.95rem; margin: 0.5rem 0 0.8rem; }
+.oc-section-title::after { content: ''; flex: 1; height: 1.5px; background: var(--oc-black); }
+
+/* Loading placeholder for the banner */
+.oc-skeleton-head { background: linear-gradient(90deg, rgba(24,53,145,0.35), rgba(24,53,145,0.5), rgba(24,53,145,0.35)); background-size: 200% 100%; }
+
+/* Footer with the stamp, on every signed-in page */
+.oc-footer { display: flex; align-items: center; justify-content: center; gap: 0.8rem; margin: 2.5rem auto 0.5rem; padding-top: 1.2rem; border-top: 1.5px solid var(--oc-black); font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--oc-ink-soft); text-align: left; }
+.oc-footer img { width: 2.6rem; height: auto; }
+.oc-footer-text { display: flex; flex-direction: column; gap: 0.15rem; }
+.oc-footer b { font-family: var(--oc-font-display); font-stretch: 125%; font-weight: 800; color: var(--oc-black); letter-spacing: 0.02em; }
+
+/* Scanner: the day + mode the desk is on, as a summary under the banner */
+.oc-scan-now { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; align-items: center; }
+
+@media (prefers-reduced-motion: reduce) { .oc-head-star, .oc-summary-star { animation: none !important; } }
+.oc-page-head .oc-live-dot.is-off { background: #ff8a8a; animation: none; }
+.oc-page-head .oc-page-meta b { color: var(--oc-white); }
+.oc-page-head { margin-right: 6px; }
+@media (min-width: 640px) { .oc-page-head { padding: 2.1rem 2.7rem 2.2rem; } }
+/* Wide tables inside a panel (Participants) */
+.oc-table-panel { padding: 0 !important; }
+main .oc-panel table { background: transparent; }
+main .oc-panel thead { background: var(--oc-paper) !important; border-bottom: 1.5px solid var(--oc-black); }
+main .oc-panel th { color: var(--oc-blue) !important; }
+/* Icon boxes: square blue, like the link cards */
+.jn-icon-tile { border-radius: 0 !important; background: var(--oc-blue) !important; color: var(--oc-white) !important; border: 1.5px solid var(--oc-black); width: 3rem; height: 3rem; }
+@media (min-width: 1024px) {
+  .oc-page-head:has(.oc-page-actions) .oc-head-star { left: calc(52% + 12.8rem); top: 1rem; }
+}
