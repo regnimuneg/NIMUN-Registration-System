@@ -35,7 +35,7 @@ interface Person {
 }
 
 interface ScanAnalytics {
-  scope: { council: string | null; locked: boolean }
+  scope: { council: string | null; team?: string | null; locked: boolean }
   /** This account may check people in by hand (admins, Secretariats) */
   canManual?: boolean
   /** Cairo date on the server, YYYY-MM-DD */
@@ -195,7 +195,7 @@ export default function ScanAnalyticsPage() {
     if (!selected) return
     const rows: (string | boolean | null)[][] = [['ID', 'Name', 'Council', 'Committee', 'Present', 'Scanned at', 'Checked in how', 'Checked in by', 'Checked out at', 'Checked out how', 'Checked out by', ...(hasFood ? ['Food'] : [])]]
     for (const p of allPeople) rows.push([p.id, p.name, p.council, p.committee, isIn(p), p.checkIn ? stamp(p.checkIn) : '', isIn(p) ? (p.manual ? 'Manual' : 'QR scan') : '', isIn(p) ? (p.checkedInBy ?? '') : '', p.checkOut ? stamp(p.checkOut) : '', p.checkOut ? (p.outManual ? 'Manual' : 'QR scan') : '', p.checkOut ? (p.checkedOutBy ?? '') : '', ...(hasFood ? [!!p.food] : [])])
-    downloadCsv(`oc27-${selected.key}-${(data?.scope.council ?? 'all').toLowerCase()}.csv`, rows)
+    downloadCsv(`oc27-${selected.key}-${(data?.scope.team ?? data?.scope.council ?? 'all').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.csv`, rows)
   }
 
   const exportAll = async () => {
@@ -226,7 +226,7 @@ export default function ScanAnalyticsPage() {
         }
         rows.push(r)
       }
-      downloadCsv(`oc27-all-days-${(res.scope.council ?? 'all').toLowerCase()}.csv`, rows as any)
+      downloadCsv(`oc27-all-days-${(res.scope.team ?? res.scope.council ?? 'all').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.csv`, rows as any)
     } catch (e: any) {
       setError(e?.message || 'Export failed')
     } finally {
@@ -237,7 +237,7 @@ export default function ScanAnalyticsPage() {
 
   if (loading && !data) return <LoadingPage tiles={4} />
 
-  const scopeLabel = data?.scope.council ?? 'All councils'
+  const scopeLabel = data?.scope.team ? `${data.scope.team} team` : data?.scope.council ?? 'All councils'
   const today = data?.today ?? cairoIso()
   const meta = selected ? dayMeta(selected.key) : null
   const status = selected ? dayStatus(selected.key, today) : 'today'

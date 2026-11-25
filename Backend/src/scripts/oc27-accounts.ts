@@ -33,7 +33,8 @@ interface Account {
   permissions: Record<string, unknown>
 }
 
-// full = everything; analytics = scan analytics for one council only;
+// full = everything; analytics = scan analytics for one council only, or for
+// one OC team ("team" = members.committee, e.g. Media & Design) for team heads;
 // scan = scanning desk: scanner page only (no lists, analytics or phone numbers)
 export const ACCOUNTS: Account[] = [
   { id: 'OC-REG', firstName: 'Registration', lastName: 'Affairs', userType: 'member', role: 'Registration Affairs', committee: 'Registration Affairs', permissions: { access: 'full' } },
@@ -45,6 +46,11 @@ export const ACCOUNTS: Account[] = [
   { id: 'OC-DESK1', firstName: 'Scanning', lastName: 'Desk 1', userType: 'member', role: 'Scanning Desk', committee: 'Registration Affairs', permissions: { access: 'scan' } },
   { id: 'OC-DESK2', firstName: 'Scanning', lastName: 'Desk 2', userType: 'member', role: 'Scanning Desk', committee: 'Registration Affairs', permissions: { access: 'scan' } },
   { id: 'OC-DESK3', firstName: 'Scanning', lastName: 'Desk 3', userType: 'member', role: 'Scanning Desk', committee: 'Registration Affairs', permissions: { access: 'scan' } },
+  // OC team heads: Live Board for their own team's members only (view only, no manual check-in)
+  { id: 'OC-OPS', firstName: 'Operations & Logistics', lastName: 'Head', userType: 'executive', role: 'Operations & Logistics Head', committee: 'Operations & Logistics', permissions: { access: 'analytics', team: 'Operations & Logistics' } },
+  { id: 'OC-PR', firstName: 'Public Relations', lastName: 'Head', userType: 'executive', role: 'Public Relations Head', committee: 'Public Relations', permissions: { access: 'analytics', team: 'Public Relations' } },
+  { id: 'OC-MEDIA', firstName: 'Media & Design', lastName: 'Head', userType: 'executive', role: 'Media & Design Head', committee: 'Media & Design', permissions: { access: 'analytics', team: 'Media & Design' } },
+  { id: 'OC-SOCIALS', firstName: 'Socials & Events', lastName: 'Head', userType: 'executive', role: 'Socials & Events Head', committee: 'Socials & Events', permissions: { access: 'analytics', team: 'Socials & Events' } },
 ]
 
 const USER_NAMESPACE = '6ba7b811-9dad-11d1-80b4-00c04fd430c8'

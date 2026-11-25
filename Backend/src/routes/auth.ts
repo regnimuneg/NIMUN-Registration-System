@@ -111,7 +111,7 @@ router.post('/login', async (req: Request, res: Response) => {
     }
     failedLogins.delete(throttleKey)
 
-    const { access, council } = accessFor(user.permissions, user.member_role)
+    const { access, council, team } = accessFor(user.permissions, user.member_role)
     if (!access) {
       return res.status(403).json({ success: false, error: 'This account cannot sign in to the portal' })
     }
@@ -125,7 +125,7 @@ router.post('/login', async (req: Request, res: Response) => {
     )
     await query(`DELETE FROM auth_sessions WHERE expires_at < NOW() - INTERVAL '7 days'`)
     await query(`UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1`, [user.user_id])
-    console.log(`[AUTH] Login ok: ${user.member_id} (${access}${council ? ', ' + council : ''})`)
+    console.log(`[AUTH] Login ok: ${user.member_id} (${access}${council ? ', ' + council : ''}${team ? ', team ' + team : ''})`)
 
     return res.json({
       success: true,
@@ -142,6 +142,7 @@ router.post('/login', async (req: Request, res: Response) => {
         email: user.email,
         committee: user.committee || null,
         council,
+        team,
         manualCheckin: canManualCheckin(access, user.permissions, user.member_role),
         committeeReport: canViewCommitteeReport(access, user.member_id)
       }
@@ -171,7 +172,7 @@ router.post('/logout', async (req: Request, res: Response) => {
 
 router.get('/verify', requireAuth, (req: Request, res: Response) => {
   const a = req.auth!
-  res.json({ valid: true, role: ROLE_FOR_ACCESS[a.access], access: a.access, council: a.council, manualCheckin: a.manualCheckin, committeeReport: a.committeeReport, id: a.memberId, name: a.name })
+  res.json({ valid: true, role: ROLE_FOR_ACCESS[a.access], access: a.access, council: a.council, team: a.team, manualCheckin: a.manualCheckin, committeeReport: a.committeeReport, id: a.memberId, name: a.name })
 })
 
 export default router

@@ -7,7 +7,8 @@ import { query } from '../config/index.js'
  *   full       Highboard, Registration Affairs, admins: every endpoint
  *   scan       scanning desks: scan a QR / type an ID and record check-ins.
  *              No participant list, no phone numbers or emails, no analytics.
- *   analytics  Press Head, Secretariats: scan analytics for their own council
+ *   analytics  Press Head, Secretariats: scan analytics for their own council.
+ *              OC team heads: scan analytics for their own OC team (committee).
  */
 export type AccessLevel = 'full' | 'scan' | 'analytics'
 
@@ -18,6 +19,8 @@ export interface AuthContext {
   access: AccessLevel
   /** For analytics accounts: the only council they may see. */
   council: string | null
+  /** For OC team head accounts: the only OC team (members.committee) they may see. */
+  team: string | null
   /** May mark people present / checked out by hand (no QR), see canManualCheckin. */
   manualCheckin: boolean
   /** May open the committee attendance report, see canViewCommitteeReport. */
@@ -48,15 +51,19 @@ export function newToken() {
  * Returns access null for accounts with no access set (for example the
  * 105 OC members, who are people to scan, not staff): they cannot sign in.
  */
-export function accessFor(permissions: any, role: string | null): { access: AccessLevel | null; council: string | null } {
+export function accessFor(permissions: any, role: string | null): { access: AccessLevel | null; council: string | null; team: string | null } {
   const p = permissions && typeof permissions === 'object' ? permissions : {}
   if (p.access === 'full' || p.access === 'scan' || p.access === 'analytics') {
-    return { access: p.access, council: p.access === 'analytics' ? (p.council ?? null) : null }
+    const analytics = p.access === 'analytics'
+    // An OC team head ({"access":"analytics","team":"Media & Design"}) is
+    // scoped by team only; a council on the same account is ignored.
+    const team = analytics && typeof p.team === 'string' && p.team.trim() ? p.team.trim() : null
+    return { access: p.access, council: analytics && !team ? (p.council ?? null) : null, team }
   }
   // NIMUN'26 accounts: {"admin": true, ...} or a role containing "admin"
-  if (p.admin === true || p.super_admin === true || /admin/i.test(role ?? '')) return { access: 'full', council: null }
-  if (p.check_in === true) return { access: 'scan', council: null }
-  return { access: null, council: null }
+  if (p.admin === true || p.super_admin === true || /admin/i.test(role ?? '')) return { access: 'full', council: null, team: null }
+  if (p.check_in === true) return { access: 'scan', council: null, team: null }
+  return { access: null, council: null, team: null }
 }
 
 /**
@@ -102,7 +109,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
     if (token.startsWith('mock-')) {
       if (!mockAuthEnabled()) return res.status(401).json({ error: 'Session expired. Please sign in again.' })
-      req.auth = { userId: 'mock-admin', memberId: 'MOCK-ADMIN', name: 'Local Admin', access: 'full', council: null, manualCheckin: true, committeeReport: false }
+      req.auth = { userId: 'mock-admin', memberId: 'MOCK-ADMIN', name: 'Local Admin', access: 'full', council: null, team: null, manualCheckin: true, committeeReport: false }
       return next()
     }
 
@@ -118,10 +125,10 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     const row: any = result.rows[0]
     if (!row || !row.member_id) return res.status(401).json({ error: 'Session expired. Please sign in again.' })
 
-    const { access, council } = accessFor(row.permissions, row.role)
+    const { access, council, team } = accessFor(row.permissions, row.role)
     if (!access) return res.status(403).json({ error: 'This account has no access' })
-    if (access === 'analytics' && !council) return res.status(403).json({ error: 'Account has no council assigned' })
-    req.auth = { userId: row.user_id, memberId: row.member_id, name: row.name, access, council, manualCheckin: canManualCheckin(access, row.permissions, row.role), committeeReport: canViewCommitteeReport(access, row.member_id) }
+    if (access === 'analytics' && !council && !team) return res.status(403).json({ error: 'Account has no council or team assigned' })
+    req.auth = { userId: row.user_id, memberId: row.member_id, name: row.name, access, council, team, manualCheckin: canManualCheckin(access, row.permissions, row.role), committeeReport: canViewCommitteeReport(access, row.member_id) }
     next()
   } catch (error) {
     console.error('[AUTH] Session check failed:', error)

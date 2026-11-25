@@ -6,8 +6,10 @@ import { query } from '../config/index.js'
  *
  * GET /api/scan-analytics?council=UNICEF&session=conf_day1
  *
- * Analytics accounts (Press Head, Secretariats) are always limited to the
- * council on their account; a council query parameter from them is ignored.
+ * Analytics accounts are always limited to the scope on their account: Press
+ * Head and Secretariats to their council, OC team heads to their OC team
+ * (members.committee, so they see OC members of that team in every council
+ * and no delegates). A council query parameter from them is ignored.
  * Full-access accounts may pick any council, or leave it empty for all.
  *
  * People counted: OC members (role "OC Member (<council>)") and delegates.
@@ -87,16 +89,41 @@ const PEOPLE_CTE = `
     FROM delegates d
   ),
   scoped AS (
-    SELECT * FROM people WHERE $1::text IS NULL OR LOWER(council) = LOWER($1::text)
+    SELECT * FROM people
+    WHERE $1::text IS NULL
+       OR CASE WHEN $1::text LIKE 'team:%'
+               THEN LOWER(committee) = LOWER(substr($1::text, 6))
+               ELSE LOWER(council) = LOWER($1::text) END
   )`
+
+/**
+ * The value for PEOPLE_CTE's $1: a council name, "team:<OC team>" for a team
+ * head, or null for everyone. Analytics accounts always get their own scope;
+ * full-access accounts may pass ?council= to narrow the board.
+ */
+const TEAM_PREFIX = 'team:'
+type Auth = NonNullable<Request['auth']>
+const lockedScope = (auth: Auth): string | null =>
+  auth.access === 'analytics' ? (auth.team ? `${TEAM_PREFIX}${auth.team}` : auth.council) : null
+function scopeFor(req: Request): string | null {
+  const auth = req.auth!
+  if (auth.access === 'analytics') return lockedScope(auth)
+  return typeof req.query.council === 'string' && req.query.council.trim() ? req.query.council.trim() : null
+}
+/** What the page shows as the scope: council or team, and whether it is fixed. */
+const scopeOut = (auth: Auth, key: string | null) => ({
+  council: key && !key.startsWith(TEAM_PREFIX) ? key : null,
+  team: key && key.startsWith(TEAM_PREFIX) ? key.slice(TEAM_PREFIX.length) : null,
+  locked: auth.access === 'analytics',
+})
+const scopeName = (key: string | null) => (key && key.startsWith(TEAM_PREFIX) ? key.slice(TEAM_PREFIX.length) : key)
 
 const n = (v: unknown) => Number(v ?? 0)
 
 router.get('/', async (req: Request, res: Response) => {
   try {
     const auth = req.auth!
-    const requested = typeof req.query.council === 'string' && req.query.council.trim() ? req.query.council.trim() : null
-    const council = auth.access === 'analytics' ? auth.council : requested
+    const council = scopeFor(req)
     const sessionKey = typeof req.query.session === 'string' ? req.query.session : null
     const selected = SESSIONS.find((s) => s.key === sessionKey) ?? null
 
@@ -117,7 +144,7 @@ router.get('/', async (req: Request, res: Response) => {
         [council],
       ),
       auth.access === 'analytics'
-        ? Promise.resolve({ rows: [{ council: auth.council }] })
+        ? Promise.resolve({ rows: auth.council ? [{ council: auth.council }] : [] })
         : query(`${PEOPLE_CTE} SELECT DISTINCT council FROM people WHERE council IS NOT NULL ORDER BY 1`, [null]),
       query(
         `${PEOPLE_CTE}
@@ -162,7 +189,7 @@ router.get('/', async (req: Request, res: Response) => {
     }
 
     res.json({
-      scope: { council, locked: auth.access === 'analytics' },
+      scope: scopeOut(auth, council),
       canManual: auth.manualCheckin,
       today: cairoToday(),
       councils: councilsRes.rows.map((r: any) => r.council),
@@ -187,8 +214,7 @@ router.get('/', async (req: Request, res: Response) => {
 router.get('/version', async (req: Request, res: Response) => {
   try {
     const auth = req.auth!
-    const requested = typeof req.query.council === 'string' && req.query.council.trim() ? req.query.council.trim() : null
-    const council = auth.access === 'analytics' ? auth.council : requested
+    const council = scopeFor(req)
     const r = await query(
       `${PEOPLE_CTE}
        SELECT COUNT(a.*) AS n, MAX(a.created_at) AS last
@@ -209,8 +235,7 @@ router.get('/version', async (req: Request, res: Response) => {
 router.get('/log', async (req: Request, res: Response) => {
   try {
     const auth = req.auth!
-    const requested = typeof req.query.council === 'string' && req.query.council.trim() ? req.query.council.trim() : null
-    const council = auth.access === 'analytics' ? auth.council : requested
+    const council = scopeFor(req)
     const limit = Math.min(Math.max(Number(req.query.limit) || 200, 1), 1000)
     const r = await query(
       `${PEOPLE_CTE}
@@ -233,7 +258,7 @@ router.get('/log', async (req: Request, res: Response) => {
        LIMIT ${limit}`,
       [council],
     )
-    res.json({ scope: { council, locked: auth.access === 'analytics' }, entries: r.rows })
+    res.json({ scope: scopeOut(auth, council), entries: r.rows })
   } catch (error) {
     console.error('Scan log error:', error)
     res.status(500).json({ error: 'Failed to load scan log' })
@@ -244,8 +269,7 @@ router.get('/log', async (req: Request, res: Response) => {
 router.get('/export', async (req: Request, res: Response) => {
   try {
     const auth = req.auth!
-    const requested = typeof req.query.council === 'string' && req.query.council.trim() ? req.query.council.trim() : null
-    const council = auth.access === 'analytics' ? auth.council : requested
+    const council = scopeFor(req)
     const cols = SESSIONS.flatMap((s) => [
       `COALESCE(p.${s.attended}, FALSE) AS "${s.key}.attended"`,
       `p.${s.key}_checkin AS "${s.key}.checkIn"`,
@@ -264,7 +288,7 @@ router.get('/export', async (req: Request, res: Response) => {
       [council],
     )
     res.json({
-      scope: { council, locked: auth.access === 'analytics' },
+      scope: scopeOut(auth, council),
       sessions: SESSIONS.map((s) => ({ key: s.key, label: s.label, meals: Object.keys(s.meals) })),
       people: r.rows,
     })
@@ -278,8 +302,7 @@ router.get('/export', async (req: Request, res: Response) => {
 router.get('/search', async (req: Request, res: Response) => {
   try {
     const auth = req.auth!
-    const requested = typeof req.query.council === 'string' && req.query.council.trim() ? req.query.council.trim() : null
-    const council = auth.access === 'analytics' ? auth.council : requested
+    const council = scopeFor(req)
     const q = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 60) : ''
     if (q.length < 2) return res.json({ results: [] })
     const like = `%${q.toLowerCase().replace(/[\\%_]/g, (c) => '\\' + c)}%`
@@ -308,7 +331,7 @@ router.get('/search', async (req: Request, res: Response) => {
 router.get('/person/:id', async (req: Request, res: Response) => {
   try {
     const auth = req.auth!
-    const council = auth.access === 'analytics' ? auth.council : null
+    const council = lockedScope(auth)
     const id = String(req.params.id || '').trim().slice(0, 40)
     const r = await query(
       `${PEOPLE_CTE}
@@ -321,7 +344,7 @@ router.get('/person/:id', async (req: Request, res: Response) => {
       [council, id],
     )
     const p: any = r.rows[0]
-    if (!p) return res.status(404).json({ error: 'No one with that ID in your council' })
+    if (!p) return res.status(404).json({ error: council ? `No one with that ID in ${scopeName(council)}` : 'No one with that ID' })
 
     const history = await query(
       `SELECT a.activity_type AS type, a.title,
@@ -397,7 +420,7 @@ router.post('/manual', async (req: Request, res: Response) => {
 
     // Scope: same people the account sees on the Live Board (own council for
     // Secretariats, inactive members hidden). Only OC members are changed here.
-    const council = auth.access === 'analytics' ? auth.council : null
+    const council = lockedScope(auth)
     const found = await query(
       `${PEOPLE_CTE}
        SELECT p.id, p.user_id, p.kind, CONCAT(u.first_name, ' ', u.last_name) AS name
@@ -406,7 +429,7 @@ router.post('/manual', async (req: Request, res: Response) => {
       [council, id],
     )
     const person: any = found.rows[0]
-    if (!person) return res.status(404).json({ error: council ? `No one with ID ${id} in ${council}` : `No one with ID ${id}` })
+    if (!person) return res.status(404).json({ error: council ? `No one with ID ${id} in ${scopeName(council)}` : `No one with ID ${id}` })
     if (person.kind !== 'member') return res.status(400).json({ error: 'Manual check-in is for OC members only' })
 
     const att = s.attended

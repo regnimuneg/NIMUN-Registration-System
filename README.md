@@ -41,6 +41,7 @@ Everyone signs in with an account ID and password. Passwords are never stored in
 | `OC-CCPCJ` | CCPCJ Secretariat | Live Board and manual check-in for CCPCJ only |
 | `OC-IAEA` | IAEA Secretariat | Live Board and manual check-in for IAEA only |
 | `OC-DESK1`, `OC-DESK2`, `OC-DESK3` | Scanning desks 1 to 3 | Scanner only: check people in by QR or ID. No participant list, Live Board, export, clears, phone numbers or emails |
+| `OC-OPS`, `OC-PR`, `OC-MEDIA`, `OC-SOCIALS` | Heads of Operations & Logistics, Public Relations, Media & Design, Socials & Events | Live Board for their own team's members only (every council, no delegates). View and export only, no manual check-in |
 
 Any other account (including the OC members themselves) cannot sign in.
 
