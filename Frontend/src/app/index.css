@@ -1080,3 +1080,107 @@ main .oc-panel th { color: var(--oc-blue) !important; }
 @media (min-width: 1024px) {
   .oc-page-head:has(.oc-page-actions) .oc-head-star { left: calc(52% + 12.8rem); top: 1rem; }
 }
+
+/* =====================================================================
+   UI/UX pass (26 Nov): readability, focus, touch targets, phone layout.
+   Same NIMUN'27 brand; only sizing, spacing and navigation change.
+   ===================================================================== */
+
+/* Readable small text: nothing under 12px, a bit more air between letters
+   is enough; the extra-wide tracking made labels hard to read. */
+.oc-eyebrow { font-size: 0.75rem; letter-spacing: 0.14em; }
+.oc-stat-label { font-size: 0.75rem; letter-spacing: 0.08em; color: var(--oc-black); }
+.oc-stat-sub, .oc-day-tab-date, .oc-progress-sub, .oc-footer { font-size: 0.8125rem; }
+.oc-footer { letter-spacing: 0.1em; }
+.oc-page-meta { font-size: 0.9rem; }
+main .text-xs { font-size: 0.8125rem; line-height: 1.15rem; }
+.oc-stat-value, .oc-big-number, .oc-progress-top, main table td, .oc-live-chip { font-variant-numeric: tabular-nums; }
+
+/* Keyboard focus: one clear ring on every control, paper ring on blue */
+:where(a, button, [role="button"], [role="radio"], [role="tab"], input, select, textarea, summary):focus-visible {
+  outline: 3px solid var(--oc-blue) !important;
+  outline-offset: 2px;
+}
+:where(.oc-topbar, .oc-page-head, .oc-tabbar, .oc-day-tab[aria-pressed="true"], .is-active) :focus-visible,
+.oc-tabbar a:focus-visible, .oc-topbar a:focus-visible, .oc-topbar button:focus-visible {
+  outline-color: var(--oc-white) !important;
+  box-shadow: 0 0 0 5px var(--oc-black) !important;
+}
+button:not(:disabled), [role="button"], summary, label[for] { cursor: pointer; }
+
+/* Desktop bar: the current page reads as a paper tab */
+.oc-nav-link { padding: 0.5rem 0.7rem !important; font-size: 0.8rem; min-height: 2.5rem; }
+.oc-nav-link.is-current { background: var(--oc-white) !important; color: var(--oc-blue) !important; border-color: var(--oc-white) !important; }
+@media (min-width: 1280px) { .oc-nav-link { padding: 0.5rem 0.85rem !important; } }
+
+/* Phone top bar: shorter, and Sign out says what it does */
+.oc-signout-mobile {
+  display: inline-flex; align-items: center; gap: 0.4rem; min-height: 2.75rem; padding: 0 0.85rem;
+  border: 2px solid rgba(243, 236, 228, 0.75); color: var(--oc-white); background: transparent;
+  font-family: var(--oc-font-display); font-stretch: 125%; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em;
+}
+.oc-signout-mobile:active { background: rgba(243, 236, 228, 0.16); }
+
+/* Phone tab bar */
+.oc-tabbar {
+  position: fixed; z-index: 30; left: 0; right: 0; bottom: 0;
+  display: flex; background: var(--oc-blue); border-top: 2px solid var(--oc-black);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.oc-tab {
+  flex: 1 1 0; min-width: 0; min-height: 3.5rem; padding: 0.45rem 0.15rem 0.4rem;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.2rem;
+  color: rgba(243, 236, 228, 0.82); text-decoration: none;
+  font-family: var(--oc-font-mono); font-weight: 700; font-size: 0.72rem; letter-spacing: 0;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.oc-tab span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oc-tab[aria-current="page"] { background: var(--oc-white); color: var(--oc-blue); box-shadow: inset 0 3px 0 var(--oc-black); }
+.oc-tab:active { background: rgba(243, 236, 228, 0.18); }
+main.oc-has-tabbar { padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px)); }
+@media (min-width: 768px) { main.oc-has-tabbar { padding-bottom: 2rem; } }
+
+/* Phones: the banner says the page name and the live line, then gets out of
+   the way so the numbers (or the camera) show on the first screen. */
+@media (max-width: 639px) {
+  .oc-page-head { padding: 1.1rem 1rem 1.05rem; box-shadow: 4px 4px 0 var(--oc-black); margin-right: 4px; gap: 0.8rem; }
+  .oc-page-title { font-size: clamp(1.6rem, 8.5vw, 2.2rem); }
+  .oc-page-title::after { width: 3rem; margin-top: 0.5rem; }
+  .oc-page-head .oc-page-meta { margin-top: 0.5rem; font-size: 0.85rem; line-height: 1.45; }
+  .oc-page-head .oc-eyebrow { font-size: 0.7rem; letter-spacing: 0.1em; }
+  .oc-corner { width: 1.1rem; height: 1.1rem; }
+  .oc-corner-tl { top: 0.45rem; left: 0.45rem; }
+  .oc-corner-br { bottom: 0.45rem; right: 0.45rem; }
+  .oc-head-stamp { width: 8.5rem; right: -2rem; opacity: 0.1; }
+  .oc-head-star { width: 1.4rem; top: 0.6rem; right: 0.8rem; }
+  .oc-page-head.is-compact .oc-page-title { font-size: 1.6rem; }
+  .oc-page-head.is-compact .oc-page-title::after { display: none; }
+  .oc-summary { box-shadow: 4px 4px 0 var(--oc-blue); margin-right: 4px; }
+  .oc-page-actions { gap: 0.4rem; }
+  .oc-page-actions > * { flex: 1 1 0; min-width: 0; }
+  .oc-page-actions > select { flex-basis: 100%; }
+  .oc-page-actions > button { white-space: nowrap; font-size: 0.72rem !important; gap: 0.35rem !important; padding-left: 0.5rem !important; padding-right: 0.5rem !important; }
+  .oc-page-actions > button[aria-label="Refresh now"] { flex: 0 0 3rem; padding-left: 0 !important; padding-right: 0 !important; }
+  .oc-page-head .oc-page-actions .btn-primary, .oc-page-head .oc-page-actions .btn-secondary, .oc-page-head .oc-page-actions .jn-sticker-button { padding-top: 0.55rem !important; padding-bottom: 0.55rem !important; }
+}
+
+/* Scanner set-up card: day and mode in less space, three modes per row */
+main .oc-scan-setup h2 { font-size: 1rem !important; margin: 0; }
+main .oc-scan-setup .mb-4 { margin-bottom: 0.6rem; }
+.oc-mode-btn svg { width: 1.1rem; height: 1.1rem; flex-shrink: 0; }
+.oc-day-select { min-height: 3.25rem; }
+@media (max-width: 639px) {
+  .oc-scan-setup { padding: 1rem !important; }
+  .oc-mode-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .oc-mode-btn { flex-direction: column; min-height: 3.6rem; padding: 0.5rem 0.25rem; font-size: 0.68rem; font-stretch: 110%; gap: 0.3rem; }
+  .oc-mode-btn span { max-width: 100%; overflow-wrap: anywhere; line-height: 1.1; }
+}
+
+/* Touch screens: every control at least 44px tall, 8px apart */
+@media (pointer: coarse) {
+  .oc-mini-btn, .oc-chip-btn, .oc-mode-btn, .oc-day-tab, .btn-primary, .btn-secondary, .jn-sticker-button,
+  main select, main input:not([type="checkbox"]):not([type="radio"]) { min-height: 2.75rem; }
+  .oc-day-tabs { gap: 0.5rem; }
+}
+
+@media (prefers-reduced-motion: reduce) { .oc-tab { transition: none; } }

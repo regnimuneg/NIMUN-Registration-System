@@ -1242,6 +1242,7 @@ export default function ScanPage() {
       <div className="jn-shell">
         <div className="max-w-4xl mx-auto w-full overflow-x-hidden">
           <PageHeader
+            compact
             eyebrow={<><span className={`oc-live-dot${isOnline ? '' : ' is-off'}`} aria-hidden="true" />{isOnline ? 'Online' : 'Offline · scans saved on this phone'} · <LiveClock /></>}
             title="Scanner"
             meta={<>
@@ -1251,7 +1252,7 @@ export default function ScanPage() {
           />
 
           {/* Session Selection */}
-          <div className="card mb-4 sm:mb-6 relative z-20">
+          <div className="card oc-scan-setup mb-4 sm:mb-6 relative z-20">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Session Selection */}
               <div>
@@ -1264,7 +1265,9 @@ export default function ScanPage() {
                   <button
                     type="button"
                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                    className="w-full px-4 py-3.5 rounded-2xl border-2 border-[var(--jn-blue)] bg-white hover:border-[var(--jn-pink)] focus:border-[var(--jn-blue)] focus:ring-2 focus:ring-blue-100 transition-all duration-200 flex items-center justify-between text-left shadow-sm hover:shadow-md"
+                    aria-haspopup="listbox"
+                    aria-expanded={isDropdownOpen}
+                    className="oc-day-select w-full px-4 py-3 border-2 border-[var(--oc-black)] bg-[#fffdf9] hover:bg-[var(--oc-blue-bg)] transition-colors duration-150 flex items-center justify-between text-left"
                   >
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       {selectedSession ? (
@@ -1287,7 +1290,7 @@ export default function ScanPage() {
 
                   {/* Dropdown Menu */}
                   {isDropdownOpen && (
-                    <div className="absolute z-50 w-full mt-2 bg-white border-2 border-[var(--jn-blue)] rounded-3xl shadow-xl overflow-hidden dropdown-menu">
+                    <div className="absolute z-50 w-full mt-1 bg-[#fffdf9] border-2 border-[var(--oc-black)] shadow-[4px_4px_0_var(--oc-blue)] overflow-hidden dropdown-menu">
                       <div className="max-h-80 overflow-y-auto scrollbar-hide">
                         {SESSION_OPTIONS.map((session) => {
                           const isSelected = selectedSession?.id === session.id

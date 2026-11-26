@@ -17,9 +17,9 @@ export type Tone = 'blue' | 'good' | 'warn' | 'bad' | 'out' | 'food' | 'ink'
  * Blue brand banner at the top of every page, in the same style as the
  * login page: corner brackets, a four-point star and the NIMUN'27 stamp.
  */
-export function PageHeader({ eyebrow, title, meta, actions }: { eyebrow?: ReactNode; title: string; meta?: ReactNode; actions?: ReactNode }) {
+export function PageHeader({ eyebrow, title, meta, actions, compact }: { eyebrow?: ReactNode; title: string; meta?: ReactNode; actions?: ReactNode; /** shorter banner on phones (scanner: keep the camera on screen) */ compact?: boolean }) {
   return (
-    <header className="oc-page-head oc-pop-in">
+    <header className={`oc-page-head oc-pop-in${compact ? ' is-compact' : ''}`}>
       <span className="oc-corner oc-corner-tl" aria-hidden="true" />
       <span className="oc-corner oc-corner-br" aria-hidden="true" />
       <img src="/oc27/stamp-light.png" alt="" aria-hidden="true" className="oc-head-stamp" />
