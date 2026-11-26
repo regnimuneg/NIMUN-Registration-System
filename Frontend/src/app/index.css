@@ -713,7 +713,7 @@ main > * { animation: oc-rise 0.35s ease-out both; }
 .oc-ring { --p: 0; width: 7.5rem; height: 7.5rem; border-radius: 50%; display: grid; place-items: center;
   background: conic-gradient(var(--oc-blue) calc(var(--p) * 1%), rgba(32,32,32,0.1) 0); transition: --p 0.6s ease; }
 .oc-ring > div { width: 5.6rem; height: 5.6rem; border-radius: 50%; background: #faf6f0; display: grid; place-items: center; border: 1.5px solid var(--oc-black); }
-.oc-tab { padding: 0.55rem 0.85rem; border: 1.5px solid var(--oc-black); font-family: var(--oc-font-display); font-stretch: 125%; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; background: transparent; transition: background-color 0.15s ease, color 0.15s ease; }
+.oc-tab { padding: 0.55rem 0.85rem; border: 1.5px solid var(--oc-black); font-family: var(--oc-font-display); font-stretch: 125%; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; background: transparent; color: var(--oc-black); transition: background-color 0.15s ease, color 0.15s ease; }
 .oc-tab[aria-pressed="true"] { background: var(--oc-blue); color: var(--oc-white); }
 .oc-skeleton { background: linear-gradient(90deg, rgba(32,32,32,0.06), rgba(32,32,32,0.12), rgba(32,32,32,0.06)); background-size: 200% 100%; animation: oc-sheen 1.2s linear infinite; }
 
@@ -1127,16 +1127,16 @@ button:not(:disabled), [role="button"], summary, label[for] { cursor: pointer; }
   display: flex; background: var(--oc-blue); border-top: 2px solid var(--oc-black);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
-.oc-tab {
+.oc-navtab {
   flex: 1 1 0; min-width: 0; min-height: 3.5rem; padding: 0.45rem 0.15rem 0.4rem;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.2rem;
   color: rgba(243, 236, 228, 0.82); text-decoration: none;
   font-family: var(--oc-font-mono); font-weight: 700; font-size: 0.72rem; letter-spacing: 0;
   transition: background-color 0.15s ease, color 0.15s ease;
 }
-.oc-tab span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.oc-tab[aria-current="page"] { background: var(--oc-white); color: var(--oc-blue); box-shadow: inset 0 3px 0 var(--oc-black); }
-.oc-tab:active { background: rgba(243, 236, 228, 0.18); }
+.oc-navtab span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oc-navtab[aria-current="page"] { background: var(--oc-white); color: var(--oc-blue); box-shadow: inset 0 3px 0 var(--oc-black); }
+.oc-navtab:active { background: rgba(243, 236, 228, 0.18); }
 main.oc-has-tabbar { padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px)); }
 @media (min-width: 768px) { main.oc-has-tabbar { padding-bottom: 2rem; } }
 
@@ -1183,4 +1183,4 @@ main .oc-scan-setup .mb-4 { margin-bottom: 0.6rem; }
   .oc-day-tabs { gap: 0.5rem; }
 }
 
-@media (prefers-reduced-motion: reduce) { .oc-tab { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .oc-navtab { transition: none; } }

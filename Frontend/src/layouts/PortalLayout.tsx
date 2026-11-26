@@ -159,7 +159,7 @@ export default function PortalLayout() {
       {showTabBar && (
         <nav className="oc-tabbar md:hidden" aria-label="Pages">
           {navLinks.map(({ href, label, short, icon: Icon, paths }) => (
-            <a key={href} href={href} className="oc-tab" aria-label={label} aria-current={isActive(paths) ? 'page' : undefined}>
+            <a key={href} href={href} className="oc-navtab" aria-label={label} aria-current={isActive(paths) ? 'page' : undefined}>
               <Icon className="w-5 h-5" aria-hidden="true" />
               <span aria-hidden="true">{short ?? label}</span>
             </a>
